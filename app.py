@@ -12,7 +12,7 @@ st.set_page_config(
 )
 
 # --- 2. THE NEW ROUTER CREDENTIALS ---
-HF_TOKEN = "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"
+HF_TOKEN = "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"
 # New 2026 Router Endpoint
 API_URL = "https://router.huggingface.co/v1/chat/completions"
 
