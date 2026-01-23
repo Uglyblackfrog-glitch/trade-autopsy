@@ -11,10 +11,14 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- 2. THE NEW ROUTER CREDENTIALS ---
-HF_TOKEN = "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"
-# New 2026 Router Endpoint
-API_URL = "https://router.huggingface.co/v1/chat/completions"
+# --- 2. SECURE CREDENTIALS ---
+# This pulls the token from the "Secrets" vault so GitHub bots can't see it.
+try:
+    HF_TOKEN = st.secrets["HF_TOKEN"]
+    API_URL = "https://router.huggingface.co/v1/chat/completions"
+except Exception:
+    st.error("🔑 HF_TOKEN not found in Secrets. Please add it to Streamlit Cloud Settings.")
+    st.stop()
 
 # --- 3. PROFESSIONAL DARK MODE CSS ---
 st.markdown("""
@@ -27,6 +31,7 @@ st.markdown("""
         padding: 25px;
         line-height: 1.6;
         color: #e6edf3;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
     h1, h2, h3 { color: #58a6ff !important; }
     .stButton>button {
@@ -35,6 +40,12 @@ st.markdown("""
         width: 100%;
         padding: 12px;
         font-weight: bold;
+        border: none;
+        border-radius: 5px;
+    }
+    .stButton>button:hover {
+        background-color: #2ea043;
+        border: none;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -46,14 +57,16 @@ def query_router(image_base64):
         "Content-Type": "application/json"
     }
     
-    # Standard OpenAI-style payload for the HF Router
     payload = {
         "model": "Qwen/Qwen2-VL-7B-Instruct",
         "messages": [
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": "Analyze this trading chart. Identify the setup, entry quality, and potential psychological errors like FOMO. Be professional and brief."},
+                    {
+                        "type": "text", 
+                        "text": "Perform a professional forensic audit on this trading chart. Identify the setup, assess entry quality, and diagnose psychological errors (e.g., FOMO). Tone: Senior Risk Manager."
+                    },
                     {
                         "type": "image_url",
                         "image_url": {"url": f"data:image/png;base64,{image_base64}"}
@@ -61,7 +74,7 @@ def query_router(image_base64):
                 ]
             }
         ],
-        "max_tokens": 500
+        "max_tokens": 600
     }
     
     response = requests.post(API_URL, headers=headers, json=payload)
@@ -69,7 +82,7 @@ def query_router(image_base64):
 
 # --- 5. MAIN UI ---
 st.title("⚖️ TRADE POSTMORTEM")
-st.markdown("##### Powered by the 2026 Hugging Face Router")
+st.markdown("##### 2026 Institutional Risk Analysis Interface")
 st.markdown("---")
 
 left_col, right_col = st.columns([1, 1.2])
@@ -80,7 +93,7 @@ with left_col:
     
     if uploaded_file:
         image = Image.open(uploaded_file)
-        st.image(image, caption="Trade Record", use_container_width=True)
+        st.image(image, caption="Trade Record for Analysis", use_container_width=True)
         
         # Convert to Base64 for the Router
         buf = io.BytesIO()
@@ -92,19 +105,23 @@ with right_col:
     
     if uploaded_file:
         if st.button("EXECUTE FORENSIC ANALYSIS"):
-            with st.spinner("ROUTING REQUEST TO NEURAL NETWORK..."):
+            with st.spinner("ROUTING TO NEURAL NETWORK..."):
                 try:
                     output = query_router(image_base64)
                     
-                    # Parse the new standard response format
                     if 'choices' in output:
                         analysis = output['choices'][0]['message']['content']
                         st.markdown(f'<div class="report-card">{analysis}</div>', unsafe_allow_html=True)
-                        st.success("Analysis Complete.")
+                        st.success("Audit Complete.")
                     else:
-                        st.error(f"Router Error: {output.get('error', 'Unknown Error')}")
+                        error_msg = output.get('error', 'Authentication failed or Model loading.')
+                        st.error(f"Router Error: {error_msg}")
+                        st.info("Tip: If the error says 'Model loading', wait 10 seconds and click analyze again.")
                         
                 except Exception as e:
                     st.error(f"System Error: {e}")
     else:
-        st.info("Awaiting chart upload...")
+        st.info("Awaiting visual evidence to initiate audit...")
+
+st.markdown("---")
+st.caption("Secure Professional Edition • Powered by Qwen-VL Vision Engine")
