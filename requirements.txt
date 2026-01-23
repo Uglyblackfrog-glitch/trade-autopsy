@@ -1,6 +1,7 @@
 streamlit
-google-generativeai
-pillow
+requests
+Pillow
 yfinance
 pandas
-pip install plotly pandas_ta
+pandas_ta
+plotly
