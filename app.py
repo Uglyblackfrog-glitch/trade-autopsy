@@ -76,8 +76,7 @@ with col2:
     
     if uploaded_file and api_key:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-1.5-pro")
-
+        model = genai.GenerativeModel("gemini-1.5-flash")
         # --- THE PROFESSIONAL PROMPT ---
         system_prompt = """
         ACT AS: A Senior Risk Manager at a top-tier Hedge Fund.
