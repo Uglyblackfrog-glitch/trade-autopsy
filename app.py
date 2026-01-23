@@ -1,298 +1,353 @@
 import streamlit as st
 import requests
 import base64
-import json
 import yfinance as yf
 import pandas as pd
 import pandas_ta as ta
 import plotly.graph_objects as go
 from PIL import Image
 import io
+import time
 
 # --- 1. PAGE CONFIGURATION ---
 st.set_page_config(
-    page_title="Trade Postmortem | AI Terminal",
-    page_icon="⚡",
+    page_title="StockPostmortem.ai",
+    page_icon="🩸",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
-# --- 2. SECURE CREDENTIALS ---
+# --- 2. CREDENTIALS ---
 try:
     HF_TOKEN = st.secrets["HF_TOKEN"]
     API_URL = "https://router.huggingface.co/v1/chat/completions"
-except Exception:
-    st.error("🔑 HF_TOKEN missing in Streamlit Secrets!")
-    st.stop()
+except:
+    # Fail gracefully if secrets missing for UI demo
+    HF_TOKEN = ""
+    API_URL = ""
 
-# --- 3. PROFESSIONAL STYLING (Dark Mode & Cards) ---
+# --- 3. THE "STOCKPOSTMORTEM" UI ENGINE (CSS) ---
 st.markdown("""
     <style>
-    .stApp { background-color: #0d1117; color: #c9d1d9; }
+    /* IMPORT INTER FONT */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
     
-    /* ZERODHA/GROWW STYLE METRICS */
-    .metric-container {
-        background-color: #161b22;
-        border: 1px solid #30363d;
-        border-radius: 8px;
-        padding: 15px;
-        text-align: center;
+    /* GLOBAL RESET */
+    .stApp {
+        background-color: #0f171c; /* Deep Navy/Black */
+        font-family: 'Inter', sans-serif;
+        color: #e2e8f0;
     }
-    .big-price { font-size: 2rem; font-weight: 700; color: #fff; }
-    .pos-change { color: #00ff41; font-weight: bold; }
-    .neg-change { color: #ff2b2b; font-weight: bold; }
     
-    /* AI SUGGESTION BOX */
-    .ai-box {
-        border-left: 4px solid #58a6ff;
-        background-color: #1c2128;
+    /* HIDE STREAMLIT DEFAULT ELEMENTS */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    
+    /* CUSTOM NAVBAR STYLING */
+    .nav-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 0;
+        border-bottom: 1px solid #2d4250;
+        margin-bottom: 2rem;
+    }
+    .nav-logo {
+        font-size: 1.5rem;
+        font-weight: 800;
+        letter-spacing: -0.05em;
+        color: white;
+    }
+    .accent-red { color: #ff4d4d; }
+    
+    /* GLASS CARDS */
+    .glass-card {
+        background: rgba(31, 46, 56, 0.6);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 16px;
         padding: 20px;
-        border-radius: 4px;
-        margin-top: 10px;
+        margin-bottom: 20px;
     }
     
-    /* BUTTON STYLING */
+    /* BUTTON OVERRIDES */
     .stButton>button {
-        width: 100%;
-        border-radius: 5px;
+        background-color: #ff4d4d; /* Brand Red */
+        color: white;
+        border: none;
+        border-radius: 50px;
+        font-weight: 600;
+        padding: 0.5rem 1.5rem;
+        transition: all 0.3s ease;
     }
+    .stButton>button:hover {
+        background-color: #ff1a1a;
+        transform: scale(1.02);
+    }
+    
+    /* SECONDARY BUTTON (Gray) */
+    div[data-testid="column"] .stButton>button {
+        background-color: #1f2e38;
+        border: 1px solid #2d4250;
+    }
+    div[data-testid="column"] .stButton>button:hover {
+        border-color: #ff4d4d;
+        color: #ff4d4d;
+    }
+
+    /* INPUT FIELDS */
+    .stTextInput>div>div>input {
+        background-color: #1f2e38;
+        color: white;
+        border: 1px solid #2d4250;
+        border-radius: 8px;
+    }
+    .stTextInput>div>div>input:focus {
+        border-color: #ff4d4d;
+    }
+
+    /* TABS */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 20px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        height: 50px;
+        background-color: transparent;
+        border: none;
+        color: #64748b;
+        font-weight: 600;
+    }
+    .stTabs [data-baseweb="tab"][aria-selected="true"] {
+        color: #ff4d4d;
+        border-bottom: 2px solid #ff4d4d;
+    }
+    
+    /* METRIC TEXT */
+    .big-stat { font-size: 2.5rem; font-weight: 800; line-height: 1; }
+    .stat-label { color: #94a3b8; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 4. UNIVERSAL AI ROUTER ---
-def query_router(payload):
-    headers = {
-        "Authorization": f"Bearer {HF_TOKEN}",
-        "Content-Type": "application/json",
-        "X-Wait-For-Model": "true" 
-    }
-    try:
-        response = requests.post(API_URL, headers=headers, json=payload)
-        return response
-    except Exception as e:
-        return None
+# --- 4. BACKEND LOGIC (The "Invincible" Fetcher) ---
 
-# --- 5. HELPER: FETCH & ANALYZE STOCK DATA (FIXED FOR 200 SMA) ---
-def get_stock_data(symbol):
-    # Auto-append .NS if user forgets (for NSE India)
-    if not symbol.endswith(".NS") and not symbol.endswith(".BO"):
-        symbol += ".NS"
-        
-    stock = yf.Ticker(symbol)
-    
-    # FIX: Fetch 2 years of data so 200-day Moving Average (SMA) works
-    df = stock.history(period="2y") 
-    
-    if df.empty:
-        return None, None, None
-        
-    # Calculate Indicators
-    # We use try/except to prevent crashes on very new stocks (IPOs)
+def get_live_data(symbol):
+    clean_symbol = symbol.upper().strip().replace(" ", "")
+    if "." not in clean_symbol:
+        clean_symbol += ".NS"
+
     try:
+        stock = yf.Ticker(clean_symbol)
+        # Try Intraday First (5m)
+        df = stock.history(period="5d", interval="5m")
+        
+        # Fallback to Daily if Intraday fails
+        if df.empty:
+            df = stock.history(period="1y")
+            
+        if df.empty:
+            return None, clean_symbol, 0, 0
+
+        # Calculations
+        current_price = df['Close'].iloc[-1]
+        
+        if len(df) > 1:
+            prev_close = df['Close'].iloc[-2]
+            # Try to get real previous close for accurate %
+            info = stock.info
+            if 'previousClose' in info and info['previousClose']:
+                real_prev = info['previousClose']
+                change = current_price - real_prev
+                change_pct = (change / real_prev) * 100
+            else:
+                change = current_price - prev_close
+                change_pct = (change / prev_close) * 100
+        else:
+            change = 0; change_pct = 0
+            
+        # Indicators
         df['RSI'] = ta.rsi(df['Close'], length=14)
         df['SMA_50'] = ta.sma(df['Close'], length=50)
-        df['SMA_200'] = ta.sma(df['Close'], length=200)
+        
+        return df, clean_symbol, current_price, change_pct
     except Exception:
-        # If calculation fails, fill with 0
-        df['RSI'] = 50
-        df['SMA_50'] = 0
-        df['SMA_200'] = 0
+        return None, clean_symbol, 0, 0
 
-    # Fill NaN values with 0 to prevent "Float" errors
-    df = df.fillna(0)
-    
-    current_price = df['Close'].iloc[-1]
-    
-    # Calculate Change % safely
-    if len(df) > 1:
-        prev_close = df['Close'].iloc[-2]
-        change_pct = ((current_price - prev_close) / prev_close) * 100
-    else:
-        change_pct = 0.0
-    
-    # Create AI Context Summary
-    # We slice the last values safely
-    technical_summary = (
-        f"Symbol: {symbol}. Current Price: {current_price:.2f}. "
-        f"RSI (14): {df['RSI'].iloc[-1]:.2f}. "
-        f"50 SMA: {df['SMA_50'].iloc[-1]:.2f}. "
-        f"200 SMA: {df['SMA_200'].iloc[-1]:.2f}. "
-        f"Volume: {df['Volume'].iloc[-1]}. "
-        f"Trend: {'Bullish' if current_price > df['SMA_50'].iloc[-1] else 'Bearish'}."
-    )
-    
-    # Return only the last 6 months for the chart (cleaner look)
-    chart_df = df.tail(126) 
-    
-    return chart_df, technical_summary, change_pct
-
-# --- 6. HELPER: ZERODHA STYLE PLOTLY CHART ---
-def render_chart(df, symbol):
+def plot_chart(df, symbol):
+    # Match the HTML Dark Theme
     fig = go.Figure(data=[go.Candlestick(x=df.index,
-                open=df['Open'],
-                high=df['High'],
-                low=df['Low'],
-                close=df['Close'],
+                open=df['Open'], high=df['High'],
+                low=df['Low'], close=df['Close'],
                 name=symbol)])
-
+    
     fig.update_layout(
-        xaxis_rangeslider_visible=False,
-        template="plotly_dark",
-        plot_bgcolor="#0d1117",
-        paper_bgcolor="#0d1117",
         height=500,
-        margin=dict(l=0, r=0, t=30, b=0),
-        title=f"{symbol} - Daily Chart (6 Months)"
+        margin=dict(l=0, r=0, t=10, b=0),
+        template="plotly_dark",
+        xaxis_rangeslider_visible=False,
+        plot_bgcolor="rgba(0,0,0,0)", # Transparent
+        paper_bgcolor="rgba(0,0,0,0)", # Transparent
+        font=dict(color="#94a3b8", family="Inter")
     )
     return fig
 
 # =========================================================
-#                       MAIN APP UI
+#                       UI LAYOUT
 # =========================================================
 
-st.title("⚡ TRADING INTELLIGENCE HUB")
+# --- 1. CUSTOM NAVBAR ---
+st.markdown("""
+<div class="nav-container">
+    <div class="nav-logo">STOCK<span class="accent-red">POSTMORTEM</span>.AI</div>
+    <div>
+        <span style="color:#64748b; font-size:0.9rem; margin-right:15px;">v2.0 BETA</span>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
-# Create two distinct Tabs
-tab1, tab2 = st.tabs(["⚖️ POSTMORTEM AUDIT", "📈 LIVE TERMINAL"])
+# --- 2. HEADER SECTION ---
+st.markdown("""
+<div style="text-align:center; margin-bottom: 40px;">
+    <h1 style="font-size: 3rem; font-weight: 800; font-style: italic; margin-bottom: 10px;">
+        STOP BLEEDING <span class="accent-red">CAPITAL</span>.
+    </h1>
+    <p style="color: #94a3b8; max-width: 600px; margin: 0 auto;">
+        Surgical analysis of your trading mistakes & real-time market intelligence.
+    </p>
+</div>
+""", unsafe_allow_html=True)
 
-# =========================================================
-# TAB 1: YOUR OLD AUDIT CODE (UNCHANGED)
-# =========================================================
-with tab1:
-    st.markdown("### 🔍 Forensic Trade Analysis")
-    st.caption("Upload your P&L screenshot to detect psychological errors.")
-    
-    left_col, right_col = st.columns([1, 1.2])
+# --- 3. MAIN TABS ---
+tab_terminal, tab_audit = st.tabs(["📉 LIVE TERMINAL", "🩸 LOSS AUTOPSY"])
 
-    with left_col:
-        file = st.file_uploader("Upload Evidence", type=["jpg", "png", "jpeg"])
-        if file:
-            image = Image.open(file)
-            st.image(image, caption="Trade Record", use_container_width=True)
-            buf = io.BytesIO()
-            image.save(buf, format="PNG")
-            img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+# ---------------------------------------------------------
+# TAB 1: LIVE TERMINAL
+# ---------------------------------------------------------
+with tab_terminal:
+    # Initialize State
+    if 'symbol' not in st.session_state:
+        st.session_state.symbol = "ZOMATO"
 
-    with right_col:
-        if file:
-            if st.button("EXECUTE AUDIT"):
-                with st.spinner("Analyzing P&L structure..."):
-                    system_logic = (
-                        "ACT AS: A Senior Financial Auditor. "
-                        "CRITICAL RULE: Perform manual math verification. Do not guess totals. "
-                        "FORMULA: Net Account P/L = (Realised P/L + Unrealised P/L). "
-                        "Individual Stock Check: If P/L is red or has a minus sign, it is a LOSS. "
-                        "TASK: Analyze the portfolio screenshot. Identify setup, entry quality, and psychological errors like FOMO."
-                    )
-                    
-                    payload = {
-                        "model": "Qwen/Qwen2.5-VL-7B-Instruct",
-                        "messages": [
-                            {"role": "user", "content": [
-                                {"type": "text", "text": system_logic},
-                                {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}}
-                            ]}
-                        ],
-                        "max_tokens": 1200
-                    }
-                    
-                    res = query_router(payload)
-                    if res and res.status_code == 200:
-                        analysis = res.json()['choices'][0]['message']['content']
-                        st.markdown(f'<div style="background:#161b22; padding:20px; border-radius:10px;">{analysis}</div>', unsafe_allow_html=True)
-                    else:
-                        st.error("Error connecting to AI Router.")
-
-# =========================================================
-# TAB 2: THE NEW "ZERODHA-STYLE" LIVE TERMINAL
-# =========================================================
-with tab2:
-    # 1. TRENDING BAR
-    st.markdown("##### 🔥 TRENDING NOW")
-    
-    # Use columns for buttons
-    cols = st.columns(6)
-    trending = ["RELIANCE", "TATASTEEL", "HDFCBANK", "ADANIENT", "INFY", "ZOMATO"]
-    
-    # Initialize Session State for selected stock
-    if 'selected_stock' not in st.session_state:
-        st.session_state.selected_stock = "RELIANCE"
-
-    # Create clickable buttons
-    for i, stock in enumerate(trending):
-        if cols[i].button(stock):
-            st.session_state.selected_stock = stock
-
-    st.markdown("---")
-
-    # 2. SEARCH & DATA
-    c1, c2 = st.columns([1, 3])
-    
+    # Top Control Bar (Glass Card)
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    c1, c2 = st.columns([2, 1])
     with c1:
-        # Search Bar (Linked to Session State)
-        search_query = st.text_input("🔍 Search Stock", value=st.session_state.selected_stock)
+        query = st.text_input("SEARCH TICKER", value=st.session_state.symbol)
         if st.button("LOAD CHART"):
-            st.session_state.selected_stock = search_query.upper()
+            st.session_state.symbol = query
+            st.rerun()
+    with c2:
+        st.caption("QUICK PICKS")
+        bc1, bc2, bc3 = st.columns(3)
+        if bc1.button("NIFTY"): st.session_state.symbol = "^NSEI"; st.rerun()
+        if bc2.button("TATA"): st.session_state.symbol = "TATAMOTORS"; st.rerun()
+        if bc3.button("ADANI"): st.session_state.symbol = "ADANIENT"; st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    # 3. FETCH & DISPLAY
-    # We wrap this in a try block to catch any unexpected API issues
-    try:
-        df, tech_summary, change = get_stock_data(st.session_state.selected_stock)
+    # Data Fetching
+    df, ticker, price, change = get_live_data(st.session_state.symbol)
 
-        if df is not None:
-            # HEADER METRICS
-            cur_price = df['Close'].iloc[-1]
-            color_class = "pos-change" if change >= 0 else "neg-change"
-            sign = "+" if change >= 0 else ""
-            
+    if df is not None:
+        # Metrics Row
+        col_metric, col_chart = st.columns([1, 3])
+        
+        with col_metric:
+            color = "#00e272" if change >= 0 else "#ff4d4d"
             st.markdown(f"""
-                <div class="metric-container">
-                    <span style="font-size:1.2rem; color:#aaa;">{st.session_state.selected_stock}.NS</span><br>
-                    <span class="big-price">₹{cur_price:,.2f}</span>
-                    <span class="{color_class}" style="font-size:1.2rem; margin-left:10px;">{sign}{change:.2f}%</span>
+            <div class="glass-card" style="text-align:center; height: 500px; display:flex; flex-direction:column; justify-content:center;">
+                <div class="stat-label">{ticker}</div>
+                <div class="big-stat" style="color: white;">₹{price:,.2f}</div>
+                <div style="color: {color}; font-weight:bold; font-size:1.2rem; margin-top:10px;">
+                    {change:+.2f} ({change_pct:+.2f}%)
                 </div>
+                <hr style="border-color:#2d4250; margin: 20px 0;">
+                <div style="text-align:left; padding: 0 10px;">
+                    <p style="margin:5px 0; color:#94a3b8;">RSI (14): <span style="color:white; float:right;">{df['RSI'].iloc[-1]:.1f}</span></p>
+                    <p style="margin:5px 0; color:#94a3b8;">50 SMA: <span style="color:white; float:right;">{df['SMA_50'].iloc[-1]:.1f}</span></p>
+                    <p style="margin:5px 0; color:#94a3b8;">Vol: <span style="color:white; float:right;">{df['Volume'].iloc[-1]/1000:.0f}K</span></p>
+                </div>
+                <div style="margin-top:auto;">
+                     <button style="background:transparent; border:1px solid #ff4d4d; color:#ff4d4d; width:100%; padding:10px; border-radius:8px;">GENERATE SIGNAL</button>
+                </div>
+            </div>
             """, unsafe_allow_html=True)
 
-            # CHART & AI SECTION
-            col_chart, col_ai = st.columns([2.5, 1])
+        with col_chart:
+            # Chart Container
+            st.markdown('<div class="glass-card" style="height: 500px; padding:10px;">', unsafe_allow_html=True)
+            st.plotly_chart(plot_chart(df, ticker), use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
             
-            with col_chart:
-                fig = render_chart(df, st.session_state.selected_stock)
-                st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.error(f"Could not load data for {st.session_state.symbol}. Check spelling.")
 
-            with col_ai:
-                st.markdown("### 🤖 AI ANALYST")
-                st.caption("Real-time Technical Analysis")
-                
-                if st.button("GENERATE SIGNAL", type="primary"):
-                    with st.spinner("Reading Indicators..."):
-                        ai_prompt = (
-                            f"ACT AS: Senior Technical Trader. \n"
-                            f"DATA: {tech_summary} \n"
-                            f"TASK: Provide a trading signal based strictly on the indicators provided. \n"
-                            f"OUTPUT FORMAT: \n"
-                            f"1. SIGNAL: (BUY / SELL / WAIT) \n"
-                            f"2. CONFIDENCE: (High/Medium/Low) \n"
-                            f"3. REASONING: Brief 2 sentence explanation mentioning RSI and SMA."
-                        )
+# ---------------------------------------------------------
+# TAB 2: LOSS AUTOPSY (Replicating the HTML Upload Section)
+# ---------------------------------------------------------
+with tab_audit:
+    c_upload, c_info = st.columns([1, 1])
+    
+    with c_upload:
+        st.markdown("""
+        <div class="glass-card" style="text-align:center; border: 2px dashed #475569; padding: 40px;">
+            <div style="font-size: 3rem; margin-bottom: 20px;">📂</div>
+            <h3 style="font-weight:600; margin-bottom:10px;">Drop your P&L Screenshot</h3>
+            <p style="color:#64748b; font-size:0.9rem; margin-bottom:20px;">Supports PNG, JPG. Data is processed locally.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # We place the widget "under" the visual card functionality
+        file = st.file_uploader("Upload File", type=["png", "jpg"], label_visibility="collapsed")
+        
+        if file:
+            st.success("File Received. Ready to Audit.")
+            if st.button("EXECUTE FORENSIC ANALYSIS"):
+                # (Your existing AI Analysis Logic)
+                if not HF_TOKEN:
+                    st.error("AI Token Missing.")
+                else:
+                    with st.spinner("Diagnosing Trading Errors..."):
+                        # Image Processing
+                        image = Image.open(file)
+                        buf = io.BytesIO()
+                        image.save(buf, format="PNG")
+                        img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
                         
                         payload = {
                             "model": "Qwen/Qwen2.5-VL-7B-Instruct",
-                            "messages": [{"role": "user", "content": ai_prompt}],
-                            "max_tokens": 300
+                            "messages": [
+                                {"role": "user", "content": [
+                                    {"type": "text", "text": "ACT AS: Brutal Trading Coach. Analyze this P&L. Identify FOMO, sizing errors, and suggest a fix."},
+                                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}}
+                                ]}
+                            ],
+                            "max_tokens": 800
                         }
                         
-                        res = query_router(payload)
-                        if res and res.status_code == 200:
-                            suggestion = res.json()['choices'][0]['message']['content']
-                            st.markdown(f'<div class="ai-box">{suggestion}</div>', unsafe_allow_html=True)
-                        else:
-                            st.error("AI Network Busy.")
-                else:
-                    st.info("Click to ask AI for a live prediction based on RSI & SMA.")
+                        # Call API
+                        headers = {"Authorization": f"Bearer {HF_TOKEN}", "Content-Type": "application/json"}
+                        try:
+                            res = requests.post(API_URL, headers=headers, json=payload).json()
+                            analysis = res['choices'][0]['message']['content']
+                            st.markdown(f'<div class="glass-card">{analysis}</div>', unsafe_allow_html=True)
+                        except:
+                            st.error("AI Service Busy.")
 
-        else:
-            st.error(f"Stock '{st.session_state.selected_stock}' not found. Check spelling.")
-
-    except Exception as e:
-        st.error(f"Data Fetch Error: {e}")
+    with c_info:
+        # The Info Grid from your HTML
+        st.markdown("""
+        <div style="display:grid; gap:20px;">
+            <div class="glass-card">
+                <h4 style="font-weight:bold; color:#e2e8f0; margin-bottom:5px;">🧠 Pattern Recognition</h4>
+                <p style="font-size:0.85rem; color:#94a3b8;">Detects if you are revenge trading or catching falling knives.</p>
+            </div>
+            <div class="glass-card">
+                <h4 style="font-weight:bold; color:#e2e8f0; margin-bottom:5px;">💀 Risk Autopsy</h4>
+                <p style="font-size:0.85rem; color:#94a3b8;">Calculates if your stop-loss was too tight or position size too big.</p>
+            </div>
+            <div class="glass-card">
+                <h4 style="font-weight:bold; color:#e2e8f0; margin-bottom:5px;">💊 Recovery Plan</h4>
+                <p style="font-size:0.85rem; color:#94a3b8;">Actionable steps to ensure your next trade isn't a disaster.</p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
