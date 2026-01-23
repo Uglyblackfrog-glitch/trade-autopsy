@@ -1,34 +1,40 @@
 import streamlit as st
-import google.generativeai as genai
+import requests
+import base64
 from PIL import Image
-import time
+import io
 
 # --- 1. PAGE CONFIGURATION ---
 st.set_page_config(
-    page_title="Trade Postmortem | Pro",
+    page_title="Trade Postmortem | Pro OSS",
     page_icon="⚖️",
-    layout="wide",
-    initial_sidebar_state="collapsed"
+    layout="wide"
 )
 
-# --- 2. PROFESSIONAL DARK MODE CSS ---
+# --- 2. THE TOKEN (HARDCODED FOR INSTANT ACCESS) ---
+HF_TOKEN = "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"
+MODEL_ID = "Qwen/Qwen2-VL-7B-Instruct"
+API_URL = f"https://api-inference.huggingface.co/models/{MODEL_ID}"
+headers = {"Authorization": f"Bearer {HF_TOKEN}"}
+
+# --- 3. PROFESSIONAL DARK MODE CSS ---
 st.markdown("""
     <style>
     .stApp {
-        background-color: #0f1116;
-        color: #e0e0e0;
+        background-color: #0d1117;
+        color: #c9d1d9;
     }
-    .metric-card {
-        background-color: #1e2329;
-        border: 1px solid #2d333b;
+    .report-card {
+        background-color: #161b22;
+        border: 1px solid #30363d;
         border-radius: 8px;
-        padding: 20px;
-        margin-bottom: 10px;
+        padding: 25px;
+        font-family: 'Inter', sans-serif;
         line-height: 1.6;
+        color: #e6edf3;
     }
     h1, h2, h3 {
         color: #58a6ff !important;
-        font-family: 'Segoe UI', sans-serif;
     }
     .stButton>button {
         background-color: #238636;
@@ -36,99 +42,84 @@ st.markdown("""
         border: none;
         width: 100%;
         padding: 12px;
-        font-weight: 600;
-        transition: 0.3s;
+        font-weight: bold;
     }
     .stButton>button:hover {
         background-color: #2ea043;
-        border: none;
+        color: white;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. SIDEBAR (API KEY) ---
-with st.sidebar:
-    st.header("🔐 SECURITY CLEARANCE")
-    # Check Streamlit Secrets first
-    if 'GEMINI_API_KEY' in st.secrets:
-        api_key = st.secrets['GEMINI_API_KEY']
-        st.success("Neural Link: ACTIVE 🟢")
-    else:
-        api_key = st.text_input("Enter Gemini API Key", type="password")
-        if not api_key:
-            st.info("Obtain a key at aistudio.google.com")
+# --- 4. HELPER FUNCTION ---
+def query_vision_model(image_bytes):
+    # Convert image to Base64 string
+    encoded_image = base64.b64encode(image_bytes).decode('utf-8')
+    
+    # Structure the prompt for professional analysis
+    prompt = (
+        "Analyze this trading chart screenshot like a senior risk manager. "
+        "Identify the trend, the entry point, and the specific technical mistake. "
+        "Provide a discipline score from 0-100 and a professional corrective action."
+    )
+    
+    payload = {
+        "inputs": f"data:image/png;base64,{encoded_image}",
+        "parameters": {"max_new_tokens": 500},
+        "context": prompt
+    }
+    
+    response = requests.post(API_URL, headers=headers, json=payload)
+    return response.json()
 
-# --- 4. MAIN UI LAYOUT ---
+# --- 5. MAIN UI ---
 st.title("⚖️ TRADE POSTMORTEM")
-st.markdown("#### Institutional-Grade Forensic Analysis Engine")
+st.markdown("##### Open-Source Institutional Forensic Engine")
 st.markdown("---")
 
-col1, col2 = st.columns([1, 1.2])
+left_col, right_col = st.columns([1, 1.2])
 
-with col1:
+with left_col:
     st.subheader("📁 EVIDENCE UPLOAD")
-    uploaded_file = st.file_uploader("Drop Trade Screenshot (JPG/PNG)", type=["jpg", "png", "jpeg"])
+    uploaded_file = st.file_uploader("Upload Chart Screenshot", type=["jpg", "png", "jpeg"])
     
     if uploaded_file:
         image = Image.open(uploaded_file)
-        st.image(image, caption="Trade Artifact for Analysis", use_container_width=True)
+        st.image(image, caption="Trade Record", use_container_width=True)
+        
+        # Prepare image bytes
+        buf = io.BytesIO()
+        image.save(buf, format="PNG")
+        image_bytes = buf.getvalue()
 
-with col2:
-    st.subheader("🔍 FORENSIC AUDIT REPORT")
+with right_col:
+    st.subheader("🔍 DIAGNOSTIC AUDIT")
     
-    if uploaded_file and api_key:
-        # Initialize Gemini with the API Key
-        genai.configure(api_key=api_key)
-        
-        # Use the most stable 2026 model string
-        model = genai.GenerativeModel("gemini-1.5-flash") 
+    if uploaded_file:
+        if st.button("EXECUTE FORENSIC ANALYSIS"):
+            with st.spinner("AI IS SCANNING PIXELS AND MARKET STRUCTURE..."):
+                try:
+                    output = query_vision_model(image_bytes)
+                    
+                    # Hugging Face output parsing
+                    if isinstance(output, list) and 'generated_text' in output[0]:
+                        analysis = output[0]['generated_text']
+                    elif isinstance(output, dict) and 'generated_text' in output:
+                        analysis = output['generated_text']
+                    else:
+                        analysis = str(output)
 
-        system_prompt = """
-        ACT AS: A Senior Risk Manager at a top-tier Hedge Fund (Goldman Sachs/Citadel style).
-        TASK: Conduct a forensic audit of this trade execution.
-        TONE: Cold, Professional, Analytical. Use financial terminology (Liquidity, Delta, FVGs, etc.).
-        
-        OUTPUT FORMAT (Strict Markdown):
-        
-        ## 📋 EXECUTIVE SUMMARY
-        * **Market Structure:** (Trending/Ranging/Reversal)
-        * **Setup Identified:** (Identify the specific pattern)
-        
-        ## 📉 RISK ASSESSMENT
-        * **Entry Efficiency:** (Grade A-F)
-        * **Stop Loss Placement:** (Technical vs Arbitrary)
-        * **Risk/Reward Profile:** (Estimated ratio)
+                    st.markdown(f"""
+                        <div class="report-card">
+                        {analysis}
+                        </div>
+                    """, unsafe_allow_html=True)
+                    st.success("Analysis Complete.")
+                    
+                except Exception as e:
+                    st.error(f"System Error: {e}")
+    else:
+        st.info("Awaiting chart upload to begin analysis.")
 
-        ## 🧠 BEHAVIORAL DIAGNOSIS
-        * **Psychological Trigger:** (e.g., FOMO, Revenge, Impatience)
-        * **Discipline Score:** [ 0-100 ]
-        
-        ## 🛠️ CORRECTIVE PROTOCOL
-        * (One non-negotiable rule for the trader's next session).
-        """
-
-        if st.button("INITIATE ANALYTICAL ENGINE"):
-            with st.spinner("COMMUNICATING WITH NEURAL NETWORK..."):
-                # RETRY LOGIC for Quota/Speed limits
-                success = False
-                for attempt in range(3):
-                    try:
-                        response = model.generate_content([system_prompt, image])
-                        st.markdown(f'<div class="metric-card">{response.text}</div>', unsafe_allow_html=True)
-                        st.success("Audit Complete.")
-                        success = True
-                        break
-                    except Exception as e:
-                        if "429" in str(e):
-                            st.warning(f"Server Busy. Retry {attempt+1}/3 in 5s...")
-                            time.sleep(5)
-                        else:
-                            st.error(f"Audit Failed: {e}")
-                            break
-                if not success:
-                    st.error("Maximum retries reached. Check your API Quota.")
-    
-    elif not uploaded_file:
-        st.info("Awaiting visual data for processing...")
-    elif not api_key:
-        st.warning("⚠️ ACCESS DENIED: Neural Link Key Missing.")
+st.markdown("---")
+st.caption("Running on Open-Source Qwen2-VL via Hugging Face Inference API.")
