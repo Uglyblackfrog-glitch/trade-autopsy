@@ -6,32 +6,32 @@ import io
 
 # --- 1. PAGE CONFIGURATION ---
 st.set_page_config(
-    page_title="Trade Postmortem | Pro Router",
+    page_title="Trade Postmortem Pro",
     page_icon="⚖️",
     layout="wide"
 )
 
 # --- 2. SECURE CREDENTIALS ---
-# This pulls the token from the "Secrets" vault so GitHub bots can't see it.
 try:
+    # IMPORTANT: Ensure HF_TOKEN is in your Streamlit Secrets vault!
     HF_TOKEN = st.secrets["HF_TOKEN"]
     API_URL = "https://router.huggingface.co/v1/chat/completions"
 except Exception:
-    st.error("🔑 HF_TOKEN not found in Secrets. Please add it to Streamlit Cloud Settings.")
+    st.error("🔑 HF_TOKEN missing! Go to Streamlit Settings > Secrets and add: HF_TOKEN = 'your_token'")
     st.stop()
 
-# --- 3. PROFESSIONAL DARK MODE CSS ---
+# --- 3. PROFESSIONAL UI STYLING ---
 st.markdown("""
     <style>
     .stApp { background-color: #0d1117; color: #c9d1d9; }
     .report-card {
         background-color: #161b22;
         border: 1px solid #30363d;
-        border-radius: 8px;
+        border-radius: 12px;
         padding: 25px;
-        line-height: 1.6;
+        line-height: 1.7;
         color: #e6edf3;
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        font-family: 'Inter', sans-serif;
     }
     h1, h2, h3 { color: #58a6ff !important; }
     .stButton>button {
@@ -40,21 +40,19 @@ st.markdown("""
         width: 100%;
         padding: 12px;
         font-weight: bold;
-        border: none;
-        border-radius: 5px;
-    }
-    .stButton>button:hover {
-        background-color: #2ea043;
+        border-radius: 8px;
         border: none;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 4. NEW ROUTER QUERY FUNCTION ---
+# --- 4. OPTIMIZED QUERY FUNCTION ---
 def query_router(image_base64):
+    # Added "X-Wait-For-Model" header to prevent "Model Loading" errors
     headers = {
         "Authorization": f"Bearer {HF_TOKEN}",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "X-Wait-For-Model": "true" 
     }
     
     payload = {
@@ -65,7 +63,7 @@ def query_router(image_base64):
                 "content": [
                     {
                         "type": "text", 
-                        "text": "Perform a professional forensic audit on this trading chart. Identify the setup, assess entry quality, and diagnose psychological errors (e.g., FOMO). Tone: Senior Risk Manager."
+                        "text": "Audit this trading chart. Identify the pattern, entry quality, and potential psychological errors. Be professional and brief."
                     },
                     {
                         "type": "image_url",
@@ -74,54 +72,53 @@ def query_router(image_base64):
                 ]
             }
         ],
-        "max_tokens": 600
+        "max_tokens": 800,
+        "temperature": 0.1 # Low temperature for more factual analysis
     }
     
     response = requests.post(API_URL, headers=headers, json=payload)
-    return response.json()
+    return response
 
 # --- 5. MAIN UI ---
 st.title("⚖️ TRADE POSTMORTEM")
-st.markdown("##### 2026 Institutional Risk Analysis Interface")
+st.markdown("##### AI Trading Discipline Auditor")
 st.markdown("---")
 
 left_col, right_col = st.columns([1, 1.2])
 
 with left_col:
-    st.subheader("📁 EVIDENCE UPLOAD")
-    uploaded_file = st.file_uploader("Upload Chart Screenshot", type=["jpg", "png", "jpeg"])
+    st.subheader("📁 UPLOAD CHART")
+    file = st.file_uploader("Drop screenshot here", type=["jpg", "png", "jpeg"])
     
-    if uploaded_file:
-        image = Image.open(uploaded_file)
-        st.image(image, caption="Trade Record for Analysis", use_container_width=True)
+    if file:
+        image = Image.open(file)
+        st.image(image, caption="Trade Record", use_container_width=True)
         
-        # Convert to Base64 for the Router
+        # Base64 encoding
         buf = io.BytesIO()
         image.save(buf, format="PNG")
-        image_base64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+        img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
 
 with right_col:
-    st.subheader("🔍 DIAGNOSTIC AUDIT")
+    st.subheader("🔍 FORENSIC AUDIT")
     
-    if uploaded_file:
-        if st.button("EXECUTE FORENSIC ANALYSIS"):
-            with st.spinner("ROUTING TO NEURAL NETWORK..."):
+    if file:
+        if st.button("EXECUTE ANALYSIS"):
+            with st.spinner("AI is waking up and scanning the candles... (may take 20s)"):
                 try:
-                    output = query_router(image_base64)
+                    res = query_router(img_b64)
                     
-                    if 'choices' in output:
-                        analysis = output['choices'][0]['message']['content']
+                    if res.status_code == 200:
+                        data = res.json()
+                        analysis = data['choices'][0]['message']['content']
                         st.markdown(f'<div class="report-card">{analysis}</div>', unsafe_allow_html=True)
                         st.success("Audit Complete.")
+                    elif res.status_code == 401:
+                        st.error("❌ Authentication Failed: Your token is invalid or expired. Create a NEW one on Hugging Face.")
                     else:
-                        error_msg = output.get('error', 'Authentication failed or Model loading.')
-                        st.error(f"Router Error: {error_msg}")
-                        st.info("Tip: If the error says 'Model loading', wait 10 seconds and click analyze again.")
+                        st.error(f"Error {res.status_code}: {res.text}")
                         
                 except Exception as e:
-                    st.error(f"System Error: {e}")
+                    st.error(f"System Crash: {e}")
     else:
-        st.info("Awaiting visual evidence to initiate audit...")
-
-st.markdown("---")
-st.caption("Secure Professional Edition • Powered by Qwen-VL Vision Engine")
+        st.info("Upload a chart to begin.")
