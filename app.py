@@ -5,7 +5,7 @@ import io
 import re
 import pandas as pd
 import time
-from textwrap import dedent  # <--- FIXED: HELPS REMOVE INDENTATION BUG
+from textwrap import dedent  # <--- ESSENTIAL IMPORT
 from PIL import Image
 from supabase import create_client, Client
 
@@ -19,7 +19,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- USER ACCOUNTS ---
 USERS = {
     "trader1": "profit2026",
     "demo": "12345",
@@ -57,16 +56,12 @@ if st.session_state["authenticated"]:
         st.stop()
 
 # ==========================================
-# 2. INTELLIGENCE ENGINE (SCIENTIST)
+# 2. INTELLIGENCE ENGINE
 # ==========================================
 def run_scientific_analysis(messages, mode="text"):
-    """
-    Routes traffic to High-Performance Specialist Models.
-    """
     api_url = "https://router.huggingface.co/v1/chat/completions"
     headers = {"Authorization": f"Bearer {HF_TOKEN}", "Content-Type": "application/json"}
     
-    # Model Selection
     if mode == "text":
         model_id = "Qwen/Qwen2.5-72B-Instruct" 
     else:
@@ -94,56 +89,18 @@ def run_scientific_analysis(messages, mode="text"):
             time.sleep(2)
 
 # ==========================================
-# 3. PARSING & DISPLAY
+# 3. PARSING & DISPLAY LOGIC
 # ==========================================
+# CSS remains the same, just ensuring it loads
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@300;400;600&display=swap');
-    
     body, .stApp { background-color: #0E1117 !important; color: #E0E0E0; font-family: 'Inter', sans-serif; }
-    
-    .report-box { 
-        background: #161B22; 
-        border: 1px solid #30363D; 
-        border-radius: 12px; 
-        padding: 25px; 
-        box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-        margin-top: 20px;
-    }
-    
-    .section-title {
-        color: #58A6FF;
-        font-family: 'JetBrains Mono', monospace;
-        font-weight: bold;
-        font-size: 1.1rem;
-        border-bottom: 1px solid #30363D;
-        padding-bottom: 5px;
-        margin-top: 25px;
-        margin-bottom: 10px;
-    }
-    
-    .score-circle {
-        font-size: 4rem; 
-        font-weight: 800; 
-        line-height: 1;
-    }
-
-    .tag-pill {
-        background:#262626; 
-        border:1px solid #444; 
-        padding:4px 8px; 
-        border-radius:4px; 
-        font-size:0.8rem; 
-        margin-right:5px;
-        display: inline-block;
-        margin-bottom: 5px;
-    }
-    
-    button[kind="primary"] { 
-        background: #238636 !important; 
-        border: none; 
-        font-family: 'JetBrains Mono', monospace;
-    }
+    .report-box { background: #161B22; border: 1px solid #30363D; border-radius: 12px; padding: 25px; margin-top: 20px; }
+    .section-title { color: #58A6FF; font-family: 'JetBrains Mono', monospace; font-weight: bold; font-size: 1.1rem; border-bottom: 1px solid #30363D; padding-bottom: 5px; margin-top: 25px; margin-bottom: 10px; }
+    .score-circle { font-size: 4rem; font-weight: 800; line-height: 1; }
+    .tag-pill { background:#262626; border:1px solid #444; padding:4px 8px; border-radius:4px; font-size:0.8rem; margin-right:5px; display: inline-block; margin-bottom: 5px; }
+    button[kind="primary"] { background: #238636 !important; border: none; font-family: 'JetBrains Mono', monospace; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -154,40 +111,40 @@ def get_user_rules(user_id):
     except: return []
 
 def parse_scientific_report(text):
-    # Clean cleanup
+    # Clean up formatting
     text = text.replace("```", "").replace("json", "").strip()
     
     sections = { 
         "score": 0, 
-        "tags": ["Processing..."], 
-        "tech": "Analysis failed.", 
-        "psych": "Analysis failed.", 
-        "risk": "Analysis failed.", 
-        "fix": "Analysis failed." 
+        "tags": [], # Empty list by default
+        "tech": "Analysis data missing.", 
+        "psych": "Analysis data missing.", 
+        "risk": "Analysis data missing.", 
+        "fix": "Analysis data missing." 
     }
     
-    # Extract Score
-    score_match = re.search(r'\[SCORE\]\s*(\d+)', text, re.IGNORECASE)
+    # Improved Regex to catch "Score:" or "[SCORE]"
+    score_match = re.search(r'(?:\[SCORE\]|Score:?)\s*(\d+)', text, re.IGNORECASE)
     if score_match: sections['score'] = int(score_match.group(1))
 
-    # Extract Tags
-    tags_match = re.search(r'\[TAGS\](.*?)(?=\[|$)', text, re.DOTALL | re.IGNORECASE)
+    # Improved Regex for Tags
+    tags_match = re.search(r'(?:\[TAGS\]|Tags:?)(.*?)(?=\[|\n[A-Z]|$)', text, re.DOTALL | re.IGNORECASE)
     if tags_match:
         raw = tags_match.group(1).replace('[', '').replace(']', '').split(',')
         sections['tags'] = [t.strip() for t in raw if t.strip()]
     
-    # Extract Deep Dive Sections
+    # Robust Section Extraction
     patterns = {
-        "tech": r"\[TECHNICAL FORENSICS\](.*?)(?=\[PSYCHOLOGICAL PROFILE\]|\[RISK ASSESSMENT\]|\[STRATEGIC ROADMAP\]|\[SCORE\]|\[TAGS\]|$)",
-        "psych": r"\[PSYCHOLOGICAL PROFILE\](.*?)(?=\[RISK ASSESSMENT\]|\[STRATEGIC ROADMAP\]|\[SCORE\]|\[TAGS\]|$)",
-        "risk": r"\[RISK ASSESSMENT\](.*?)(?=\[STRATEGIC ROADMAP\]|\[SCORE\]|\[TAGS\]|$)",
-        "fix": r"\[STRATEGIC ROADMAP\](.*?)(?=\[SCORE\]|\[TAGS\]|$)"
+        "tech": r"(?:\[TECHNICAL FORENSICS\]|Technical Analysis:?)(.*?)(?=\[PSYCHOLOGICAL|\[RISK|\[STRATEGIC|\[SCORE|\[TAGS|$)",
+        "psych": r"(?:\[PSYCHOLOGICAL PROFILE\]|Psychology:?)(.*?)(?=\[RISK|\[STRATEGIC|\[SCORE|\[TAGS|$)",
+        "risk": r"(?:\[RISK ASSESSMENT\]|Risk:?)(.*?)(?=\[STRATEGIC|\[SCORE|\[TAGS|$)",
+        "fix": r"(?:\[STRATEGIC ROADMAP\]|Fix:?)(.*?)(?=\[SCORE|\[TAGS|$)"
     }
     
     for key, pattern in patterns.items():
         match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
         if match: 
-            # Convert newlines to breaks, but NO HTML ESCAPING to fix your error
+            # Replace newlines with <br> for HTML rendering
             content = match.group(1).strip().replace("\n", "<br>")
             sections[key] = content
             
@@ -242,7 +199,7 @@ else:
         
         # --- VISION ANALYSIS ---
         if "Visual Evidence" in mode:
-            st.info("Supported: Candlestick Charts (Technical Analysis) OR P&L Dashboards (Financial Health Audit)")
+            st.info("Supported: Candlestick Charts OR P&L Dashboards")
             up_file = st.file_uploader("Upload Evidence", type=["png", "jpg", "jpeg"])
             
             if up_file:
@@ -296,7 +253,7 @@ else:
                             c_score = "#ff4d4d" if report['score'] < 50 else "#00e676"
                             tags_html = ' '.join([f'<span class="tag-pill">{t}</span>' for t in report['tags']])
                             
-                            # --- FIXED HTML RENDERING: USING DEDENT ---
+                            # --- FIX: DEDENT REMOVES THE WHITESPACE CAUSING THE GRAY BOX ---
                             html_code = dedent(f"""
                             <div class="report-box">
                                 <div style="display:flex; justify-content:space-between; border-bottom:1px solid #444;">
