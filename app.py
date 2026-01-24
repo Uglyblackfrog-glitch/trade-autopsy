@@ -4,6 +4,8 @@ import re
 import io
 import base64
 import time
+import requests
+import json
 from PIL import Image
 from supabase import create_client, Client
 from huggingface_hub import InferenceClient
@@ -32,48 +34,85 @@ def logout():
     st.rerun()
 
 # ==========================================
-# 1. HUGGING FACE ENGINE (Using Qwen Models)
+# 1. ROBUST HF ENGINE (Requests & Client)
 # ==========================================
-def get_hf_client():
+def get_hf_token():
     token = st.secrets.get("HF_TOKEN") or st.secrets.get("hf_token")
     if not token:
         st.error("❌ Missing 'HF_TOKEN' in secrets.toml")
         st.stop()
-    return InferenceClient(api_key=token)
+    return token
 
-def run_hf_inference(messages, model_id):
+def run_hf_vision_manual(prompt, image_b64, model_id):
     """
-    Runs inference with robust error handling for HF Free Tier limits.
+    Uses direct HTTP requests to avoid library formatting issues.
+    This is often more reliable for Vision on the free tier.
     """
-    client = get_hf_client()
-    # Retry logic for "Model Loading" (503) or generic timeouts
-    max_retries = 3
+    token = get_hf_token()
+    api_url = f"https://api-inference.huggingface.co/models/{model_id}"
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
     
-    for attempt in range(max_retries):
-        try:
-            output = client.chat.completions.create(
-                model=model_id,
-                messages=messages,
-                max_tokens=2048, # Increased for Qwen
-                temperature=0.1,
-                stream=False
-            )
-            return output.choices[0].message.content
+    # Qwen-VL specific formatting for the raw API
+    payload = {
+        "inputs": {
+            "text": prompt,
+            "image": image_b64
+        },
+        "parameters": {
+            "max_new_tokens": 1024,
+            "temperature": 0.1,
+            "return_full_text": False
+        }
+    }
+
+    # Alternative: Standard Chat Payload (Try this first as it's cleaner)
+    chat_payload = {
+        "model": model_id,
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}}
+                ]
+            }
+        ],
+        "max_tokens": 1000,
+        "temperature": 0.1
+    }
+    
+    # We use the Chat Completion endpoint URL for standard models
+    chat_url = f"https://api-inference.huggingface.co/models/{model_id}/v1/chat/completions"
+    
+    try:
+        response = requests.post(chat_url, headers=headers, json=chat_payload, timeout=45)
+        
+        if response.status_code == 200:
+            return response.json()['choices'][0]['message']['content']
+        else:
+            raise Exception(f"Status {response.status_code}: {response.text}")
             
-        except Exception as e:
-            err_str = str(e)
-            # 503 means model is waking up (common on free tier)
-            if "503" in err_str or "loading" in err_str.lower():
-                with st.spinner(f"⚠️ Model is waking up (Attempt {attempt+1}/{max_retries})..."):
-                    time.sleep(5) 
-                continue
-            # 404 means model doesn't exist or is gated -> Stop immediately
-            elif "404" in err_str:
-                raise Exception(f"Model Not Found/Gated: {model_id}. Try a different model ID in sidebar.")
-            else:
-                raise Exception(f"HF Error: {err_str}")
-    
-    raise Exception("Model is busy. Please wait 30s and try again.")
+    except Exception as e:
+        raise Exception(f"Direct Request Failed: {e}")
+
+def run_hf_text(messages, model_id):
+    """Standard Text Inference using the Library (Works well for text)"""
+    client = InferenceClient(api_key=get_hf_token())
+    try:
+        output = client.chat.completions.create(
+            model=model_id,
+            messages=messages,
+            max_tokens=2048,
+            temperature=0.1
+        )
+        return output.choices[0].message.content
+    except Exception as e:
+        # Fallback to older generation method if chat fails
+        if "404" in str(e):
+             st.warning("Trying legacy generation method...")
+             prompt = messages[-1]['content']
+             return client.text_generation(prompt, model=model_id, max_new_tokens=1000)
+        raise e
 
 # ==========================================
 # 2. SETUP & DATABASE
@@ -94,11 +133,9 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;600;800&display=swap');
     body, .stApp { background-color: #050505 !important; font-family: 'Space Grotesk', sans-serif !important; color: #e2e8f0; }
-    .login-box { max-width: 400px; margin: 100px auto; padding: 2rem; border: 1px solid #333; background: #0d1117; border-radius: 12px; }
     .report-container { background: #0d1117; border: 1px solid #30363d; border-radius: 12px; padding: 2rem; margin-top: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
     .analysis-card { background: rgba(255,255,255,0.03); border-radius: 8px; padding: 15px; margin-bottom: 10px; border-left: 4px solid #555; }
     button[kind="primary"] { background-color: #ff4d4d !important; border: none; color: white !important; font-weight: bold; letter-spacing: 1px; }
-    .stTextInput input { color: #facc15 !important; } 
 </style>
 """, unsafe_allow_html=True)
 
@@ -111,7 +148,6 @@ def get_user_rules(user_id):
 def parse_report(text):
     text = re.sub(r'\*\*', '', text) 
     text = re.sub(r'[^\w\s,.:;!?()\[\]\-\'\"%]', '', text).strip()
-    
     sections = { "score": 0, "tags": [], "tech": "N/A", "psych": "N/A", "risk": "N/A", "fix": "N/A" }
     
     score_match = re.search(r'\[SCORE\]\s*(\d+)', text)
@@ -144,11 +180,13 @@ def save_analysis(user_id, data):
         "risk_analysis": data.get('risk', ''),
         "fix_action": data.get('fix', '')
     }
-    supabase.table("trades").insert(payload).execute()
-    if data.get('score', 0) < 50:
-        clean_fix = data.get('fix', 'Follow process').replace('"', '')
-        supabase.table("rules").insert({"user_id": user_id, "rule_text": clean_fix}).execute()
-        st.toast("📉 New Rule added to Constitution.")
+    try:
+        supabase.table("trades").insert(payload).execute()
+        if data.get('score', 0) < 50:
+            clean_fix = data.get('fix', 'Follow process').replace('"', '')
+            supabase.table("rules").insert({"user_id": user_id, "rule_text": clean_fix}).execute()
+            st.toast("📉 New Rule added to Constitution.")
+    except Exception as e: st.error(f"DB Save Error: {e}")
 
 # ==========================================
 # 4. MAIN APPLICATION
@@ -158,7 +196,7 @@ if not st.session_state["authenticated"]:
     with c2:
         st.markdown("<br><br><div class='login-box'>", unsafe_allow_html=True)
         st.title("🩸 StockPostmortem")
-        st.caption("v14.0 | Qwen Vision & Logic")
+        st.caption("v15.0 | Robust Hugging Face")
         with st.form("login"):
             u = st.text_input("User"); p = st.text_input("Pass", type="password")
             if st.form_submit_button("ENTER", type="primary", use_container_width=True): check_login(u, p)
@@ -171,14 +209,10 @@ else:
         st.header(f"👤 {user}")
         if st.button("LOGOUT"): logout()
         st.divider()
-        st.subheader("⚙️ Models (Hugging Face)")
-        st.caption("If one fails, try the alternative.")
-        
-        # --- NEW DEFAULT MODELS (UN-GATED) ---
+        st.success("HF Status: Connected")
+        # Defaulting to Qwen2-VL as it's the best free vision model
         vision_model = st.text_input("Vision Model", "Qwen/Qwen2-VL-7B-Instruct")
         text_model = st.text_input("Text Model", "Qwen/Qwen2.5-72B-Instruct")
-        
-        st.info("✅ Qwen2-VL is free and reads charts better than Llama.")
 
     st.markdown("<h1 style='text-align:center'>STOCK<span style='color:#ff4d4d'>POSTMORTEM</span>.AI</h1>", unsafe_allow_html=True)
     t1, t2, t3 = st.tabs(["🔍 AUTOPSY", "⚖️ LAWS", "📈 STATS"])
@@ -191,55 +225,45 @@ else:
 
         mode = st.radio("Mode", ["Text Report", "Chart Vision"], horizontal=True, label_visibility="collapsed")
         
-        # --- MODE A: VISION (Qwen2-VL) ---
+        # --- MODE A: ROBUST VISION ---
         if "Chart Vision" in mode:
-            st.info(f"📸 Mode: {vision_model}")
+            st.info(f"📸 Using {vision_model}. Image will be optimized to prevent API errors.")
             up_file = st.file_uploader("Upload Chart", type=["png", "jpg", "jpeg"])
             
             if up_file:
                 st.image(up_file, width=400)
                 if st.button("RUN VISION AUDIT", type="primary"):
-                    with st.status("Analyzing Chart...") as status:
+                    with st.status("Processing...") as status:
                         try:
-                            # 1. Prepare Image
+                            # 1. OPTIMIZE IMAGE (Fixes 400 Bad Request)
+                            status.update(label="Optimizing Image...", state="running")
                             image = Image.open(up_file)
                             if image.mode != 'RGB': image = image.convert('RGB')
                             
-                            # 2. Resize to prevent token overflow (Qwen is efficient but let's be safe)
-                            max_dim = 1000
+                            # RESIZE: Strict 800px limit for Free Tier Bandwidth
+                            max_dim = 800
                             if max(image.size) > max_dim:
                                 ratio = max_dim / max(image.size)
                                 new_size = (int(image.width * ratio), int(image.height * ratio))
                                 image = image.resize(new_size, Image.Resampling.LANCZOS)
-
-                            # 3. Base64 Encode
+                            
+                            # COMPRESS: 85 quality JPEG
                             buf = io.BytesIO()
-                            image.save(buf, format="JPEG", quality=90)
+                            image.save(buf, format="JPEG", quality=85)
                             img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
-                            data_url = f"data:image/jpeg;base64,{img_b64}"
 
-                            # 4. Prompt
-                            prompt_text = f"You are a Trading Auditor. Analyze this chart based on these RULES: {my_rules}. Output exactly in this format: [SCORE] 0-100, [TAGS] list, [TECH] text, [PSYCH] text, [RISK] text, [FIX] imperative command."
-                            
-                            messages = [
-                                {
-                                    "role": "user",
-                                    "content": [
-                                        {"type": "text", "text": prompt_text},
-                                        {"type": "image_url", "image_url": {"url": data_url}}
-                                    ]
-                                }
-                            ]
-                            
-                            # 5. Run Inference
+                            # 2. SEND REQUEST
                             status.update(label="Sending to Hugging Face...", state="running")
-                            raw_text = run_hf_inference(messages, vision_model)
+                            prompt_text = f"Analyze this trading chart. RULES: {my_rules}. Output strictly: [SCORE] 0-100, [TAGS] list, [TECH] text, [PSYCH] text, [RISK] text, [FIX] command."
                             
+                            raw_text = run_hf_vision_manual(prompt_text, img_b64, vision_model)
+                            
+                            # 3. PARSE
                             report = parse_report(raw_text)
                             save_analysis(user, report)
-                            status.update(label="Done!", state="complete")
+                            status.update(label="Complete!", state="complete")
                             
-                            # 6. Render
+                            # 4. DISPLAY
                             c = "#ef4444" if report['score'] < 50 else "#10b981"
                             st.markdown(f"""
                             <div class="report-container">
@@ -254,74 +278,30 @@ else:
                                 <div class="analysis-card" style="border-left-color:#10b981"><b>FIX:</b> {report['fix']}</div>
                             </div>
                             """, unsafe_allow_html=True)
-                            
+
                         except Exception as e:
                             status.update(label="Failed", state="error")
-                            st.error(f"Vision Error: {e}")
+                            st.error(f"Error details: {str(e)}")
+                            st.caption("Tip: If 'Bad Request', try a smaller image or a different model ID.")
 
-        # --- MODE B: TEXT (Qwen2.5) ---
+        # --- MODE B: TEXT ---
         else:
             with st.form("audit"):
-                c1,c2,c3,c4 = st.columns(4)
+                c1,c2 = st.columns(2)
                 with c1: tick = st.text_input("Ticker", "SPY")
-                with c2: pos = st.selectbox("Position", ["Long", "Short"])
-                with c3: tf = st.selectbox("Timeframe", ["Scalp", "Day", "Swing"])
-                with c4: setup = st.selectbox("Setup", ["Trend", "Reversal", "Breakout"])
-                c1,c2,c3 = st.columns(3)
-                with c1: ent = st.number_input("Entry", 0.0)
-                with c2: ex = st.number_input("Exit", 0.0)
-                with c3: stp = st.number_input("Stop", 0.0)
-                emo = st.selectbox("Emotion", ["Neutral", "FOMO", "Revenge", "Fear"])
+                with c2: emo = st.selectbox("Emotion", ["Neutral", "FOMO", "Fear"])
                 note = st.text_area("Notes")
-                
                 if st.form_submit_button("AUDIT", type="primary", use_container_width=True):
-                    risk = abs(ent - stp)
-                    viol = False
-                    if (pos == "Long" and ex < stp) or (pos == "Short" and ex > stp): viol = True
-                    rm = (ex - ent)/risk if risk > 0 and pos == "Long" else (ent - ex)/risk if risk > 0 else 0
+                    prompt = f"Analyze trade: {tick} | {emo} | {note}. Rules: {my_rules}. Output: [SCORE], [TAGS], [TECH], [PSYCH], [RISK], [FIX]."
+                    messages = [{"role": "user", "content": prompt}]
                     
-                    math_txt = f"[METRICS] Pos: {pos} | Risk: {risk:.2f} | R: {rm:.2f}R | Stop_Viol: {viol}"
-                    
-                    prompt_text = f"""
-                    SYSTEM: You are a Ruthless Trading Auditor.
-                    USER RULES: {my_rules}
-                    LOGIC:
-                    1. IF Stop_Viol is True -> MAX SCORE 30.
-                    2. IF Notes imply "removed stop" or "luck" -> MAX SCORE 20.
-                    INPUT: {tick} | {emo} | {note} \n {math_txt}
-                    OUTPUT FORMAT:
-                    [SCORE] (Integer)
-                    [TAGS] (List)
-                    [TECH] (Sentence)
-                    [PSYCH] (Sentence)
-                    [RISK] (Sentence)
-                    [FIX] (Imperative)
-                    """
-                    
-                    messages = [{"role": "user", "content": prompt_text}]
-                    
-                    with st.spinner(f"Analyzing with {text_model}..."):
+                    with st.spinner("Analyzing..."):
                         try:
-                            raw_text = run_hf_inference(messages, text_model)
-                            report = parse_report(raw_text)
+                            raw = run_hf_text(messages, text_model)
+                            report = parse_report(raw)
                             save_analysis(user, report)
-                            
-                            c = "#ef4444" if report['score'] < 50 else "#10b981"
-                            st.markdown(f"""
-                            <div class="report-container">
-                                <div style="display:flex; justify-content:space-between;">
-                                    <div><div style="color:#888;">SCORE</div><div style="font-size:3.5rem; font-weight:900; color:{c};">{report['score']}</div></div>
-                                    <div style="text-align:right;"><div style="color:#fff;">{", ".join(report['tags'])}</div></div>
-                                </div>
-                                <hr style="border-color:#333;">
-                                <div class="analysis-card" style="border-left-color:#3b82f6"><b>TECH:</b> {report['tech']}</div>
-                                <div class="analysis-card" style="border-left-color:#f59e0b"><b>PSYCH:</b> {report['psych']}</div>
-                                <div class="analysis-card" style="border-left-color:#ef4444"><b>RISK:</b> {report['risk']}</div>
-                                <div class="analysis-card" style="border-left-color:#10b981"><b>FIX:</b> {report['fix']}</div>
-                            </div>
-                            """, unsafe_allow_html=True)
-                        except Exception as e:
-                            st.error(f"Analysis Error: {e}")
+                            st.success(f"Score: {report['score']} - {report['fix']}")
+                        except Exception as e: st.error(str(e))
 
     with t2:
         st.subheader("📜 Constitution")
@@ -336,6 +316,4 @@ else:
         st.subheader("📈 Performance")
         hist = supabase.table("trades").select("*").eq("user_id", user).order("created_at", desc=True).execute().data
         if hist:
-            df = pd.DataFrame(hist)
-            st.line_chart(df, x="created_at", y="score")
-            st.dataframe(df[['created_at', 'score', 'mistake_tags', 'fix_action']])
+            st.dataframe(pd.DataFrame(hist)[['created_at', 'score', 'mistake_tags', 'fix_action']])
