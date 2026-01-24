@@ -50,41 +50,39 @@ if st.session_state["authenticated"]:
         st.stop()
 
 # ==========================================
-# 2. THE NEW INTELLIGENCE ENGINE (UPDATED FOR QWEN 2.5)
+# 2. THE NEW INTELLIGENCE ENGINE
 # ==========================================
 
 def run_smart_inference(messages, mode="text"):
     """
     Routes traffic to the correct specialist model.
-    UPDATED: Uses Qwen 2.5 for both logic and vision as per HF Whitelist.
     """
     api_url = "https://router.huggingface.co/v1/chat/completions"
     headers = {"Authorization": f"Bearer {HF_TOKEN}", "Content-Type": "application/json"}
     
-    # SELECTION LOGIC (Updated based on your Error 400 list):
+    # SELECTION LOGIC:
     if mode == "text":
-        model_id = "Qwen/Qwen2.5-72B-Instruct"  # Logic Beast
+        model_id = "Qwen/Qwen2.5-72B-Instruct"  # Logic Expert
     else:
-        model_id = "Qwen/Qwen2.5-VL-7B-Instruct" # Vision Beast (Updated from Qwen2-VL)
+        model_id = "Qwen/Qwen2.5-VL-7B-Instruct" # Vision Expert (Reads P&L screenshots better)
 
     payload = {
         "model": model_id,
         "messages": messages,
         "max_tokens": 1024,
-        "temperature": 0.3, 
+        "temperature": 0.2, # Lower temperature for stricter grading
     }
 
-    # Retry logic for Free Tier (Handling model loading/503)
+    # Retry logic
     for attempt in range(3):
         try:
             res = requests.post(api_url, headers=headers, json=payload, timeout=60)
             if res.status_code == 200:
                 return res.json()["choices"][0]["message"]["content"]
-            elif res.status_code == 503: # Model loading
+            elif res.status_code == 503: 
                 time.sleep(5) 
                 continue
             else:
-                # If 400 happens again, we print the raw error to debug
                 raise Exception(f"HF Error {res.status_code}: {res.text}")
         except Exception as e:
             if attempt == 2: raise e
@@ -110,12 +108,9 @@ def get_user_rules(user_id):
     except: return []
 
 def parse_report(text):
-    # Remove markdown bolding and generic fluff
     text = text.replace("**", "").replace("##", "")
-    
     sections = { "score": 0, "tags": [], "tech": "N/A", "psych": "N/A", "risk": "N/A", "fix": "N/A" }
     
-    # Robust Regex Extraction
     score_match = re.search(r'\[SCORE\]\s*(\d+)', text)
     if score_match: sections['score'] = int(score_match.group(1))
 
@@ -179,11 +174,11 @@ else:
             with st.expander(f"🚨 ACTIVE RULES ({len(my_rules)})"):
                 for r in my_rules: st.markdown(f"❌ {r}")
 
-        mode = st.radio("Mode", ["Text Report", "Chart Vision"], horizontal=True, label_visibility="collapsed")
+        mode = st.radio("Mode", ["Text Report", "Chart/P&L Vision"], horizontal=True, label_visibility="collapsed")
         
-        # --- MODE A: VISION ---
-        if "Chart Vision" in mode:
-            up_file = st.file_uploader("Upload Chart", type=["png", "jpg", "jpeg"])
+        # --- MODE A: VISION (UPDATED PROMPT) ---
+        if "Chart/P&L Vision" in mode:
+            up_file = st.file_uploader("Upload Chart or P&L Screenshot", type=["png", "jpg", "jpeg"])
             if up_file:
                 st.image(up_file, width=400)
                 if st.button("RUN VISION AUDIT", type="primary"):
@@ -193,10 +188,31 @@ else:
                     image.save(buf, format="JPEG")
                     img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
                     
+                    # --- UPDATED PROMPT FOR P&L DETECTION ---
                     prompt = f"""
-                    Role: Senior Hedge Fund Risk Manager.
-                    Task: Analyze this chart. Rules to check: {my_rules}.
-                    Output Format (Strict): [SCORE] 0-100, [TAGS] list, [TECH] text, [PSYCH] text, [RISK] text, [FIX] imperative.
+                    You are a Brutal Hedge Fund Risk Manager.
+                    
+                    TASK: Analyze the image. It is either a Candle Chart OR a P&L Dashboard.
+                    
+                    CRITICAL GRADING LOGIC:
+                    1. IF P&L DASHBOARD (Unrealized P/L, Holdings, Red Numbers):
+                       - If "Unrealized P/L" is negative (Red), Score MUST be under 40.
+                       - If Loss is > 20%, Score MUST be under 20.
+                       - If "Total Loss" is visible, roast the user for bag-holding.
+                    
+                    2. IF CANDLE CHART:
+                       - Check for technical breakdowns.
+                       - If Stop Loss was ignored, Score under 30.
+
+                    User's Active Rules (Check for violations): {my_rules}
+
+                    OUTPUT FORMAT (Strict): 
+                    [SCORE] 0-100
+                    [TAGS] Tag1, Tag2 (e.g., Bagholding, No Stop Loss)
+                    [TECH] (If Chart: Patterns. If P&L: Analyze the % drawdown depth)
+                    [PSYCH] (Diagnose the behavior: Denial, Hope, Gambling)
+                    [RISK] (Calculate implied risk deviation)
+                    [FIX] (One short imperative command)
                     """
                     
                     messages = [{
@@ -207,7 +223,7 @@ else:
                         ]
                     }]
                     
-                    with st.spinner("Analyzing Pixels (Qwen 2.5 Vision)..."):
+                    with st.spinner("Analyzing Losses..."):
                         try:
                             raw = run_smart_inference(messages, mode="vision")
                             report = parse_report(raw)
@@ -226,7 +242,7 @@ else:
                             </div>""", unsafe_allow_html=True)
                         except Exception as e: st.error(str(e))
 
-        # --- MODE B: TEXT (USING 72B MODEL) ---
+        # --- MODE B: TEXT ---
         else:
             with st.form("audit"):
                 c1,c2,c3 = st.columns(3)
@@ -240,41 +256,23 @@ else:
                 note = st.text_area("Notes")
                 
                 if st.form_submit_button("AUDIT", type="primary", use_container_width=True):
-                    # Python Math
                     risk = abs(ent - stp)
                     viol = (ent > stp and ex < stp) or (ent < stp and ex > stp)
                     rm = (ex - ent)/risk if risk > 0 and ent > stp else (ent - ex)/risk if risk > 0 else 0
                     
                     math_data = f"Risk: {risk:.2f} | R-Multiple: {rm:.2f}R | Stop Violation: {viol}"
                     
-                    # PROMPT FOR 72B MODEL
                     prompt = f"""
-                    You are a Ruthless Trading Performance Coach.
-                    User Rules: {my_rules}
-                    
-                    INPUT DATA:
-                    Ticker: {tick} | Emotion: {emo} | Notes: {note}
-                    MATH: {math_data}
-                    
-                    LOGIC GATES:
-                    1. If Stop Violation is TRUE -> Score CANNOT exceed 30.
-                    2. If Emotion is REVENGE -> Score CANNOT exceed 40.
-                    3. If Notes show hesitation -> Deduct 10 points.
-
-                    OUTPUT FORMAT:
-                    [SCORE] (Integer)
-                    [TAGS] (List)
-                    [TECH] (Technical breakdown)
-                    [PSYCH] (Psychological breakdown)
-                    [RISK] (Risk management analysis)
-                    [FIX] (One short command)
+                    You are a Ruthless Trading Performance Coach. Rules: {my_rules}.
+                    INPUT: {tick}, {emo}, {note}. MATH: {math_data}.
+                    LOGIC: If Stop Violation=True -> Score<30. If Revenge -> Score<40.
+                    OUTPUT: [SCORE], [TAGS], [TECH], [PSYCH], [RISK], [FIX].
                     """
                     
                     messages = [{"role": "user", "content": prompt}]
                     
-                    with st.spinner("Consulting Senior Trader (Qwen 2.5 72B)..."):
+                    with st.spinner("Consulting Senior Trader..."):
                         try:
-                            # Using 'text' mode triggers the 72B model
                             raw = run_smart_inference(messages, mode="text")
                             report = parse_report(raw)
                             save_analysis(user, report)
