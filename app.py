@@ -2,360 +2,296 @@ import streamlit as st
 import requests
 import base64
 import io
-import re
 from PIL import Image
 
-# ==========================================
-# 1. PAGE CONFIGURATION
-# ==========================================
-st.set_page_config(
-    page_title="StockPostmortem.ai", 
-    page_icon="🩸", 
-    layout="wide",
-    initial_sidebar_state="collapsed"
-)
+# 1. PAGE CONFIG
+st.set_page_config(page_title="StockPostmortem.ai", page_icon="🩸", layout="wide")
 
-# ==========================================
-# 2. API & SECURITY SETUP
-# ==========================================
+# 2. API SETUP
 try:
-    # Ensure you have HF_TOKEN in your .streamlit/secrets.toml file
     HF_TOKEN = st.secrets["HF_TOKEN"]
     API_URL = "https://router.huggingface.co/v1/chat/completions"
 except Exception:
-    st.error("⚠️ HF_TOKEN is missing. Please add it to Streamlit Secrets.")
+    st.error("⚠️ HF_TOKEN is missing. Add it to Streamlit Secrets.")
     st.stop()
 
-# ==========================================
-# 3. CSS STYLING (THE "PRO" LOOK)
-# ==========================================
+# 3. CSS OVERRIDES (Global + Form Styling)
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+    /* --- RESET & GLOBAL --- */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
     
-    /* GLOBAL THEME */
     body, .stApp { 
-        background-color: #050505 !important; 
-        font-family: 'Space Grotesk', sans-serif !important; 
+        background-color: #0f171c !important; 
+        font-family: 'Inter', sans-serif !important; 
         color: #e2e8f0 !important; 
     }
+    
+    header, footer, #MainMenu { display: none !important; }
 
-    /* CUSTOM TABS */
+    /* --- LAYOUT --- */
+    .block-container { 
+        padding-top: 2rem !important;
+        padding-bottom: 5rem !important; 
+        padding-left: 5rem !important;  
+        padding-right: 5rem !important; 
+        max-width: 100% !important;
+    }
+
+    /* --- MOBILE OVERRIDES --- */
+    @media (max-width: 768px) {
+        .block-container { padding: 1rem !important; }
+        .hero-h1 { font-size: 3rem !important; margin-bottom: 1rem !important; }
+        .hero-p { font-size: 1rem !important; }
+        .nav { margin-bottom: 2rem !important; }
+        [data-testid="stFileUploaderDropzone"] { min-height: 250px !important; }
+    }
+
+    /* --- NAVBAR --- */
+    .nav { 
+        display: flex; justify-content: space-between; align-items: center; 
+        padding: 1rem 0; border-bottom: 1px solid #2d4250; margin-bottom: 4rem; 
+    }
+    .logo { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.05em; color: white; }
+    .logo span { color: #ff4d4d; }
+    .cta-btn { 
+        background: #dc2626; color: white; padding: 0.6rem 1.5rem; 
+        border-radius: 99px; border: none; font-weight: 600; font-size: 0.9rem;
+    }
+
+    /* --- HERO --- */
+    .hero-h1 { 
+        font-size: 5rem; font-weight: 800; font-style: italic; text-align: center; 
+        color: white; line-height: 1.1; margin-bottom: 1.5rem; 
+    }
+    .hero-p { 
+        text-align: center; color: #94a3b8; font-size: 1.25rem; 
+        max-width: 800px; margin: 0 auto 4rem auto; 
+    }
+
+    /* --- TABS STYLING --- */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 20px;
-        background-color: transparent;
-        border-bottom: 1px solid #333;
+        justify-content: center;
+        gap: 2rem;
+        border-bottom: 1px solid #2d4250;
     }
     .stTabs [data-baseweb="tab"] {
-        height: 50px;
-        white-space: pre-wrap;
-        background-color: transparent;
-        border-radius: 4px 4px 0 0;
-        color: #888;
+        font-size: 1.2rem;
         font-weight: 600;
+        color: #94a3b8;
+        background-color: transparent;
         border: none;
     }
-    .stTabs [data-baseweb="tab"]:hover { color: #fff; background: #111; }
     .stTabs [aria-selected="true"] {
         color: #ff4d4d !important;
         border-bottom: 2px solid #ff4d4d !important;
-        background: rgba(255, 77, 77, 0.05);
     }
 
-    /* FORENSIC REPORT CARDS */
-    .report-container {
-        background: #0d1117;
-        border: 1px solid #30363d;
-        border-radius: 12px;
-        padding: 2rem;
-        margin-top: 2rem;
-        box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-    }
-    .report-header {
-        border-bottom: 2px solid #ff4d4d;
-        padding-bottom: 15px;
-        margin-bottom: 25px;
-        color: #ff4d4d;
-        font-size: 1.2rem;
-        font-weight: 800;
-        text-transform: uppercase;
-        letter-spacing: 3px;
-    }
-    .analysis-card {
-        background: rgba(255, 255, 255, 0.02);
-        border-radius: 8px;
-        padding: 20px;
-        margin-bottom: 20px;
-        border-left: 4px solid #444;
-        transition: transform 0.2s;
-    }
-    .analysis-card:hover { transform: translateX(5px); }
-    
-    .tech-fail { border-left-color: #3b82f6; }   /* Blue */
-    .psych-trap { border-left-color: #f59e0b; }  /* Orange */
-    .risk-fail { border-left-color: #ef4444; }   /* Red */
-    .recovery-path { border-left-color: #10b981; } /* Green */
+    /* --- INPUT FORM STYLING (Dark Theme) --- */
+    /* Input Boxes */
+    div[data-baseweb="input"] { background-color: #1f2e38 !important; border: 1px solid #475569 !important; border-radius: 8px !important; }
+    div[data-baseweb="select"] > div { background-color: #1f2e38 !important; border: 1px solid #475569 !important; border-radius: 8px !important; }
+    input { color: white !important; }
+    textarea { background-color: #1f2e38 !important; border: 1px solid #475569 !important; color: white !important; border-radius: 8px !important; }
+    label { color: #cbd5e1 !important; font-weight: 600 !important; }
 
-    .card-title {
-        font-weight: 800;
-        font-size: 0.9rem;
-        margin-bottom: 8px;
-        display: block;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-    }
-
-    /* TEXT INPUT FORM STYLING */
-    div[data-testid="stForm"] {
-        background-color: #0e1216;
-        border: 1px solid #30363d;
-        padding: 2rem;
-        border-radius: 12px;
-    }
-
-    /* HERO & TYPOGRAPHY */
-    .hero-h1 { 
-        font-size: 4rem; 
-        font-weight: 800; 
-        font-style: italic; 
-        text-align: center; 
-        color: white; 
-        line-height: 1.1; 
-        margin-bottom: 1rem; 
-    }
-    .hero-p { 
-        text-align: center; 
-        color: #8b949e; 
-        font-size: 1.1rem; 
-        max-width: 600px; 
-        margin: 0 auto 3rem auto; 
-    }
-    
-    /* UPLOADER */
+    /* --- UPLOADER STYLING --- */
     [data-testid="stFileUploaderDropzone"] {
-        background-color: rgba(22, 27, 34, 0.5) !important;
-        border: 2px dashed #30363d !important;
-        min-height: 250px !important;
+        background-color: rgba(31, 46, 56, 0.6) !important;
+        border: 2px dashed #475569 !important;
+        border-radius: 1rem !important;
+        min-height: 400px !important;
+        position: relative !important;
     }
-    [data-testid="stFileUploaderDropzone"]:hover { border-color: #ff4d4d !important; }
+    [data-testid="stFileUploaderDropzone"]:hover { border-color: #ff4d4d !important; background-color: rgba(31, 46, 56, 0.8) !important; }
+    
+    /* Uploader Icons & Text */
+    [data-testid="stFileUploaderDropzone"]::before {
+        content: ""; position: absolute; top: 70px; left: 50%; transform: translateX(-50%);
+        width: 70px; height: 70px;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23ef4444'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12' /%3E%3C/svg%3E");
+        background-repeat: no-repeat; background-size: contain; pointer-events: none;
+    }
+    [data-testid="stFileUploaderDropzone"]::after {
+        content: "Drop your P&L or Chart screenshot here\\A Supports PNG, JPG (Max 10MB). Your data is encrypted.";
+        white-space: pre-wrap; position: absolute; top: 160px; left: 0; width: 100%;
+        text-align: center; color: #e2e8f0; font-size: 1.5rem; font-weight: 600; pointer-events: none;
+    }
+    [data-testid="stFileUploaderDropzoneInstructions"] { visibility: hidden !important; height: 0 !important; }
+    [data-testid="stFileUploaderDropzone"] div > svg { display: none !important; }
+    [data-testid="stFileUploaderDropzone"] button {
+        visibility: visible !important; position: absolute !important; bottom: 70px !important; left: 50% !important;
+        transform: translateX(-50%) !important; background-color: white !important; color: transparent !important;
+        border: none !important; padding: 14px 40px !important; border-radius: 8px !important;
+    }
+    [data-testid="stFileUploaderDropzone"] button::after {
+        content: "Select File"; color: black; position: absolute; left: 50%; top: 50%;
+        transform: translate(-50%, -50%); white-space: nowrap;
+    }
 
+    /* --- GRID --- */
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2.5rem; margin-top: 5rem; }
+    .card { background: #1f2e38; padding: 2.5rem; border-radius: 1rem; border: 1px solid #2d4250; }
+    .card h3 { color: white; font-weight: 700; margin-bottom: 0.75rem; font-size: 1.25rem; }
+    .card p { color: #94a3b8; font-size: 1rem; line-height: 1.6; }
+    @media (max-width: 1024px) { .grid { grid-template-columns: 1fr; } }
 </style>
 """, unsafe_allow_html=True)
 
-# ==========================================
-# 4. HELPER FUNCTIONS (THE PARSER)
-# ==========================================
-def parse_forensic_report(text):
-    """
-    Parses the AI output to extract content between specific tags.
-    """
-    sections = {
-        "tech": "Analysis failed to generate specific technical data.",
-        "psych": "Analysis failed to generate psychological profile.",
-        "risk": "Analysis failed to generate risk audit.",
-        "fix": "Analysis failed to generate recovery step."
-    }
-    
-    # Regex to find content between tags
-    tech_match = re.search(r'\[TECH\](.*?)(?=\[PSYCH\]|\[RISK\]|\[FIX\]|$)', text, re.DOTALL)
-    psych_match = re.search(r'\[PSYCH\](.*?)(?=\[RISK\]|\[FIX\]|$)', text, re.DOTALL)
-    risk_match = re.search(r'\[RISK\](.*?)(?=\[FIX\]|$)', text, re.DOTALL)
-    fix_match = re.search(r'\[FIX\](.*?)$', text, re.DOTALL)
+# 4. RENDER UI
 
-    if tech_match: sections["tech"] = tech_match.group(1).strip()
-    if psych_match: sections["psych"] = psych_match.group(1).strip()
-    if risk_match: sections["risk"] = risk_match.group(1).strip()
-    if fix_match: sections["fix"] = fix_match.group(1).strip()
-    
-    return sections
-
-def display_report(report_data, title_suffix=""):
-    """
-    Renders the parsed data into the HTML Card UI.
-    """
-    st.markdown(f"""
-    <div class="report-container">
-        <div class="report-header">💀 FORENSIC AUTOPSY REPORT {title_suffix}</div>
-        
-        <div class="analysis-card tech-fail">
-            <span class="card-title" style="color:#3b82f6;">📉 TECHNICAL FAILURE</span>
-            {report_data['tech']}
-        </div>
-
-        <div class="analysis-card psych-trap">
-            <span class="card-title" style="color:#f59e0b;">🧠 PSYCHOLOGICAL TRAP</span>
-            {report_data['psych']}
-        </div>
-
-        <div class="analysis-card risk-fail">
-            <span class="card-title" style="color:#ef4444;">💸 RISK MANAGEMENT AUDIT</span>
-            {report_data['risk']}
-        </div>
-
-        <div class="analysis-card recovery-path">
-            <span class="card-title" style="color:#10b981;">💉 THE SURGICAL FIX</span>
-            <b>{report_data['fix']}</b>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-# ==========================================
-# 5. UI RENDER (HEADER & TABS)
-# ==========================================
-
-# HEADER
+# Navbar
 st.markdown("""
-<div style="text-align:center; padding-top: 40px;">
-    <div style="font-size: 1.2rem; font-weight: 800; color: white; margin-bottom: 10px; letter-spacing: 2px;">
-        STOCK<span style="color:#ff4d4d">POSTMORTEM</span>.AI
-    </div>
-    <div class="hero-h1">THE TRUTH HURTS.</div>
-    <p class="hero-p">
-        Upload your losing charts or confess your trade details. 
-        We analyze the failure so you don't repeat it.
-    </p>
+<div class="nav">
+    <div class="logo">STOCK<span>POSTMORTEM</span>.AI</div>
+    <button class="cta-btn">Get Started</button>
 </div>
+<div class="hero-h1">STOP BLEEDING CAPITAL.</div>
+<div class="hero-p">Upload your losing trade screenshots. Our AI identifies psychological traps, technical failures, and provides a surgical path to recovery.</div>
 """, unsafe_allow_html=True)
 
-# TABS
-tab1, tab2 = st.tabs(["📸 UPLOAD EVIDENCE", "📝 WRITTEN CONFESSION"])
+# --- MAIN CONTENT AREA ---
+# Create a container to center the tabs slightly better on wide screens
+c_main = st.container()
 
-# --- TAB 1: IMAGE ANALYSIS ---
-with tab1:
-    c1, c2, c3 = st.columns([1, 4, 1])
-    with c2:
-        uploaded_file = st.file_uploader(" ", type=["png", "jpg", "jpeg"], label_visibility="collapsed")
-        
-        if uploaded_file:
-            st.image(uploaded_file, caption="Evidence Secured", use_container_width=True)
-            
-            if st.button("RUN FORENSIC ANALYSIS (VISION)", type="primary", use_container_width=True):
-                with st.spinner("Analyzing candles, indicators, and market structure..."):
-                    try:
-                        # Process Image
-                        image = Image.open(uploaded_file)
-                        buf = io.BytesIO()
-                        image.save(buf, format="PNG")
-                        img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+with c_main:
+    # 5. TABS LOGIC
+    tab_image, tab_manual = st.tabs(["📸 UPLOAD SCREENSHOT", "📂 MANUAL CASE FILE"])
 
-                        # Prompt
-                        prompt = """
-                        ACT AS: Senior Institutional Trader.
-                        TASK: Brutal technical and psychological breakdown of this chart.
-                        
-                        REQUIREMENTS:
-                        1. [TECH] Identify technical failure (e.g., buying resistance, divergence, liquidity sweep).
-                        2. [PSYCH] Identify emotional bias (e.g., FOMO, revenge trading, panic).
-                        3. [RISK] Audit risk (e.g., stop loss too tight, risk-reward ratio).
-                        4. [FIX] One actionable rule for next time.
+    # --- TAB 1: IMAGE UPLOAD (Original) ---
+    with tab_image:
+        st.markdown("<br>", unsafe_allow_html=True)
+        c1, c2, c3 = st.columns([1, 4, 1]) 
+        with c2:
+            uploaded_file = st.file_uploader(" ", type=["png", "jpg", "jpeg"], label_visibility="collapsed")
 
-                        MANDATORY FORMAT:
-                        [TECH] ...
-                        [PSYCH] ...
-                        [RISK] ...
-                        [FIX] ...
-                        """
-                        
-                        # API Call
-                        payload = {
-                            "model": "Qwen/Qwen2.5-VL-7B-Instruct",
-                            "messages": [{"role": "user", "content": [
-                                {"type": "text", "text": prompt},
-                                {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}}
-                            ]}],
-                            "max_tokens": 1000
-                        }
-                        headers = {"Authorization": f"Bearer {HF_TOKEN}", "Content-Type": "application/json"}
-                        res = requests.post(API_URL, headers=headers, json=payload)
-                        
-                        if res.status_code == 200:
-                            content = res.json()["choices"][0]["message"]["content"]
-                            report = parse_forensic_report(content)
-                            display_report(report, "(VISION)")
-                        else:
-                            st.error(f"Analysis Failed. Error: {res.status_code}")
+            if uploaded_file:
+                st.markdown("<br>", unsafe_allow_html=True)
+                # Centered Button for Image
+                if st.button("RUN FORENSIC ANALYSIS (IMAGE)", type="primary", use_container_width=True):
+                    with st.spinner("🔍 ANALYZING CHART PIXELS..."):
+                        try:
+                            image = Image.open(uploaded_file)
+                            buf = io.BytesIO()
+                            image.save(buf, format="PNG")
+                            img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+
+                            prompt = "ACT AS: Trading Psychologist. INPUT: Image. OUTPUT: 1. Technical Mistake. 2. Emotional Trap. 3. Risk Management Fail. Be brutal."
                             
-                    except Exception as e:
-                        st.error(f"System Error: {e}")
+                            payload = {
+                                "model": "Qwen/Qwen2.5-VL-7B-Instruct",
+                                "messages": [{"role": "user", "content": [
+                                    {"type": "text", "text": prompt},
+                                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}}
+                                ]}],
+                                "max_tokens": 1000
+                            }
+                            headers = {"Authorization": f"Bearer {HF_TOKEN}", "Content-Type": "application/json"}
+                            res = requests.post(API_URL, headers=headers, json=payload)
+                            
+                            if res.status_code == 200:
+                                content = res.json()["choices"][0]["message"]["content"]
+                                st.markdown(f"""<div style="background: #161b22; border-left: 5px solid #ff4d4d; padding: 30px; border-radius: 8px; margin-top: 20px;">{content}</div>""", unsafe_allow_html=True)
+                        except Exception as e:
+                            st.error(f"Error: {e}")
 
-# --- TAB 2: TEXT ANALYSIS ---
-with tab2:
-    st.markdown("<div style='max-width: 800px; margin: 0 auto;'>", unsafe_allow_html=True)
-    
-    with st.form("text_analysis_form"):
-        st.write("### 📂 CASE FILE DETAILS")
-        st.caption("Be specific. The more honest you are, the better the diagnosis.")
-        
-        # Inputs
-        c1, c2, c3 = st.columns(3)
-        with c1: ticker = st.text_input("Ticker", placeholder="$NVDA")
-        with c2: position = st.selectbox("Position", ["Long (Buy)", "Short (Sell)"])
-        with c3: timeframe = st.selectbox("Timeframe", ["Scalp (1m-5m)", "Day (15m-1h)", "Swing (4h+)"])
-        
-        c1, c2, c3 = st.columns(3)
-        with c1: entry = st.text_input("Entry Price", placeholder="100.00")
-        with c2: exit = st.text_input("Exit Price", placeholder="95.00")
-        with c3: stop = st.text_input("Planned Stop", placeholder="98.00")
-        
-        st.markdown("---")
-        setup_desc = st.text_area("The Setup (Why did you enter?)", placeholder="Ex: Bull flag breakout above VWAP...")
-        emotion_desc = st.text_area("The Exit (Why did you close?)", placeholder="Ex: I got scared when it wicked down...")
-        
-        submit_text = st.form_submit_button("RUN FORENSIC ANALYSIS (TEXT)", type="primary", use_container_width=True)
-
-    if submit_text:
-        if not ticker or not setup_desc:
-            st.error("⚠️ Case file incomplete. Please provide Ticker and Setup details.")
-        else:
-            with st.spinner("Reconstructing trade scenario..."):
-                try:
-                    # Construct Narrative Prompt
-                    prompt = f"""
-                    ACT AS: Senior Risk Manager.
-                    TASK: Analyze this losing trade report.
+    # --- TAB 2: MANUAL INPUT (New Feature) ---
+    with tab_manual:
+        st.markdown("<br>", unsafe_allow_html=True)
+        # Form Container
+        with st.container():
+            col_form_1, col_form_2, col_form_3 = st.columns([1, 6, 1])
+            with col_form_2:
+                with st.container():
+                    st.markdown("### 📂 CASE FILE DETAILS")
+                    st.markdown("<p style='color:#64748b; font-size:0.9rem; margin-bottom:20px;'>Be specific. The more honest you are, the better the diagnosis.</p>", unsafe_allow_html=True)
                     
-                    DATA:
-                    - Trade: {ticker} ({position}) on {timeframe}.
-                    - Prices: Entry {entry}, Exit {exit}, Stop {stop}.
-                    - CONTEXT: {setup_desc}
-                    - OUTCOME: {emotion_desc}
+                    # Row 1
+                    r1c1, r1c2, r1c3 = st.columns(3)
+                    with r1c1:
+                        ticker = st.text_input("Ticker", placeholder="$NVDA")
+                    with r1c2:
+                        position = st.selectbox("Position", ["Long (Buy)", "Short (Sell)"])
+                    with r1c3:
+                        timeframe = st.selectbox("Timeframe", ["Scalp (1m-5m)", "Day Trade (15m-1h)", "Swing (4h-Daily)", "Investing (Weekly)"])
                     
-                    REQUIREMENTS:
-                    1. [TECH] Diagnose the technical error based on the setup description.
-                    2. [PSYCH] Diagnose the emotional trap based on the exit description.
-                    3. [RISK] Audit the math (Entry vs Stop vs Exit).
-                    4. [FIX] One surgical rule to prevent this.
-
-                    MANDATORY FORMAT:
-                    [TECH] ...
-                    [PSYCH] ...
-                    [RISK] ...
-                    [FIX] ...
-                    """
+                    # Row 2
+                    r2c1, r2c2, r2c3 = st.columns(3)
+                    with r2c1:
+                        entry_price = st.text_input("Entry Price", placeholder="100.00")
+                    with r2c2:
+                        exit_price = st.text_input("Exit Price", placeholder="95.00")
+                    with r2c3:
+                        planned_stop = st.text_input("Planned Stop", placeholder="98.00")
                     
-                    # API Call (Text Only)
-                    payload = {
-                        "model": "Qwen/Qwen2.5-VL-7B-Instruct",
-                        "messages": [{"role": "user", "content": prompt}],
-                        "max_tokens": 1000
-                    }
-                    headers = {"Authorization": f"Bearer {HF_TOKEN}", "Content-Type": "application/json"}
-                    res = requests.post(API_URL, headers=headers, json=payload)
+                    # Row 3 (Wide Text Areas)
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    setup_desc = st.text_area("The Setup (Why did you enter?)", placeholder="Ex: Bull flag breakout above VWAP...")
+                    exit_desc = st.text_area("The Exit (Why did you close?)", placeholder="Ex: I got scared when it wicked down...")
                     
-                    if res.status_code == 200:
-                        content = res.json()["choices"][0]["message"]["content"]
-                        report = parse_forensic_report(content)
-                        display_report(report, "(TEXT EVIDENCE)")
-                    else:
-                        st.error(f"Analysis Failed. Error: {res.status_code}")
-                except Exception as e:
-                    st.error(f"System Error: {e}")
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    
+                    # Submit Button
+                    if st.button("RUN FORENSIC ANALYSIS (TEXT)", type="primary", use_container_width=True):
+                        if not ticker or not setup_desc:
+                            st.warning("⚠️ Please provide at least a Ticker and Setup description.")
+                        else:
+                            with st.spinner("🧠 ANALYZING PSYCHOLOGY & PRICE ACTION..."):
+                                try:
+                                    # Construct Prompt
+                                    manual_prompt = f"""
+                                    ACT AS: A Brutal Trading Psychologist and Risk Manager.
+                                    
+                                    CASE FILE:
+                                    - Ticker: {ticker}
+                                    - Position: {position} ({timeframe})
+                                    - Entry: {entry_price} | Exit: {exit_price} | Stop: {planned_stop}
+                                    - Context (Setup): {setup_desc}
+                                    - Context (Exit): {exit_desc}
+                                    
+                                    TASK: Diagnose this trade failure.
+                                    OUTPUT FORMAT:
+                                    1. 🚩 TECHNICAL FAILURE: (Was the setup valid?)
+                                    2. 🧠 EMOTIONAL TRAP: (Fear, Greed, FOMO?)
+                                    3. 📉 RISK AUTOPSY: (Did they respect the stop?)
+                                    4. 💉 PRESCRIPTION: (What to do next time).
+                                    
+                                    Be direct and concise.
+                                    """
+                                    
+                                    payload = {
+                                        "model": "Qwen/Qwen2.5-VL-7B-Instruct",
+                                        "messages": [{"role": "user", "content": manual_prompt}],
+                                        "max_tokens": 800
+                                    }
+                                    headers = {"Authorization": f"Bearer {HF_TOKEN}", "Content-Type": "application/json"}
+                                    res = requests.post(API_URL, headers=headers, json=payload)
+                                    
+                                    if res.status_code == 200:
+                                        content = res.json()["choices"][0]["message"]["content"]
+                                        st.markdown(f"""<div style="background: #161b22; border-left: 5px solid #ff4d4d; padding: 30px; border-radius: 8px; margin-top: 20px;">{content}</div>""", unsafe_allow_html=True)
+                                    else:
+                                        st.error(f"AI Error: {res.status_code}")
+                                except Exception as e:
+                                    st.error(f"Error: {e}")
 
-    st.markdown("</div>", unsafe_allow_html=True)
-
-# FOOTER
+# Footer Grid
 st.markdown("""
-<div style="text-align: center; margin-top: 5rem; color: #484f58; font-size: 0.8rem;">
-    &copy; 2026 stockpostmortem.ai | Trading involves financial risk.
+<div class="grid">
+    <div class="card">
+        <h3>Pattern Recognition</h3>
+        <p>Did you buy the top? We identify if you're falling for FOMO or revenge trading instantly.</p>
+    </div>
+    <div class="card">
+        <h3>Risk Autopsy</h3>
+        <p>Calculates if your stop-loss was too tight or if your position sizing was reckless.</p>
+    </div>
+    <div class="card">
+        <h3>Recovery Plan</h3>
+        <p>Step-by-step technical adjustments to ensure the next trade is a winner, not a gamble.</p>
+    </div>
+</div>
+<div style="text-align: center; margin-top: 6rem; color: #64748b; font-size: 0.9rem;">
+    &copy; 2026 stockpostmortem.ai | Trading involves risk.
 </div>
 """, unsafe_allow_html=True)
