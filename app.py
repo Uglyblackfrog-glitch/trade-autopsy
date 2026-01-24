@@ -5,7 +5,6 @@ import io
 import re
 import pandas as pd
 import time
-from textwrap import dedent  # <--- ESSENTIAL IMPORT
 from PIL import Image
 from supabase import create_client, Client
 
@@ -59,7 +58,7 @@ if st.session_state["authenticated"]:
 # 2. INTELLIGENCE ENGINE
 # ==========================================
 def run_scientific_analysis(messages, mode="text"):
-    api_url = "https://router.huggingface.co/v1/chat/completions"
+    api_url = "[https://router.huggingface.co/v1/chat/completions](https://router.huggingface.co/v1/chat/completions)"
     headers = {"Authorization": f"Bearer {HF_TOKEN}", "Content-Type": "application/json"}
     
     if mode == "text":
@@ -89,12 +88,11 @@ def run_scientific_analysis(messages, mode="text"):
             time.sleep(2)
 
 # ==========================================
-# 3. PARSING & DISPLAY LOGIC
+# 3. PARSING & DISPLAY LOGIC (THE FIX)
 # ==========================================
-# CSS remains the same, just ensuring it loads
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@300;400;600&display=swap');
+    @import url('[https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@300;400;600&display=swap](https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@300;400;600&display=swap)');
     body, .stApp { background-color: #0E1117 !important; color: #E0E0E0; font-family: 'Inter', sans-serif; }
     .report-box { background: #161B22; border: 1px solid #30363D; border-radius: 12px; padding: 25px; margin-top: 20px; }
     .section-title { color: #58A6FF; font-family: 'JetBrains Mono', monospace; font-weight: bold; font-size: 1.1rem; border-bottom: 1px solid #30363D; padding-bottom: 5px; margin-top: 25px; margin-bottom: 10px; }
@@ -104,51 +102,76 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-def get_user_rules(user_id):
-    try:
-        res = supabase.table("rules").select("*").eq("user_id", user_id).execute()
-        return [r['rule_text'] for r in res.data]
-    except: return []
-
 def parse_scientific_report(text):
-    # Clean up formatting
-    text = text.replace("```", "").replace("json", "").strip()
+    # 1. Clean cleanup
+    text = text.replace("```json", "").replace("```", "").strip()
     
     sections = { 
         "score": 0, 
-        "tags": [], # Empty list by default
-        "tech": "Analysis data missing.", 
-        "psych": "Analysis data missing.", 
-        "risk": "Analysis data missing.", 
-        "fix": "Analysis data missing." 
+        "tags": [], 
+        "tech": "Analysis failed.", 
+        "psych": "Analysis failed.", 
+        "risk": "Analysis failed.", 
+        "fix": "Analysis failed." 
     }
     
-    # Improved Regex to catch "Score:" or "[SCORE]"
+    # 2. Extract Score
     score_match = re.search(r'(?:\[SCORE\]|Score:?)\s*(\d+)', text, re.IGNORECASE)
     if score_match: sections['score'] = int(score_match.group(1))
 
-    # Improved Regex for Tags
+    # 3. Extract Tags
     tags_match = re.search(r'(?:\[TAGS\]|Tags:?)(.*?)(?=\[|\n[A-Z]|$)', text, re.DOTALL | re.IGNORECASE)
     if tags_match:
         raw = tags_match.group(1).replace('[', '').replace(']', '').split(',')
         sections['tags'] = [t.strip() for t in raw if t.strip()]
-    
-    # Robust Section Extraction
+
+    # 4. Extract Sections (Cleaning HTML injection risks)
     patterns = {
-        "tech": r"(?:\[TECHNICAL FORENSICS\]|Technical Analysis:?)(.*?)(?=\[PSYCHOLOGICAL|\[RISK|\[STRATEGIC|\[SCORE|\[TAGS|$)",
-        "psych": r"(?:\[PSYCHOLOGICAL PROFILE\]|Psychology:?)(.*?)(?=\[RISK|\[STRATEGIC|\[SCORE|\[TAGS|$)",
-        "risk": r"(?:\[RISK ASSESSMENT\]|Risk:?)(.*?)(?=\[STRATEGIC|\[SCORE|\[TAGS|$)",
+        "tech": r"(?:\[TECHNICAL FORENSICS\]|Technical:?)(.*?)(?=\[PSYCH|\[RISK|\[STRAT|\[SCORE|\[TAGS|$)",
+        "psych": r"(?:\[PSYCHOLOGICAL PROFILE\]|Psychology:?)(.*?)(?=\[RISK|\[STRAT|\[SCORE|\[TAGS|$)",
+        "risk": r"(?:\[RISK ASSESSMENT\]|Risk:?)(.*?)(?=\[STRAT|\[SCORE|\[TAGS|$)",
         "fix": r"(?:\[STRATEGIC ROADMAP\]|Fix:?)(.*?)(?=\[SCORE|\[TAGS|$)"
     }
     
     for key, pattern in patterns.items():
         match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
-        if match: 
-            # Replace newlines with <br> for HTML rendering
-            content = match.group(1).strip().replace("\n", "<br>")
-            sections[key] = content
+        if match:
+            # Simple replace for line breaks, no other HTML char conversion needed for now
+            clean_content = match.group(1).strip().replace("\n", "<br>")
+            sections[key] = clean_content
             
     return sections
+
+def render_report_html(report):
+    """
+    Constructs the HTML string strictly as a flat string to avoid indentation bugs.
+    """
+    c_score = "#ff4d4d" if report['score'] < 50 else "#00e676"
+    tags_html = ' '.join([f'<span class="tag-pill">{t}</span>' for t in report['tags']])
+    
+    # Using a single line string construction to prevent any "code block" confusion
+    html = f"""
+    <div class="report-box">
+        <div style="display:flex; justify-content:space-between; border-bottom:1px solid #444;">
+            <h2 style="color:#fff; margin:0;">DIAGNOSTIC REPORT</h2>
+            <div class="score-circle" style="color:{c_score};">{report['score']}</div>
+        </div>
+        <div style="margin:10px 0;">{tags_html}</div>
+        
+        <div class="section-title">📊 TECHNICAL FORENSICS</div>
+        <div style="color:#d0d7de; line-height:1.6;">{report['tech']}</div>
+        
+        <div class="section-title">🧠 PSYCHOLOGICAL PROFILE</div>
+        <div style="color:#d0d7de; line-height:1.6;">{report['psych']}</div>
+        
+        <div class="section-title">⚖️ RISK ASSESSMENT</div>
+        <div style="color:#d0d7de; line-height:1.6;">{report['risk']}</div>
+        
+        <div class="section-title">🚀 STRATEGIC ROADMAP</div>
+        <div style="background:rgba(46, 160, 67, 0.1); border-left:4px solid #2ea043; padding:15px; color:#fff;">{report['fix']}</div>
+    </div>
+    """
+    return html
 
 def save_to_lab_records(user_id, data):
     payload = {
@@ -211,7 +234,6 @@ else:
                     image.save(buf, format="JPEG")
                     img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
                     
-                    # --- SCIENTIST PROMPT ---
                     prompt = f"""
                     You are Dr. Market, a Chief Investment Officer.
                     Your Task: Audit this image (Chart or P&L).
@@ -250,34 +272,9 @@ else:
                             report = parse_scientific_report(raw)
                             save_to_lab_records(user, report)
                             
-                            c_score = "#ff4d4d" if report['score'] < 50 else "#00e676"
-                            tags_html = ' '.join([f'<span class="tag-pill">{t}</span>' for t in report['tags']])
-                            
-                            # --- FIX: DEDENT REMOVES THE WHITESPACE CAUSING THE GRAY BOX ---
-                            html_code = dedent(f"""
-                            <div class="report-box">
-                                <div style="display:flex; justify-content:space-between; border-bottom:1px solid #444;">
-                                    <h2 style="color:#fff; margin:0;">DIAGNOSTIC REPORT</h2>
-                                    <div class="score-circle" style="color:{c_score};">{report['score']}</div>
-                                </div>
-                                <div style="margin:10px 0;">
-                                    {tags_html}
-                                </div>
-                                
-                                <div class="section-title">📊 TECHNICAL FORENSICS</div>
-                                <div style="color:#d0d7de; line-height:1.6;">{report['tech']}</div>
-                                
-                                <div class="section-title">🧠 PSYCHOLOGICAL PROFILE</div>
-                                <div style="color:#d0d7de; line-height:1.6;">{report['psych']}</div>
-                                
-                                <div class="section-title">⚖️ RISK ASSESSMENT</div>
-                                <div style="color:#d0d7de; line-height:1.6;">{report['risk']}</div>
-                                
-                                <div class="section-title">🚀 STRATEGIC ROADMAP</div>
-                                <div style="background:rgba(46, 160, 67, 0.1); border-left:4px solid #2ea043; padding:15px; color:#fff;">{report['fix']}</div>
-                            </div>
-                            """)
-                            st.markdown(html_code, unsafe_allow_html=True)
+                            # --- USE HELPER FUNCTION FOR CLEAN RENDER ---
+                            final_html = render_report_html(report)
+                            st.markdown(final_html, unsafe_allow_html=True)
                             
                         except Exception as e: st.error(str(e))
 
@@ -307,30 +304,8 @@ else:
                             report = parse_scientific_report(raw)
                             save_to_lab_records(user, report)
                             
-                            c_score = "#ff4d4d" if report['score'] < 50 else "#00e676"
-                            tags_html = ' '.join([f'<span class="tag-pill">{t}</span>' for t in report['tags']])
-                            
-                            html_code = dedent(f"""
-                            <div class="report-box">
-                                <div style="display:flex; justify-content:space-between; border-bottom:1px solid #444;">
-                                    <h2 style="color:#fff; margin:0;">DIAGNOSTIC REPORT</h2>
-                                    <div class="score-circle" style="color:{c_score};">{report['score']}</div>
-                                </div>
-                                <div style="margin:10px 0;">
-                                    {tags_html}
-                                </div>
-                                
-                                <div class="section-title">📊 TECHNICAL FORENSICS</div>
-                                <div style="color:#d0d7de; line-height:1.6;">{report['tech']}</div>
-                                <div class="section-title">🧠 PSYCHOLOGICAL PROFILE</div>
-                                <div style="color:#d0d7de; line-height:1.6;">{report['psych']}</div>
-                                <div class="section-title">⚖️ RISK ASSESSMENT</div>
-                                <div style="color:#d0d7de; line-height:1.6;">{report['risk']}</div>
-                                <div class="section-title">🚀 STRATEGIC ROADMAP</div>
-                                <div style="background:rgba(46, 160, 67, 0.1); border-left:4px solid #2ea043; padding:15px; color:#fff;">{report['fix']}</div>
-                            </div>
-                            """)
-                            st.markdown(html_code, unsafe_allow_html=True)
+                            final_html = render_report_html(report)
+                            st.markdown(final_html, unsafe_allow_html=True)
                         except Exception as e: st.error(str(e))
 
     with tab_laws:
