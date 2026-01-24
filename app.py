@@ -4,191 +4,160 @@ import base64
 import io
 from PIL import Image
 
-# 1. PAGE CONFIG
+# 1. PAGE CONFIGURATION
 st.set_page_config(page_title="StockPostmortem.ai", page_icon="🩸", layout="wide")
 
-# 2. API SETUP
+# 2. SYSTEM CONSTANTS
 try:
     HF_TOKEN = st.secrets["HF_TOKEN"]
     API_URL = "https://router.huggingface.co/v1/chat/completions"
 except Exception:
-    st.error("⚠️ HF_TOKEN is missing. Add it to Streamlit Secrets.")
+    st.error("SYSTEM ERROR: HF_TOKEN is missing from Streamlit Secrets.")
     st.stop()
 
-# 3. CSS OVERRIDES (Global + Form Styling)
+# 3. INTERFACE STYLING (INSTITUTIONAL GRADE)
 st.markdown("""
 <style>
-    /* --- RESET & GLOBAL --- */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+    /* GLOBAL THEME */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     
     body, .stApp { 
-        background-color: #0f171c !important; 
+        background-color: #0b0e11 !important; 
         font-family: 'Inter', sans-serif !important; 
-        color: #e2e8f0 !important; 
+        color: #cfd8dc !important; 
     }
     
+    /* REMOVE STREAMLIT BRANDING */
     header, footer, #MainMenu { display: none !important; }
 
-    /* --- LAYOUT --- */
+    /* LAYOUT OPTIMIZATION */
     .block-container { 
-        padding-top: 2rem !important;
+        padding-top: 3rem !important;
         padding-bottom: 5rem !important; 
-        padding-left: 5rem !important;  
-        padding-right: 5rem !important; 
-        max-width: 100% !important;
+        max-width: 1200px !important;
     }
 
-    /* --- MOBILE OVERRIDES --- */
-    @media (max-width: 768px) {
-        .block-container { padding: 1rem !important; }
-        .hero-h1 { font-size: 3rem !important; margin-bottom: 1rem !important; }
-        .hero-p { font-size: 1rem !important; }
-        .nav { margin-bottom: 2rem !important; }
-        [data-testid="stFileUploaderDropzone"] { min-height: 250px !important; }
-    }
-
-    /* --- NAVBAR --- */
+    /* NAVIGATION */
     .nav { 
         display: flex; justify-content: space-between; align-items: center; 
-        padding: 1rem 0; border-bottom: 1px solid #2d4250; margin-bottom: 4rem; 
+        padding-bottom: 2rem; border-bottom: 1px solid #1e293b; margin-bottom: 3rem; 
     }
-    .logo { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.05em; color: white; }
-    .logo span { color: #ff4d4d; }
-    .cta-btn { 
-        background: #dc2626; color: white; padding: 0.6rem 1.5rem; 
-        border-radius: 99px; border: none; font-weight: 600; font-size: 0.9rem;
-    }
+    .logo { font-size: 1.25rem; font-weight: 700; color: #ffffff; letter-spacing: 0.05em; }
+    .logo span { color: #ef4444; }
 
-    /* --- HERO --- */
+    /* TYPOGRAPHY */
     .hero-h1 { 
-        font-size: 5rem; font-weight: 800; font-style: italic; text-align: center; 
-        color: white; line-height: 1.1; margin-bottom: 1.5rem; 
+        font-size: 3.5rem; font-weight: 800; text-align: center; 
+        color: #ffffff; letter-spacing: -0.02em; margin-bottom: 1rem; 
     }
     .hero-p { 
-        text-align: center; color: #94a3b8; font-size: 1.25rem; 
-        max-width: 800px; margin: 0 auto 4rem auto; 
+        text-align: center; color: #94a3b8; font-size: 1.1rem; 
+        max-width: 600px; margin: 0 auto 4rem auto; line-height: 1.6;
     }
 
-    /* --- TABS STYLING --- */
-    .stTabs [data-baseweb="tab-list"] {
-        justify-content: center;
-        gap: 2rem;
-        border-bottom: 1px solid #2d4250;
-    }
-    .stTabs [data-baseweb="tab"] {
-        font-size: 1.2rem;
-        font-weight: 600;
-        color: #94a3b8;
-        background-color: transparent;
-        border: none;
-    }
-    .stTabs [aria-selected="true"] {
-        color: #ff4d4d !important;
-        border-bottom: 2px solid #ff4d4d !important;
-    }
-
-    /* --- INPUT FORM STYLING (Dark Theme) --- */
-    div[data-baseweb="input"] { background-color: #1f2e38 !important; border: 1px solid #475569 !important; border-radius: 8px !important; }
-    div[data-baseweb="select"] > div { background-color: #1f2e38 !important; border: 1px solid #475569 !important; border-radius: 8px !important; }
-    input { color: white !important; }
-    textarea { background-color: #1f2e38 !important; border: 1px solid #475569 !important; color: white !important; border-radius: 8px !important; }
-    label { color: #cbd5e1 !important; font-weight: 600 !important; }
-
-    /* --- UPLOADER STYLING --- */
-    [data-testid="stFileUploaderDropzone"] {
-        background-color: rgba(31, 46, 56, 0.6) !important;
-        border: 2px dashed #475569 !important;
-        border-radius: 1rem !important;
-        min-height: 400px !important;
-        position: relative !important;
-    }
-    [data-testid="stFileUploaderDropzone"]:hover { border-color: #ff4d4d !important; background-color: rgba(31, 46, 56, 0.8) !important; }
+    /* COMPONENT STYLING */
+    div[data-baseweb="input"] { background-color: #151b23 !important; border: 1px solid #334155 !important; }
+    div[data-baseweb="select"] > div { background-color: #151b23 !important; border: 1px solid #334155 !important; }
+    .stTextArea textarea { background-color: #151b23 !important; border: 1px solid #334155 !important; }
     
-    [data-testid="stFileUploaderDropzone"]::before {
-        content: ""; position: absolute; top: 70px; left: 50%; transform: translateX(-50%);
-        width: 70px; height: 70px;
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23ef4444'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12' /%3E%3C/svg%3E");
-        background-repeat: no-repeat; background-size: contain; pointer-events: none;
+    /* REPORT CONTAINER */
+    .report-container {
+        background-color: #0d1117;
+        border: 1px solid #30363d;
+        border-left: 4px solid #ef4444;
+        border-radius: 6px;
+        padding: 2rem;
+        margin-top: 2rem;
+        font-family: 'Inter', sans-serif;
     }
-    [data-testid="stFileUploaderDropzone"]::after {
-        content: "Drop your P&L or Chart screenshot here\\A Supports PNG, JPG (Max 10MB). Your data is encrypted.";
-        white-space: pre-wrap; position: absolute; top: 160px; left: 0; width: 100%;
-        text-align: center; color: #e2e8f0; font-size: 1.5rem; font-weight: 600; pointer-events: none;
+    .report-header {
+        color: #ef4444;
+        font-size: 0.85rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        margin-bottom: 1rem;
     }
-    [data-testid="stFileUploaderDropzoneInstructions"] { visibility: hidden !important; height: 0 !important; }
-    [data-testid="stFileUploaderDropzone"] div > svg { display: none !important; }
-    [data-testid="stFileUploaderDropzone"] button {
-        visibility: visible !important; position: absolute !important; bottom: 70px !important; left: 50% !important;
-        transform: translateX(-50%) !important; background-color: white !important; color: transparent !important;
-        border: none !important; padding: 14px 40px !important; border-radius: 8px !important;
-    }
-    [data-testid="stFileUploaderDropzone"] button::after {
-        content: "Select File"; color: black; position: absolute; left: 50%; top: 50%;
-        transform: translate(-50%, -50%); white-space: nowrap;
+    .report-content {
+        color: #e6edf3;
+        font-size: 1rem;
+        line-height: 1.7;
+        white-space: pre-line;
     }
 
-    /* --- GRID --- */
-    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2.5rem; margin-top: 5rem; }
-    .card { background: #1f2e38; padding: 2.5rem; border-radius: 1rem; border: 1px solid #2d4250; }
-    .card h3 { color: white; font-weight: 700; margin-bottom: 0.75rem; font-size: 1.25rem; }
-    .card p { color: #94a3b8; font-size: 1rem; line-height: 1.6; }
-    @media (max-width: 1024px) { .grid { grid-template-columns: 1fr; } }
+    /* UPLOADER */
+    [data-testid="stFileUploaderDropzone"] {
+        background-color: #151b23 !important;
+        border: 1px dashed #334155 !important;
+    }
+    
+    /* GRID */
+    .grid-container {
+        display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; margin-top: 6rem;
+    }
+    .feature-card {
+        background: #151b23; padding: 2rem; border-radius: 8px; border: 1px solid #1e293b;
+    }
+    .feature-title { color: white; font-weight: 600; margin-bottom: 0.5rem; font-size: 1.1rem; }
+    .feature-text { color: #94a3b8; font-size: 0.9rem; line-height: 1.5; }
+
+    @media (max-width: 768px) {
+        .grid-container { grid-template-columns: 1fr; }
+        .hero-h1 { font-size: 2.5rem; }
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# 4. RENDER UI
-
-# Navbar
+# 4. RENDER UI LAYOUT
 st.markdown("""
 <div class="nav">
-    <div class="logo">STOCK<span>POSTMORTEM</span>.AI</div>
-    <button class="cta-btn">Get Started</button>
+    <div class="logo">TRADE<span>POSTMORTEM</span></div>
+    <div style="font-size: 0.8rem; color: #64748b; font-weight: 500;">INSTITUTIONAL AUDIT SUITE v2.0</div>
 </div>
-<div class="hero-h1">STOP BLEEDING CAPITAL.</div>
-<div class="hero-p">Upload your losing trade screenshots. Our AI identifies psychological traps, technical failures, and provides a surgical path to recovery.</div>
+<div class="hero-h1">Algorithmic Trade Autopsy</div>
+<div class="hero-p">A deterministic audit system for financial losses. We identify structural insolvency and behavioral execution errors without the fluff.</div>
 """, unsafe_allow_html=True)
 
-# --- MAIN CONTENT AREA ---
-c_main = st.container()
+# 5. MAIN LOGIC CONTAINER
+main_container = st.container()
 
-with c_main:
-    # 5. TABS LOGIC
-    tab_image, tab_manual = st.tabs(["📸 UPLOAD SCREENSHOT", "📂 MANUAL CASE FILE"])
+with main_container:
+    tab_image, tab_manual = st.tabs(["📸 OPTICAL CHARACTER RECOGNITION (OCR)", "📝 MANUAL CASE ENTRY"])
 
-    # --- TAB 1: IMAGE UPLOAD ---
+    # --- TAB 1: IMAGE ANALYSIS ---
     with tab_image:
         st.markdown("<br>", unsafe_allow_html=True)
         c1, c2, c3 = st.columns([1, 4, 1]) 
         with c2:
-            uploaded_file = st.file_uploader(" ", type=["png", "jpg", "jpeg"], label_visibility="collapsed")
+            uploaded_file = st.file_uploader("Upload Chart/P&L Evidence", type=["png", "jpg", "jpeg"], label_visibility="collapsed")
 
             if uploaded_file:
                 st.markdown("<br>", unsafe_allow_html=True)
-                if st.button("RUN INSTITUTIONAL ANALYSIS (IMAGE)", type="primary", use_container_width=True):
-                    with st.spinner("🔍 CONDUCTING TECHNICAL AUDIT..."):
+                if st.button("INITIATE OPTICAL AUDIT", type="primary", use_container_width=True):
+                    with st.spinner("PROCESSING MARKET STRUCTURE & LIQUIDITY ZONES..."):
                         try:
                             image = Image.open(uploaded_file)
                             buf = io.BytesIO()
                             image.save(buf, format="PNG")
                             img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
 
-                            # --- UPDATED PROFESSIONAL PROMPT (IMAGE) ---
+                            # PROFESSIONAL PROMPT - IMAGE
                             prompt = """
-                            ACT AS: Senior Financial Risk Analyst and Behavioral Economist.
-                            TASK: Conduct a professional post-mortem audit of the provided financial chart/P&L.
+                            ROLE: Senior Quantitative Risk Auditor.
+                            TASK: Forensic analysis of the provided financial chart/P&L.
                             
-                            INSTRUCTIONS:
-                            1. Analyze Market Structure (Trends, Liquidity Sweeps, Supply/Demand Zones).
-                            2. Audit the Entry/Exit precision relative to standard institutional frameworks.
-                            3. Identify Psychological Biases (e.g., Sunk Cost Fallacy, Confirmation Bias, FOMO) based on the visual evidence.
-                            
-                            OUTPUT FORMAT (Strict Professional Tone):
-                            **1. EXECUTIVE DIAGNOSIS:** (Brief summary of the failure mechanism).
-                            **2. TECHNICAL INSOLVENCY:** (Detailed technical breakdown of why the setup failed: leverage, timing, or structure).
-                            **3. BEHAVIORAL AUDIT:** (Psychological state assessment).
-                            **4. REMEDIATION PROTOCOL:** (Specific, actionable rule to prevent recurrence).
-                            
-                            NOTE: Maintain a clinical, objective, and professional tone. No slang.
+                            STRICT CONSTRAINTS (ANTI-HALLUCINATION):
+                            1. Do NOT assume volume, order flow, or news unless clearly visible.
+                            2. Do NOT use emotional language (fear, panic) unless the visual evidence proves irrational exits (e.g., exit at exact bottom).
+                            3. DEFAULT to "Structural Failure" if no clear psychological error is visible.
+
+                            OUTPUT SCHEMA:
+                            [PRIMARY CAUSE]: (Select ONE: Execution Latency, Structural Insolvency, Liquidity Trap, Impulsive Entry).
+                            [EVIDENCE]: (Cite specific visual elements: e.g., "Entry executed 3 bars after signal").
+                            [RISK CALCULATION]: (Estimate the R:R based on visual stop placement).
+                            [INSTITUTIONAL MANDATE]: (A single, corrective algorithmic rule).
+
+                            TONE: Clinical, Mathematical, Objective.
                             """
                             
                             payload = {
@@ -204,107 +173,142 @@ with c_main:
                             
                             if res.status_code == 200:
                                 content = res.json()["choices"][0]["message"]["content"]
-                                st.markdown(f"""<div style="background: #161b22; border-left: 5px solid #ff4d4d; padding: 30px; border-radius: 8px; margin-top: 20px;">{content}</div>""", unsafe_allow_html=True)
+                                st.markdown(f"""
+                                <div class="report-container">
+                                    <div class="report-header">OCR FORENSIC RESULT // REF: {hash(content) % 10000}</div>
+                                    <div class="report-content">{content}</div>
+                                </div>
+                                """, unsafe_allow_html=True)
                         except Exception as e:
-                            st.error(f"Error: {e}")
+                            st.error(f"OCR PROCESSING ERROR: {e}")
 
-    # --- TAB 2: MANUAL INPUT ---
+    # --- TAB 2: MANUAL ENTRY (DETERMINISTIC LOGIC) ---
     with tab_manual:
         st.markdown("<br>", unsafe_allow_html=True)
         with st.container():
             col_form_1, col_form_2, col_form_3 = st.columns([1, 6, 1])
             with col_form_2:
-                with st.container():
-                    st.markdown("### 📂 CASE FILE DETAILS")
-                    st.markdown("<p style='color:#64748b; font-size:0.9rem; margin-bottom:20px;'>Provide precise data for an institutional-grade audit.</p>", unsafe_allow_html=True)
-                    
-                    r1c1, r1c2, r1c3 = st.columns(3)
-                    with r1c1:
-                        ticker = st.text_input("Ticker", placeholder="$NVDA")
-                    with r1c2:
-                        position = st.selectbox("Position", ["Long (Buy)", "Short (Sell)"])
-                    with r1c3:
-                        timeframe = st.selectbox("Timeframe", ["Scalp (1m-5m)", "Day Trade (15m-1h)", "Swing (4h-Daily)", "Investing (Weekly)"])
-                    
-                    r2c1, r2c2, r2c3 = st.columns(3)
-                    with r2c1:
-                        entry_price = st.text_input("Entry Price", placeholder="100.00")
-                    with r2c2:
-                        exit_price = st.text_input("Exit Price", placeholder="95.00")
-                    with r2c3:
-                        planned_stop = st.text_input("Planned Stop", placeholder="98.00")
-                    
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    setup_desc = st.text_area("Thesis (Entry Logic)", placeholder="Describe market structure, indicators, and catalysts...")
-                    exit_desc = st.text_area("Execution (Exit Logic)", placeholder="Describe price action at exit and emotional state...")
-                    
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    
-                    if st.button("RUN INSTITUTIONAL ANALYSIS (TEXT)", type="primary", use_container_width=True):
-                        if not ticker or not setup_desc:
-                            st.warning("⚠️ Data insufficient for audit. Please complete the case file.")
-                        else:
-                            with st.spinner("🧠 CALCULATING RISK METRICS & BEHAVIORAL BIAS..."):
-                                try:
-                                    # --- UPDATED PROFESSIONAL PROMPT (MANUAL) ---
-                                    manual_prompt = f"""
-                                    ACT AS: Chief Risk Officer (CRO) & Trading Psychologist.
-                                    CONTEXT: A trader has submitted a failed trade for forensic analysis.
-                                    
-                                    CASE FILE DATA:
-                                    - Asset: {ticker}
-                                    - Direction: {position} ({timeframe})
-                                    - Entry: {entry_price} | Exit: {exit_price} | Planned Stop: {planned_stop}
-                                    - Entry Thesis: {setup_desc}
-                                    - Exit Reality: {exit_desc}
-                                    
-                                    TASK: Perform a rigorous audit of the decision-making process.
-                                    
-                                    OUTPUT FORMAT (Professional Report):
-                                    **1. TRADE STRUCTURE ANALYSIS:** (Evaluate the R:R, entry timing, and adherence to the planned stop. Did they respect statistical probabilities?)
-                                    
-                                    **2. BEHAVIORAL ECONOMICS ASSESSMENT:** (Identify specific biases: e.g., Disposition Effect, Loss Aversion, Overconfidence Bias, Recency Bias).
-                                    
-                                    **3. RISK MANAGEMENT FAILURE:** (Analyze the mathematical error. Calculate the slippage or deviation from the plan).
-                                    
-                                    **4. INSTITUTIONAL MANDATE:** (A singular, professional instruction to correct this behavior in future sessions).
-                                    
-                                    TONE: Objective, High-Level Financial English, Analytical. No casual language.
-                                    """
-                                    
-                                    payload = {
-                                        "model": "Qwen/Qwen2.5-VL-7B-Instruct",
-                                        "messages": [{"role": "user", "content": manual_prompt}],
-                                        "max_tokens": 1000
-                                    }
-                                    headers = {"Authorization": f"Bearer {HF_TOKEN}", "Content-Type": "application/json"}
-                                    res = requests.post(API_URL, headers=headers, json=payload)
-                                    
-                                    if res.status_code == 200:
-                                        content = res.json()["choices"][0]["message"]["content"]
-                                        st.markdown(f"""<div style="background: #161b22; border-left: 5px solid #ff4d4d; padding: 30px; border-radius: 8px; margin-top: 20px;">{content}</div>""", unsafe_allow_html=True)
-                                    else:
-                                        st.error(f"AI Server Status: {res.status_code}")
-                                except Exception as e:
-                                    st.error(f"System Error: {e}")
+                st.markdown("### CASE FILE PARAMETERS")
+                
+                # ROW 1: CORE DATA
+                r1c1, r1c2, r1c3 = st.columns(3)
+                with r1c1: ticker = st.text_input("Asset Ticker", placeholder="e.g. BTCUSDT")
+                with r1c2: position = st.selectbox("Direction", ["Long", "Short"])
+                with r1c3: intent = st.selectbox("Execution Intent", ["Systematic (Planned)", "Discretionary (Impulsive)", "Hybrid"])
 
-# Footer Grid
+                # ROW 2: PRICE DATA
+                r2c1, r2c2, r2c3 = st.columns(3)
+                with r2c1: entry_px = st.text_input("Entry Price", placeholder="0.00")
+                with r2c2: exit_px = st.text_input("Exit Price", placeholder="0.00")
+                with r2c3: stop_px = st.text_input("Stop Loss Price", placeholder="0.00")
+
+                st.markdown("<br>", unsafe_allow_html=True)
+                
+                # CONTEXTUAL DATA
+                setup_desc = st.text_area("Structural Thesis (Entry Logic)", placeholder="Define market structure, key levels, and confirmation triggers.")
+                exit_desc = st.text_area("Liquidation Context (Exit Logic)", placeholder="Describe the conditions at the moment of exit.")
+
+                st.markdown("<br>", unsafe_allow_html=True)
+
+                if st.button("EXECUTE DIAGNOSTIC ALGORITHM", type="primary", use_container_width=True):
+                    if not ticker or not entry_px or not exit_px:
+                        st.warning("INSUFFICIENT DATA: Price coordinates required for audit.")
+                    else:
+                        with st.spinner("CALCULATING VARIANCE & EXPECTANCY..."):
+                            try:
+                                # 1. DETERMINISTIC MATH LAYER (Python Logic, not AI)
+                                try:
+                                    e_val = float(entry_px)
+                                    x_val = float(exit_px)
+                                    s_val = float(stop_px)
+                                    
+                                    risk_magnitude = abs(e_val - s_val)
+                                    loss_magnitude = abs(e_val - x_val)
+                                    
+                                    # Calculate Deviation
+                                    slippage_ratio = 0
+                                    if risk_magnitude > 0:
+                                        slippage_ratio = (loss_magnitude - risk_magnitude) / risk_magnitude
+                                    
+                                    math_context = f"Calculated Risk Deviation: {slippage_ratio:.2f}R."
+                                except:
+                                    math_context = "Risk Calculation Failed: Invalid numeric input."
+
+                                # 2. SYSTEM PROMPT (Professional/Institutional)
+                                system_prompt = f"""
+                                ROLE: Chief Investment Officer (CIO) / Risk Auditor.
+                                OBJECTIVE: Determine the PRIMARY CAUSE of trade failure based on the provided data.
+
+                                INPUT DATA:
+                                - Asset: {ticker} ({position})
+                                - Intent Class: {intent}
+                                - Math Audit: {math_context}
+                                - Entry Context: {setup_desc}
+                                - Exit Context: {exit_desc}
+
+                                LOGIC TREE (STRICT PRIORITY):
+                                1. IF Intent is "Impulsive" -> Primary Cause = "Discretionary Violation".
+                                2. IF Setup Context is vague (e.g., "it looked good") -> Primary Cause = "Confirmation Bias".
+                                3. IF Risk Deviation > 0.2R (User lost more than planned) -> Primary Cause = "Risk Management Failure".
+                                4. IF Entry was technically sound but market reversed -> Primary Cause = "Probabilistic Variance".
+
+                                RULES:
+                                - NO HALLUCINATIONS: Do not assume volume, indicators, or news if not listed.
+                                - NO PSYCHOLOGY FLUFF: Do not mention "fear" or "greed" unless explicitly stated in Exit Context.
+                                - SINGLE DIAGNOSIS: You must choose ONE primary failure point.
+
+                                OUTPUT FORMAT:
+                                **DIAGNOSTIC CODE:** [Select: EXECUTION_ERROR | STRUCTURAL_INSOLVENCY | PROBABILISTIC_LOSS]
+                                
+                                **PRIMARY FAILURE MECHANISM:**
+                                (One sentence defining exactly what broke: The Entry, The Risk Model, or The Psychology).
+
+                                **AUDIT FINDINGS:**
+                                - Evidence A: (Direct quote or data point).
+                                - Evidence B: (Math deviation or logic gap).
+
+                                **CORRECTIVE MANDATE:**
+                                (A specific, binary rule to prevent this specific error type).
+                                """
+
+                                payload = {
+                                    "model": "Qwen/Qwen2.5-VL-7B-Instruct",
+                                    "messages": [{"role": "user", "content": system_prompt}],
+                                    "max_tokens": 800
+                                }
+                                headers = {"Authorization": f"Bearer {HF_TOKEN}", "Content-Type": "application/json"}
+                                res = requests.post(API_URL, headers=headers, json=payload)
+                                
+                                if res.status_code == 200:
+                                    content = res.json()["choices"][0]["message"]["content"]
+                                    st.markdown(f"""
+                                    <div class="report-container">
+                                        <div class="report-header">ALGORITHMIC DIAGNOSIS // ID: {ticker.upper()}-{position.upper()}</div>
+                                        <div class="report-content">{content}</div>
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                                else:
+                                    st.error(f"API GATEWAY ERROR: {res.status_code}")
+                            except Exception as e:
+                                st.error(f"RUNTIME EXCEPTION: {e}")
+
+# 6. FOOTER GRID (Professional)
 st.markdown("""
-<div class="grid">
-    <div class="card">
-        <h3>Pattern Recognition</h3>
-        <p>Did you buy the top? We identify if you're falling for FOMO or revenge trading instantly.</p>
+<div class="grid-container">
+    <div class="feature-card">
+        <div class="feature-title">Variance Analysis</div>
+        <div class="feature-text">Distinguish between poor execution and standard probabilistic drawdown.</div>
     </div>
-    <div class="card">
-        <h3>Risk Autopsy</h3>
-        <p>Calculates if your stop-loss was too tight or if your position sizing was reckless.</p>
+    <div class="feature-card">
+        <div class="feature-title">Structural Audit</div>
+        <div class="feature-text">Identify insolvency in trade thesis relative to market microstructure.</div>
     </div>
-    <div class="card">
-        <h3>Recovery Plan</h3>
-        <p>Step-by-step technical adjustments to ensure the next trade is a winner, not a gamble.</p>
+    <div class="feature-card">
+        <div class="feature-title">Behavioral Drift</div>
+        <div class="feature-text">Quantify deviations from your systematic trading mandate.</div>
     </div>
 </div>
-<div style="text-align: center; margin-top: 6rem; color: #64748b; font-size: 0.9rem;">
-    &copy; 2026 stockpostmortem.ai | Trading involves risk.
+<div style="text-align: center; margin-top: 5rem; color: #475569; font-size: 0.8rem; font-family: monospace;">
+    TRADEPOSTMORTEM.AI // SYSTEM 2.0 // INSTITUTIONAL RELEASE
 </div>
 """, unsafe_allow_html=True)
