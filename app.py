@@ -10,7 +10,7 @@ from PIL import Image
 st.set_page_config(
     page_title="StockPostmortem.ai",
     page_icon="🩸",
-    layout="wide",
+    layout="wide", # We keep this wide, but constrain it with CSS below
     initial_sidebar_state="collapsed"
 )
 
@@ -25,40 +25,46 @@ except Exception:
     st.stop()
 
 # =========================================================
-# 3. CSS ENGINE (SURGICAL RECONSTRUCTION)
+# 3. CSS ENGINE (ZOOM & FOCUS FIX)
 # =========================================================
 st.markdown("""
     <style>
     /* --------------------------------------------------------
        FONTS & GLOBAL RESET
     -------------------------------------------------------- */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
     .stApp {
         background-color: #0f171c;
         font-family: 'Inter', sans-serif;
     }
     
-    /* Hide Default Header/Footer */
+    /* HIDE DEFAULT STREAMLIT ELEMENTS */
     header, footer, #MainMenu {display: none !important;}
     
-    /* Layout Constraints - Fixes "Zoomed Out" feel */
+    /* THE ZOOM FIX: 
+       We constrain the main container to 1000px.
+       This forces the content to be large and centered, 
+       eliminating the "zoomed out" look on large monitors.
+    */
     .block-container {
-        max-width: 1200px;
-        padding-top: 2rem !important;
+        max-width: 1000px !important;
+        padding-top: 3rem !important;
         padding-bottom: 5rem !important;
-        margin: 0 auto;
+        padding-left: 2rem !important;
+        padding-right: 2rem !important;
+        margin: 0 auto !important;
     }
 
     /* --------------------------------------------------------
-       NAVBAR (Flexbox)
+       NAVBAR
     -------------------------------------------------------- */
     .navbar {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 15px 0;
-        margin-bottom: 60px;
+        padding: 10px 0;
+        margin-bottom: 50px;
     }
     .logo {
         font-size: 22px;
@@ -70,7 +76,7 @@ st.markdown("""
     
     .nav-links {
         display: flex;
-        gap: 40px;
+        gap: 30px;
         font-size: 13px;
         font-weight: 600;
         color: #cbd5e1;
@@ -78,134 +84,147 @@ st.markdown("""
         letter-spacing: 0.5px;
     }
     
-    .btn-red {
+    .btn-cta {
         background-color: #ff4d4d;
         color: white;
-        padding: 10px 24px;
-        border-radius: 6px; /* Slightly squared like screenshot */
+        padding: 10px 22px;
+        border-radius: 6px;
         font-weight: 600;
         font-size: 14px;
         border: none;
         cursor: pointer;
+        text-decoration: none;
     }
 
     /* --------------------------------------------------------
-       HERO TEXT
+       HERO TYPOGRAPHY (SCALED UP)
     -------------------------------------------------------- */
     .hero-title {
-        font-size: 64px;
+        font-size: 72px; /* Larger font to fill space */
         font-weight: 800;
         font-style: italic;
         color: #fff;
         text-align: center;
         margin-bottom: 15px;
-        line-height: 1.1;
+        line-height: 1.05;
+        letter-spacing: -1.5px;
     }
     .hero-sub {
-        font-size: 16px;
+        font-size: 19px; /* Larger for readability */
         color: #94a3b8;
         text-align: center;
-        max-width: 650px;
+        max-width: 700px;
         margin: 0 auto 50px auto;
         line-height: 1.6;
+        font-weight: 400;
     }
 
     /* --------------------------------------------------------
-       THE UPLOADER HACK (The Magic Part)
-       We target the internal Streamlit classes to force the UI.
+       THE UPLOADER (PERFECTLY CENTERED)
     -------------------------------------------------------- */
-    
-    /* 1. The Container Box (Dashed) */
+    /* 1. The Container Box */
     [data-testid="stFileUploader"] {
         background-color: rgba(31, 46, 56, 0.4);
         border: 2px dashed #334155;
         border-radius: 16px;
-        padding: 60px 20px; /* Tall padding to fit icon/text */
+        padding: 50px 0px; /* Vertical padding */
         text-align: center;
         transition: border-color 0.3s;
+        max-width: 750px; /* Enforce width */
+        margin: 0 auto;
     }
     [data-testid="stFileUploader"]:hover {
         border-color: #ff4d4d;
         background-color: rgba(31, 46, 56, 0.6);
     }
 
-    /* 2. Hide the default "Drag and drop file here" Text & Icon */
+    /* 2. Hide Native Elements */
     [data-testid="stFileUploaderDropzone"] div div::before {display: none;}
-    [data-testid="stFileUploaderDropzone"] div div span {display: none;} 
+    [data-testid="stFileUploaderDropzone"] div div span {display: none;}
     [data-testid="stFileUploaderDropzoneInstructions"] {display: none;}
     
-    /* 3. Inject CUSTOM Icon and Text using Pseudo-elements on the Dropzone */
+    /* 3. Inject Custom Icon & Text (Centered Flex Logic) */
+    [data-testid="stFileUploaderDropzone"] {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 15px;
+        min-height: 200px; /* Ensure height matches screenshot */
+    }
+    
     [data-testid="stFileUploaderDropzone"]::before {
-        content: "☁️"; /* Cloud Icon */
-        display: block;
-        font-size: 40px;
-        margin-bottom: 20px;
-        filter: hue-rotate(140deg); /* Adjust color if needed, or use emoji */
+        content: "☁️"; 
+        font-size: 48px;
+        margin-bottom: 5px;
+        line-height: 1;
     }
     
     [data-testid="stFileUploaderDropzone"]::after {
-        content: "Drop your P&L or Chart screenshot here\\A Supports PNG, JPG (Max 10MB). Your data is encrypted.";
-        white-space: pre-wrap; /* Allows line break \A */
-        display: block;
+        content: "Drop your P&L or Chart screenshot here\\A Supports PNG, JPG (Max 10MB). Encrypted.";
+        white-space: pre-wrap;
         font-weight: 700;
         font-size: 18px;
         color: white;
-        margin-bottom: 20px;
-        line-height: 1.5;
+        text-align: center;
+        margin-bottom: 10px;
     }
 
-    /* 4. Style the "Browse files" button to look like "Select File" (White) */
+    /* 4. Style the Button (White, Centered) */
     button[data-testid="baseButton-secondary"] {
         background-color: white !important;
         color: #0f171c !important;
         border: none !important;
         border-radius: 6px !important;
-        padding: 10px 24px !important;
+        padding: 10px 28px !important;
         font-weight: 700 !important;
-        font-size: 14px !important;
+        font-size: 15px !important;
         margin-top: 10px !important;
+        width: auto !important;
     }
     button[data-testid="baseButton-secondary"]:hover {
-        background-color: #f1f5f9 !important;
-        transform: scale(1.02);
+        background-color: #e2e8f0 !important;
+        transform: translateY(-1px);
     }
-
-    /* 5. Clean up the uploaded file list */
+    
+    /* Remove file list bg */
     [data-testid="stFileUploaderUploadedFiles"] {
         background: transparent;
     }
 
     /* --------------------------------------------------------
-       FEATURE CARDS (Bottom)
+       FEATURE CARDS
     -------------------------------------------------------- */
     .feature-card {
-        background-color: #1a222a; /* Exact dark slate */
+        background-color: #1a222a;
         padding: 25px;
-        border-radius: 8px;
+        border-radius: 10px;
         height: 100%;
         border: 1px solid #2d3748;
     }
     .f-head {
         color: #fff;
         font-weight: 700;
-        font-size: 16px;
-        margin-bottom: 10px;
+        font-size: 17px;
+        margin-bottom: 8px;
     }
     .f-body {
         color: #8b9bb4;
-        font-size: 13px;
+        font-size: 14px;
         line-height: 1.5;
     }
-
-    /* Result Box */
-    .analysis-box {
+    
+    /* Analysis Box */
+    .analysis-result {
         background: #161b22;
-        border-left: 4px solid #ff4d4d;
-        padding: 20px;
-        border-radius: 6px;
+        border-left: 5px solid #ff4d4d;
+        padding: 25px;
+        border-radius: 8px;
         margin-top: 30px;
         font-family: 'Inter', monospace;
         color: #e2e8f0;
+        font-size: 15px;
+        line-height: 1.6;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -238,34 +257,24 @@ st.markdown("""
         <span>Case Studies</span>
         <span>Pricing</span>
     </div>
-    <button class="btn-red">Get Started</button>
+    <button class="btn-cta">Get Started</button>
 </div>
 """, unsafe_allow_html=True)
 
 # --- HERO SECTION ---
-# We use columns to center the hero text tightly (fixing "zoomed out" look)
-h1, h2, h3 = st.columns([1, 8, 1])
-with h2:
-    st.markdown('<div class="hero-title">STOP BLEEDING CAPITAL.</div>', unsafe_allow_html=True)
-    st.markdown("""
-        <div class="hero-sub">
-            Upload your losing trade screenshots. Our AI identifies psychological traps,
-            technical failures, and provides a surgical path to recovery.
-        </div>
-    """, unsafe_allow_html=True)
+st.markdown('<div class="hero-title">STOP BLEEDING CAPITAL.</div>', unsafe_allow_html=True)
+st.markdown('<div class="hero-sub">Upload your losing trade screenshots. Our AI identifies psychological traps, technical failures, and provides a surgical path to recovery.</div>', unsafe_allow_html=True)
 
 # --- UPLOAD SECTION ---
-# We use a narrower column ratio for the uploader to match the screenshot width perfectly
-u1, u2, u3 = st.columns([1, 2, 1]) # 1:2:1 Ratio keeps it centered and bounded
+# We treat this as a single block. The CSS above handles the centering.
+uploaded_file = st.file_uploader("", type=["jpg", "png", "jpeg"], label_visibility="collapsed")
 
-with u2:
-    # This single line creates the ENTIRE dashed box UI thanks to the CSS hacks above
-    uploaded_file = st.file_uploader("", type=["jpg", "png", "jpeg"], label_visibility="collapsed")
-    
-    if uploaded_file:
-        # Generate Analysis Button
-        if st.button("RUN DIAGNOSTIC", type="primary", use_container_width=True):
-            with st.spinner("ANALYZING PRICE ACTION & PSYCHOLOGY..."):
+if uploaded_file:
+    # Use columns to center the 'Analyze' button nicely
+    c1, c2, c3 = st.columns([1, 2, 1])
+    with c2:
+        if st.button("RUN FORENSIC DIAGNOSTIC", type="primary", use_container_width=True):
+            with st.spinner("DECRYPTING TRADE PATTERNS..."):
                 try:
                     # Image Processing
                     image = Image.open(uploaded_file)
@@ -273,12 +282,16 @@ with u2:
                     image.save(buf, format="PNG")
                     img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
                     
-                    # Prompt Logic
+                    # Analysis Prompt
                     prompt = (
-                        "ACT AS: Senior Trading Psychologist & Risk Manager. "
-                        "INPUT: Trading Chart or P&L. "
-                        "TASK: 1. Identify the 'Kill Zone' (Mistake). 2. Diagnose Psychology (FOMO/Revenge). 3. Audit Risk. 4. Fix it."
-                        "OUTPUT: Brutally honest, concise, bullet points."
+                        "ACT AS: Senior Hedge Fund Risk Manager. "
+                        "INPUT: A trading chart or P&L screenshot. "
+                        "TASK: "
+                        "1. Identify the 'Kill Zone' (Where the trade failed). "
+                        "2. Detect Psychological Errors (FOMO, Greed, Revenge). "
+                        "3. Audit Position Sizing & Stop Loss. "
+                        "4. Prescribe a 3-Step Recovery Protocol. "
+                        "OUTPUT: Brutally honest, direct, professional tone."
                     )
                     
                     payload = {
@@ -294,9 +307,10 @@ with u2:
                     
                     res = query_router(payload)
                     if res and res.status_code == 200:
-                        st.markdown(f'<div class="analysis-box">{res.json()["choices"][0]["message"]["content"]}</div>', unsafe_allow_html=True)
+                        content = res.json()["choices"][0]["message"]["content"]
+                        st.markdown(f'<div class="analysis-result">{content}</div>', unsafe_allow_html=True)
                     else:
-                        st.error("AI Connection Error.")
+                        st.error("AI Analysis Failed. Please try again.")
                 except Exception as e:
                     st.error(f"Error: {e}")
 
@@ -304,10 +318,9 @@ with u2:
 st.markdown("<br><br>", unsafe_allow_html=True)
 
 # --- FEATURE GRID ---
-# Columns match the screenshot's 3-card layout
-f1, f2, f3 = st.columns(3)
+c1, c2, c3 = st.columns(3)
 
-with f1:
+with c1:
     st.markdown("""
     <div class="feature-card">
         <div class="f-head">Pattern Recognition</div>
@@ -315,7 +328,7 @@ with f1:
     </div>
     """, unsafe_allow_html=True)
 
-with f2:
+with c2:
     st.markdown("""
     <div class="feature-card">
         <div class="f-head">Risk Autopsy</div>
@@ -323,7 +336,7 @@ with f2:
     </div>
     """, unsafe_allow_html=True)
 
-with f3:
+with c3:
     st.markdown("""
     <div class="feature-card">
         <div class="f-head">Recovery Plan</div>
