@@ -5,7 +5,7 @@ import io
 import re
 import pandas as pd
 import time
-import html
+from textwrap import dedent  # <--- FIXED: HELPS REMOVE INDENTATION BUG
 from PIL import Image
 from supabase import create_client, Client
 
@@ -79,7 +79,6 @@ def run_scientific_analysis(messages, mode="text"):
         "temperature": 0.4, 
     }
 
-    # Robust Retry Loop
     for attempt in range(3):
         try:
             res = requests.post(api_url, headers=headers, json=payload, timeout=90)
@@ -97,7 +96,6 @@ def run_scientific_analysis(messages, mode="text"):
 # ==========================================
 # 3. PARSING & DISPLAY
 # ==========================================
-# CSS Styles
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@300;400;600&display=swap');
@@ -110,6 +108,7 @@ st.markdown("""
         border-radius: 12px; 
         padding: 25px; 
         box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        margin-top: 20px;
     }
     
     .section-title {
@@ -119,7 +118,7 @@ st.markdown("""
         font-size: 1.1rem;
         border-bottom: 1px solid #30363D;
         padding-bottom: 5px;
-        margin-top: 20px;
+        margin-top: 25px;
         margin-bottom: 10px;
     }
     
@@ -127,6 +126,17 @@ st.markdown("""
         font-size: 4rem; 
         font-weight: 800; 
         line-height: 1;
+    }
+
+    .tag-pill {
+        background:#262626; 
+        border:1px solid #444; 
+        padding:4px 8px; 
+        border-radius:4px; 
+        font-size:0.8rem; 
+        margin-right:5px;
+        display: inline-block;
+        margin-bottom: 5px;
     }
     
     button[kind="primary"] { 
@@ -144,7 +154,7 @@ def get_user_rules(user_id):
     except: return []
 
 def parse_scientific_report(text):
-    # 1. Clean formatting that breaks HTML
+    # Clean cleanup
     text = text.replace("```", "").replace("json", "").strip()
     
     sections = { 
@@ -156,17 +166,17 @@ def parse_scientific_report(text):
         "fix": "Analysis failed." 
     }
     
-    # 2. Extract Score
+    # Extract Score
     score_match = re.search(r'\[SCORE\]\s*(\d+)', text, re.IGNORECASE)
     if score_match: sections['score'] = int(score_match.group(1))
 
-    # 3. Extract Tags
+    # Extract Tags
     tags_match = re.search(r'\[TAGS\](.*?)(?=\[|$)', text, re.DOTALL | re.IGNORECASE)
     if tags_match:
         raw = tags_match.group(1).replace('[', '').replace(']', '').split(',')
         sections['tags'] = [t.strip() for t in raw if t.strip()]
     
-    # 4. Extract Deep Dive Sections
+    # Extract Deep Dive Sections
     patterns = {
         "tech": r"\[TECHNICAL FORENSICS\](.*?)(?=\[PSYCHOLOGICAL PROFILE\]|\[RISK ASSESSMENT\]|\[STRATEGIC ROADMAP\]|\[SCORE\]|\[TAGS\]|$)",
         "psych": r"\[PSYCHOLOGICAL PROFILE\](.*?)(?=\[RISK ASSESSMENT\]|\[STRATEGIC ROADMAP\]|\[SCORE\]|\[TAGS\]|$)",
@@ -177,9 +187,9 @@ def parse_scientific_report(text):
     for key, pattern in patterns.items():
         match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
         if match: 
-            # SANITIZE: Escape HTML characters to prevent broken layout
-            clean_content = html.escape(match.group(1).strip())
-            sections[key] = clean_content.replace("\n", "<br>")
+            # Convert newlines to breaks, but NO HTML ESCAPING to fix your error
+            content = match.group(1).strip().replace("\n", "<br>")
+            sections[key] = content
             
     return sections
 
@@ -284,16 +294,17 @@ else:
                             save_to_lab_records(user, report)
                             
                             c_score = "#ff4d4d" if report['score'] < 50 else "#00e676"
+                            tags_html = ' '.join([f'<span class="tag-pill">{t}</span>' for t in report['tags']])
                             
-                            # RENDER HTML SAFELY
-                            st.markdown(f"""
+                            # --- FIXED HTML RENDERING: USING DEDENT ---
+                            html_code = dedent(f"""
                             <div class="report-box">
                                 <div style="display:flex; justify-content:space-between; border-bottom:1px solid #444;">
-                                    <h2 style="color:#fff;">DIAGNOSTIC REPORT</h2>
+                                    <h2 style="color:#fff; margin:0;">DIAGNOSTIC REPORT</h2>
                                     <div class="score-circle" style="color:{c_score};">{report['score']}</div>
                                 </div>
                                 <div style="margin:10px 0;">
-                                    {' '.join([f'<span style="background:#262626; border:1px solid #444; padding:4px 8px; border-radius:4px; font-size:0.8rem; margin-right:5px;">{t}</span>' for t in report['tags']])}
+                                    {tags_html}
                                 </div>
                                 
                                 <div class="section-title">📊 TECHNICAL FORENSICS</div>
@@ -308,7 +319,9 @@ else:
                                 <div class="section-title">🚀 STRATEGIC ROADMAP</div>
                                 <div style="background:rgba(46, 160, 67, 0.1); border-left:4px solid #2ea043; padding:15px; color:#fff;">{report['fix']}</div>
                             </div>
-                            """, unsafe_allow_html=True)
+                            """)
+                            st.markdown(html_code, unsafe_allow_html=True)
+                            
                         except Exception as e: st.error(str(e))
 
         # --- TEXT LOG ANALYSIS ---
@@ -338,22 +351,29 @@ else:
                             save_to_lab_records(user, report)
                             
                             c_score = "#ff4d4d" if report['score'] < 50 else "#00e676"
-                            st.markdown(f"""
+                            tags_html = ' '.join([f'<span class="tag-pill">{t}</span>' for t in report['tags']])
+                            
+                            html_code = dedent(f"""
                             <div class="report-box">
                                 <div style="display:flex; justify-content:space-between; border-bottom:1px solid #444;">
-                                    <h2 style="color:#fff;">DIAGNOSTIC REPORT</h2>
+                                    <h2 style="color:#fff; margin:0;">DIAGNOSTIC REPORT</h2>
                                     <div class="score-circle" style="color:{c_score};">{report['score']}</div>
                                 </div>
+                                <div style="margin:10px 0;">
+                                    {tags_html}
+                                </div>
+                                
                                 <div class="section-title">📊 TECHNICAL FORENSICS</div>
-                                <div style="color:#d0d7de;">{report['tech']}</div>
+                                <div style="color:#d0d7de; line-height:1.6;">{report['tech']}</div>
                                 <div class="section-title">🧠 PSYCHOLOGICAL PROFILE</div>
-                                <div style="color:#d0d7de;">{report['psych']}</div>
+                                <div style="color:#d0d7de; line-height:1.6;">{report['psych']}</div>
                                 <div class="section-title">⚖️ RISK ASSESSMENT</div>
-                                <div style="color:#d0d7de;">{report['risk']}</div>
+                                <div style="color:#d0d7de; line-height:1.6;">{report['risk']}</div>
                                 <div class="section-title">🚀 STRATEGIC ROADMAP</div>
-                                <div style="color:#fff;">{report['fix']}</div>
+                                <div style="background:rgba(46, 160, 67, 0.1); border-left:4px solid #2ea043; padding:15px; color:#fff;">{report['fix']}</div>
                             </div>
-                            """, unsafe_allow_html=True)
+                            """)
+                            st.markdown(html_code, unsafe_allow_html=True)
                         except Exception as e: st.error(str(e))
 
     with tab_laws:
