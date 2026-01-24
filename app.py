@@ -15,7 +15,7 @@ except Exception:
     st.error("⚠️ HF_TOKEN is missing. Add it to Streamlit Secrets.")
     st.stop()
 
-# 3. CSS OVERRIDES (THE FIX)
+# 3. CSS OVERRIDES (THE PINNING METHOD)
 st.markdown("""
 <style>
     /* RESET & FONTS */
@@ -27,147 +27,121 @@ st.markdown("""
         color: #e2e8f0 !important; 
     }
     
-    /* HIDE DEFAULT HEADER/FOOTER */
     header, footer, #MainMenu { display: none !important; }
     .block-container { padding-top: 0rem !important; max-width: 1000px !important; }
 
     /* --- NAV --- */
-    .nav { 
-        display: flex; justify-content: space-between; align-items: center; 
-        padding: 1.5rem 0; border-bottom: 1px solid #2d4250; margin-bottom: 4rem; 
-    }
+    .nav { display: flex; justify-content: space-between; align-items: center; padding: 1.5rem 0; border-bottom: 1px solid #2d4250; margin-bottom: 4rem; }
     .logo { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.05em; color: white; }
     .logo span { color: #ff4d4d; }
-    .cta-btn { 
-        background: #dc2626; color: white; padding: 0.6rem 1.5rem; 
-        border-radius: 99px; border: none; font-weight: 600; 
-    }
+    .cta-btn { background: #dc2626; color: white; padding: 0.6rem 1.5rem; border-radius: 99px; border: none; font-weight: 600; }
 
     /* --- HERO --- */
-    .hero-h1 { 
-        font-size: 4rem; font-weight: 800; font-style: italic; 
-        text-align: center; color: white; line-height: 1.1; margin-bottom: 1rem; 
-    }
-    .hero-p { 
-        text-align: center; color: #94a3b8; font-size: 1.2rem; 
-        max-width: 700px; margin: 0 auto 3rem auto; 
-    }
+    .hero-h1 { font-size: 4rem; font-weight: 800; font-style: italic; text-align: center; color: white; line-height: 1.1; margin-bottom: 1rem; }
+    .hero-p { text-align: center; color: #94a3b8; font-size: 1.2rem; max-width: 700px; margin: 0 auto 3rem auto; }
 
     /* ============================================================
-       PIXEL PERFECT UPLOADER STYLING
+       THE "ABSOLUTE PINNING" UPLOADER FIX
        ============================================================ */
 
-    /* 1. THE CONTAINER (Glass Card) */
+    /* 1. THE BOX CONTAINER */
     [data-testid="stFileUploaderDropzone"] {
         background-color: rgba(31, 46, 56, 0.6) !important;
         border: 2px dashed #475569 !important;
         border-radius: 1rem !important;
-        min-height: 350px !important; /* Fixed height for spacing */
-        
-        /* FLEXBOX MAGIC: Centers everything vertically */
-        display: flex !important;
-        flex-direction: column !important;
-        justify-content: center !important;
-        align-items: center !important;
-        gap: 1.5rem !important; /* Space between Icon, Text, Button */
-        padding: 2rem !important;
+        min-height: 400px !important; /* TALLER to fit everything */
+        position: relative !important; /* Allow absolute positioning inside */
+        transition: all 0.3s ease;
     }
-
-    /* Hover State */
     [data-testid="stFileUploaderDropzone"]:hover {
         border-color: #ff4d4d !important;
         background-color: rgba(31, 46, 56, 0.8) !important;
     }
 
-    /* 2. THE ICON (Your Red Cloud) */
-    /* We inject this via ::before on the container */
+    /* 2. THE ICON (Pinned to TOP) */
     [data-testid="stFileUploaderDropzone"]::before {
         content: "";
-        display: block;
-        width: 60px;
-        height: 60px;
-        /* The exact SVG from your HTML encoded */
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23ef4444'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12' /%3E%3C/svg%3E");
+        position: absolute;
+        top: 60px; /* PINNED 60px from top */
+        left: 50%;
+        transform: translateX(-50%);
+        width: 64px;
+        height: 64px;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23ef4444'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12' /%3E%3C/svg%3E");
         background-repeat: no-repeat;
-        background-position: center;
         background-size: contain;
-        order: 1; /* Force to Top */
+        pointer-events: none; /* Let clicks pass through */
     }
 
-    /* 3. THE TEXT (Replacements) */
-    /* Hide the ugly default "Drag and drop..." text container */
-    [data-testid="stFileUploaderDropzoneInstructions"] {
-        display: none !important; 
-    }
-    
-    /* Inject YOUR Text using ::after on the container so it sits under the icon */
+    /* 3. THE TEXT (Pinned to MIDDLE) */
     [data-testid="stFileUploaderDropzone"]::after {
-        content: "Drop your P&L or Chart screenshot here\\A Supports PNG, JPG (Max 10MB). Your data is encrypted.";
-        white-space: pre-wrap; /* Allows line break */
+        content: "Drop your P&L or Chart screenshot here\\A Supports PNG, JPG (Max 10MB)";
+        white-space: pre-wrap;
+        position: absolute;
+        top: 140px; /* PINNED below icon */
+        left: 0;
+        width: 100%;
         text-align: center;
         color: #e2e8f0;
         font-size: 1.25rem;
         font-weight: 600;
         line-height: 1.6;
-        order: 2; /* Sits below Icon */
+        pointer-events: none;
     }
-    
-    /* 4. THE BUTTON ("Select File") */
+
+    /* 4. HIDE DEFAULT GARBAGE */
+    [data-testid="stFileUploaderDropzoneInstructions"] { 
+        visibility: hidden !important; 
+        height: 0 !important;
+    }
+    [data-testid="stFileUploaderDropzone"] div > svg { display: none !important; }
+
+    /* 5. THE BUTTON (Pinned to BOTTOM) */
     [data-testid="stFileUploaderDropzone"] button {
-        order: 3; /* Sits at bottom */
+        visibility: visible !important; /* Bring button back */
+        position: absolute !important;
+        bottom: 60px !important; /* PINNED 60px from bottom */
+        left: 50% !important;
+        transform: translateX(-50%) !important;
+        
+        /* STYLE IT WHITE */
         background-color: white !important;
+        color: black !important;
         border: none !important;
-        padding: 12px 30px !important;
+        padding: 12px 32px !important;
         border-radius: 8px !important;
         font-weight: 700 !important;
         font-size: 1rem !important;
-        color: black !important;
-        transition: all 0.2s;
-        margin-top: 10px !important;
-        
-        /* Fix width to match design */
         width: auto !important;
-        display: inline-block !important;
-    }
-
-    /* Button Hover */
-    [data-testid="stFileUploaderDropzone"] button:hover {
-        background-color: #cbd5e1 !important;
-        transform: scale(1.05);
-    }
-
-    /* HIDE DEFAULT ICONS (The small cloud icon from Streamlit) */
-    [data-testid="stFileUploaderDropzone"] div[role="button"] > div > svg {
-        display: none !important;
+        z-index: 10 !important; /* Make sure it's clickable */
     }
     
-    /* Fix: Button Text Replacement Hack */
-    /* Streamlit button says "Browse files". We hide that text and overlay "Select File" */
+    /* BUTTON TEXT SWAP */
     [data-testid="stFileUploaderDropzone"] button {
         color: transparent !important;
-        position: relative;
     }
     [data-testid="stFileUploaderDropzone"] button::after {
         content: "Select File";
-        position: absolute;
         color: black;
+        position: absolute;
         left: 50%;
         top: 50%;
         transform: translate(-50%, -50%);
         white-space: nowrap;
     }
+    [data-testid="stFileUploaderDropzone"] button:hover {
+        background-color: #cbd5e1 !important;
+    }
 
-    /* --- FEATURE GRID --- */
+    /* --- GRID --- */
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 2rem; margin-top: 4rem; }
     .card { background: #1f2e38; padding: 1.5rem; border-radius: 0.75rem; }
     .card h3 { color: white; font-weight: 700; margin-bottom: 0.5rem; }
     .card p { color: #94a3b8; font-size: 0.9rem; }
-
 </style>
 """, unsafe_allow_html=True)
 
-# 4. UI RENDER
-# Navbar
+# 4. RENDER UI
 st.markdown("""
 <div class="nav">
     <div class="logo">STOCK<span>POSTMORTEM</span>.AI</div>
@@ -195,7 +169,7 @@ if uploaded_file:
                     image.save(buf, format="PNG")
                     img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
 
-                    prompt = "ACT AS: Trading Psychologist. INPUT: Chart Image. OUTPUT: 1. Technical Mistake. 2. Emotional Trap. 3. Risk Management Fail. Be brutal and concise."
+                    prompt = "ACT AS: Trading Psychologist. INPUT: Chart Image. OUTPUT: 1. Technical Mistake. 2. Emotional Trap. 3. Risk Management Fail. Be brutal."
                     
                     payload = {
                         "model": "Qwen/Qwen2.5-VL-7B-Instruct",
