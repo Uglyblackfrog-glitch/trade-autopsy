@@ -194,7 +194,7 @@ with c_main:
                             [Only diagnose psychology if the chart shows obvious emotional trading (e.g., chasing vertical candles, revenge trading zones). Otherwise, state "Insufficient data for psychological profile".]
 
                             **4. REMEDIATION PROTOCOL**
-                            [One specific, actionable trading rule to prevent this error in the future.]
+                            [One specific, actionable trading rule to prevent this error in the future. Make it imperative and bold.]
                             
                             TONE: Clinical, Objective, Institutional. No conversational filler.
                             """
@@ -241,6 +241,13 @@ with c_main:
                         exit_price = st.text_input("Exit Price", placeholder="95.00")
                     with r2c3:
                         planned_stop = st.text_input("Planned Stop", placeholder="98.00")
+
+                    # NEW: Trade Intent Dropdown to guide the AI
+                    intent = st.selectbox("Pre-Trade Intent", 
+                                          ["Planned & Rule-Based (I had a plan)", 
+                                           "Impulsive / FOMO (I chased price)", 
+                                           "Revenge / Tilt (Recovering losses)", 
+                                           "Unsure / No Plan"])
                     
                     st.markdown("<br>", unsafe_allow_html=True)
                     setup_desc = st.text_area("Thesis (Entry Logic)", placeholder="Describe market structure, indicators, and catalysts...")
@@ -265,9 +272,11 @@ with c_main:
                                         risk_per_share = abs(ep - sl)
                                         loss_per_share = abs(ep - xp)
                                         
-                                        # Calculate Deviation
-                                        if risk_per_share > 0:
-                                            r_multiple = loss_per_share / risk_per_share
+                                        # Avoid DivisionByZero if User enters same Entry/Stop
+                                        if risk_per_share == 0:
+                                            math_context = "Risk Metrics: Invalid (Entry Price equals Stop Loss)."
+                                        else:
+                                            # Calculate Deviation
                                             slippage_pct = ((loss_per_share - risk_per_share) / risk_per_share) * 100
                                             
                                             math_context = f"""
@@ -287,6 +296,7 @@ with c_main:
                                     CASE FILE DATA:
                                     - Asset: {ticker}
                                     - Direction: {position} ({timeframe})
+                                    - Trade Intent: {intent}
                                     - Entry Thesis: {setup_desc}
                                     - Exit Reality: {exit_desc}
                                     
@@ -295,7 +305,7 @@ with c_main:
                                     STRICT AUDIT RULES:
                                     1. DO NOT INVENT CONTEXT: If the user did not mention volume, RSI, or confirmation candles, do not assume they existed.
                                     2. HIERARCHY OF ERROR: Evaluate the ENTRY first. If the entry was impulsive/chasing, the trade was invalid regardless of the exit.
-                                    3. PSYCHOLOGY GATE: Only diagnose "Fear/Greed" if the user explicitly stated emotional distress or if the math shows they ignored a stop loss (Deviation > 0%).
+                                    3. PSYCHOLOGY GATE: Only diagnose "Fear/Greed" if the user explicitly stated emotional distress, admitted to FOMO in "Trade Intent", or if the math shows they ignored a stop loss (Deviation > 0%).
                                     
                                     OUTPUT FORMAT (Financial Report Style):
                                     
@@ -309,7 +319,7 @@ with c_main:
                                     [Identify specific cognitive biases (e.g., Recency Bias, FOMO, Sunk Cost Fallacy) supported by the provided data.]
                                     
                                     **4. INSTITUTIONAL MANDATE**
-                                    [A precise, non-negotiable rule to correct this behavior in future sessions.]
+                                    [Write ONE single, imperative rule in bold. Do not explain the policy; state the command. Example: "**Hard stop enforcement at -1R. No averaging down on intraday positions.**"]
                                     
                                     TONE: Professional, Direct, Financial English. No slang. No emojis.
                                     """
