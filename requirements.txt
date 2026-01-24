@@ -18,4 +18,9 @@ requests
 pandas
 Pillow
 supabase
+streamlit
+pandas
+Pillow
+supabase
+huggingface_hub
 
