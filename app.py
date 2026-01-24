@@ -113,7 +113,6 @@ def save_analysis(user_id, data):
 def parse_report(text):
     """
     Robust Regex Parsing (Order Independent)
-    Fixes the issue where AI swapping paragraphs caused blank reports.
     """
     sections = {
         "score": 0, "tags": [], 
@@ -134,7 +133,6 @@ def parse_report(text):
         sections['tags'] = [t.strip() for t in raw if t.strip()]
 
     # 3. Extract Text Blocks (Robust Loop)
-    # This pattern grabs text after a tag until it hits the next tag OR end of string
     for key, tag in [('tech', '[TECH]'), ('psych', '[PSYCH]'), ('risk', '[RISK]'), ('fix', '[FIX]')]:
         pattern = re.escape(tag) + r"(.*?)(?=\[TECH\]|\[PSYCH\]|\[RISK\]|\[FIX\]|\[SCORE\]|\[TAGS\]|$)"
         match = re.search(pattern, text, re.DOTALL)
@@ -209,23 +207,24 @@ else:
                     image.save(buf, format="PNG")
                     img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
                     
-                    # FIXED PROMPT: Added "Step 1" visual grounding and neutral language
+                    # --- UPGRADED PROMPT FOR VISION (1000% ACCURACY TARGET) ---
                     prompt = f"""
-                    ACT AS: Elite Trading Psychologist.
-                    CONTEXT: User's Rules: {my_rules}
+                    ROLE: Senior Quantitative Risk Analyst (Institutional Desk).
+                    TASK: Forensic audit of the provided technical chart.
+                    USER RULES TO ENFORCE: {my_rules}
                     
-                    TASK: Analyze this chart.
-                    STEP 1: Visually identify the trend, market structure, and candle patterns.
-                    STEP 2: Compare against the User's Rules.
-                    STEP 3: Determine if this was a Valid Loss (Process correct, market variance) or an Error.
-
-                    OUTPUT FORMAT (STRICT):
-                    [SCORE] (0-100 Integer. High = Good Process, Low = Bad Process)
-                    [TAGS] (Comma separated: e.g. FOMO, Valid Loss, Late Entry)
-                    [TECH] (Technical analysis of execution)
-                    [PSYCH] (Emotional state analysis)
-                    [RISK] (Risk management audit)
-                    [FIX] (One surgical rule for next time)
+                    STRICT AUDIT PROTOCOL:
+                    1. NO HALLUCINATIONS: Do NOT mention Volume, RSI, or MACD unless explicitly visible in the pixels. If not visible, ignore.
+                    2. PRIMARY DIAGNOSIS: Identify the ONE fatal technical flaw (e.g., Buying into Supply, Counter-Trend execution, Micro-structure failure).
+                    3. TONE: Clinical, Financial, Direct. NO emojis. NO conversational filler ("Here is your report").
+                    
+                    OUTPUT FORMAT (Must match exactly):
+                    [SCORE] (0-100. Be punitive.)
+                    [TAGS] (e.g. Counter-Trend, Supply Zone Rejection, Structure Break)
+                    [TECH] (Detailed technical breakdown of the entry failure. Use concepts like Liquidity, Market Structure, and Equilibrium.)
+                    [PSYCH] (Deduce mental state ONLY from price action. e.g. "Chasing green candles indicates FOMO".)
+                    [RISK] (Assess stop placement relative to structural lows/highs.)
+                    [FIX] (One imperative command. e.g. "No long entries below VWAP.")
                     """
                     ready_to_run = True
 
@@ -235,7 +234,6 @@ else:
                 with c1: ticker = st.text_input("Ticker", "$SPY")
                 with c2: emotion = st.selectbox("Mental State", ["Calm", "Anxious", "Angry", "Greedy"])
                 
-                # FIXED: Input Sanitization Variables
                 entry = st.text_input("Entry Price")
                 exit_price = st.text_input("Exit Price")
                 stop = st.text_input("Planned Stop")
@@ -244,29 +242,60 @@ else:
                 exit_reason = st.text_area("The Exit", placeholder="Why did you exit?")
                 
                 if st.form_submit_button("RUN NARRATIVE ANALYSIS", type="primary", use_container_width=True):
-                    # FIXED: Sanitize inputs to prevent AI hallucinations
-                    entry_v = entry if entry else "Unknown"
-                    exit_v = exit_price if exit_price else "Unknown"
-                    stop_v = stop if stop else "None"
-
-                    prompt = f"""
-                    ACT AS: Elite Risk Manager.
-                    CONTEXT: User's Rules: {my_rules}.
-                    DATA: Ticker {ticker}. Prices: Entry {entry_v}, Exit {exit_v}, Stop {stop_v}.
-                    NARRATIVE: Setup: {setup}. Exit: {exit_reason}. Emotion: {emotion}.
+                    # --- STEP 1: PRE-CALCULATE MATH TO PREVENT AI HALLUCINATION ---
+                    # We do the math in Python so the AI can't mess it up.
+                    math_context = "Risk Data: Insufficient inputs."
+                    deviation_flag = False
                     
-                    TASK: Analyze. 
-                    1. Was this a technical error or a valid loss?
-                    2. Check for rule violations.
-                    3. Audit the risk math.
+                    try:
+                        ep = float(entry)
+                        xp = float(exit_price)
+                        sl = float(stop)
+                        
+                        risk_per_share = abs(ep - sl)
+                        loss_per_share = abs(ep - xp)
+                        
+                        if risk_per_share > 0:
+                            slippage_pct = ((loss_per_share - risk_per_share) / risk_per_share) * 100
+                            r_result = -(loss_per_share / risk_per_share)
+                            
+                            if slippage_pct > 10: deviation_flag = True
+                            
+                            math_context = f"""
+                            HARD DATA (DO NOT CALCULATE, USE THESE FACTS):
+                            - Planned Risk/Share: {risk_per_share:.2f}
+                            - Actual Loss/Share: {loss_per_share:.2f}
+                            - R-Multiple: {r_result:.2f}R
+                            - Risk Deviation: {slippage_pct:.2f}% (Positive means they violated their stop loss).
+                            """
+                    except:
+                        pass
 
-                    OUTPUT FORMAT (STRICT):
-                    [SCORE] (0-100 Integer)
-                    [TAGS] (Comma separated)
-                    [TECH] ...
-                    [PSYCH] ...
-                    [RISK] ...
-                    [FIX] ...
+                    # --- STEP 2: UPGRADED PROMPT FOR TEXT (INSTITUTIONAL GRADE) ---
+                    prompt = f"""
+                    ACT AS: Chief Risk Officer (CRO) of a Hedge Fund.
+                    CONTEXT: Forensic audit of a failed trade.
+                    USER RULES: {my_rules}
+                    
+                    CASE DATA:
+                    - Asset: {ticker}
+                    - Self-Reported State: {emotion}
+                    - Thesis: {setup}
+                    - Exit Reason: {exit_reason}
+                    {math_context}
+                    
+                    LOGIC GATES (MANDATORY):
+                    1. ENTRY PRIORITY: Evaluate Entry Quality first. If the entry was "Impulsive" or "Chasing", the trade is a failure regardless of the exit.
+                    2. PSYCHOLOGY LOCK: Only diagnose "Fear/Greed" if the user admitted it ({emotion}) OR if "Risk Deviation" is > 0%.
+                    3. NO HALLUCINATIONS: Do not assume "Volume" or "Indicators" unless the user wrote them in the 'Setup'.
+                    
+                    OUTPUT FORMAT (Strictly follow tags):
+                    [SCORE] (0-100 Integer. Penalize heavily for Risk Deviation.)
+                    [TAGS] (e.g. Impulsive Entry, Risk Violation, Revenge Trading, Thesis Drift)
+                    [TECH] (Analyze the setup validity. Was it a high-probability structure or a gamble? Be harsh.)
+                    [PSYCH] (Behavioral profiling based on the 'Mental State' and 'Exit Reason'. Use terms like 'Confirmation Bias', 'Sunk Cost Fallacy'.)
+                    [RISK] (Cite the Calculated Risk Metrics provided above. Did they adhere to the stop loss?)
+                    [FIX] (A singular, bold, imperative rule. e.g. "**Hard stop at -1R. No exceptions.**")
                     """
                     ready_to_run = True
 
