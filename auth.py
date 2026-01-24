@@ -58,7 +58,7 @@ def show_login_page():
                 else:
                     try:
                         # CHANGE THIS TO YOUR LIVE URL
-                        site_url = "https://stockpostmortem.streamlit.app"
+                        site_url = "https://msoh38dzzavctjnmexncps.streamlit.app"
                         
                         response = supabase.auth.sign_up({
                             "email": new_email, 
