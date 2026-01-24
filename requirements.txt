@@ -8,3 +8,8 @@ plotly
 flask
 requests
 gunicorn
+streamlit
+requests
+Pillow
+supabase
+
