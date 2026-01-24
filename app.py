@@ -4,7 +4,7 @@ import base64
 import io
 from PIL import Image
 
-# 1. PAGE CONFIG (Force Wide Mode)
+# 1. PAGE CONFIG
 st.set_page_config(page_title="StockPostmortem.ai", page_icon="🩸", layout="wide")
 
 # 2. API SETUP
@@ -15,7 +15,7 @@ except Exception:
     st.error("⚠️ HF_TOKEN is missing. Add it to Streamlit Secrets.")
     st.stop()
 
-# 3. CSS OVERRIDES (FULL WIDTH + PINNED UPLOADER)
+# 3. CSS OVERRIDES (DESKTOP + MOBILE OPTIMIZED)
 st.markdown("""
 <style>
     /* --- RESET & GLOBAL --- */
@@ -29,18 +29,30 @@ st.markdown("""
     
     header, footer, #MainMenu { display: none !important; }
 
-    /* --- LAYOUT FIX: FULL WIDTH --- */
+    /* --- LAYOUT: DESKTOP DEFAULTS --- */
     .block-container { 
-        padding-top: 1rem !important;      /* Push content up */
+        padding-top: 2rem !important;
         padding-bottom: 5rem !important; 
-        padding-left: 5rem !important;     /* Give it some breathing room like Tailwind container */
+        padding-left: 5rem !important;  
         padding-right: 5rem !important; 
-        max-width: 100% !important;        /* UNLOCKS THE WIDTH */
+        max-width: 100% !important;
     }
 
-    /* Mobile adjust */
+    /* --- LAYOUT: ANDROID/MOBILE OVERRIDES --- */
     @media (max-width: 768px) {
-        .block-container { padding-left: 1rem !important; padding-right: 1rem !important; }
+        .block-container { 
+            padding-left: 1rem !important; 
+            padding-right: 1rem !important; 
+            padding-top: 1rem !important;
+        }
+        .hero-h1 { font-size: 3rem !important; margin-bottom: 1rem !important; }
+        .hero-p { font-size: 1rem !important; }
+        .nav { margin-bottom: 2rem !important; }
+        /* Make uploader smaller on mobile */
+        [data-testid="stFileUploaderDropzone"] { min-height: 250px !important; }
+        [data-testid="stFileUploaderDropzone"]::before { top: 40px !important; width: 50px !important; height: 50px !important; }
+        [data-testid="stFileUploaderDropzone"]::after { top: 110px !important; font-size: 1rem !important; }
+        [data-testid="stFileUploaderDropzone"] button { bottom: 40px !important; }
     }
 
     /* --- NAVBAR --- */
@@ -48,21 +60,21 @@ st.markdown("""
         display: flex; 
         justify-content: space-between; 
         align-items: center; 
-        padding: 1.5rem 0; 
+        padding: 1rem 0; 
         border-bottom: 1px solid #2d4250; 
         margin-bottom: 5rem; 
-        width: 100%; /* Full width */
+        width: 100%; 
     }
-    .logo { font-size: 1.8rem; font-weight: 800; letter-spacing: -0.05em; color: white; }
+    .logo { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.05em; color: white; }
     .logo span { color: #ff4d4d; }
     .cta-btn { 
-        background: #dc2626; color: white; padding: 0.75rem 2rem; 
-        border-radius: 99px; border: none; font-weight: 600; font-size: 1rem; cursor: pointer;
+        background: #dc2626; color: white; padding: 0.6rem 1.5rem; 
+        border-radius: 99px; border: none; font-weight: 600; font-size: 0.9rem;
     }
 
     /* --- HERO --- */
     .hero-h1 { 
-        font-size: 5rem; /* Bigger for full screen */
+        font-size: 5rem; 
         font-weight: 800; 
         font-style: italic; 
         text-align: center; 
@@ -73,7 +85,7 @@ st.markdown("""
     .hero-p { 
         text-align: center; 
         color: #94a3b8; 
-        font-size: 1.3rem; 
+        font-size: 1.25rem; 
         max-width: 800px; 
         margin: 0 auto 4rem auto; 
     }
@@ -137,7 +149,7 @@ st.markdown("""
         background-color: white !important;
         color: black !important;
         border: none !important;
-        padding: 14px 40px !important; /* Bigger button */
+        padding: 14px 40px !important;
         border-radius: 8px !important;
         font-weight: 700 !important;
         font-size: 1.1rem !important;
@@ -162,7 +174,7 @@ st.markdown("""
     /* --- FEATURE GRID --- */
     .grid { 
         display: grid; 
-        grid-template-columns: repeat(3, 1fr); /* Force 3 columns */
+        grid-template-columns: repeat(3, 1fr); 
         gap: 2.5rem; 
         margin-top: 5rem; 
     }
@@ -175,6 +187,7 @@ st.markdown("""
     .card h3 { color: white; font-weight: 700; margin-bottom: 0.75rem; font-size: 1.25rem; }
     .card p { color: #94a3b8; font-size: 1rem; line-height: 1.6; }
 
+    /* MOBILE GRID FIX */
     @media (max-width: 1024px) {
         .grid { grid-template-columns: 1fr; }
     }
@@ -194,7 +207,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Uploader Section
-# Used columns [1, 3, 1] instead of [1, 6, 1] to make it wider on big screens
+# On Desktop: 1:4:1 ratio (Wide). On Mobile, Streamlit stacks these automatically.
 c1, c2, c3 = st.columns([1, 4, 1]) 
 with c2:
     uploaded_file = st.file_uploader(" ", type=["png", "jpg", "jpeg"], label_visibility="collapsed")
