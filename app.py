@@ -5,6 +5,7 @@ import pandas as pd
 import random
 import base64
 import io
+import json
 from PIL import Image
 from supabase import create_client, Client
 
@@ -34,21 +35,39 @@ def logout():
 # ==========================================
 # 1. ROBUST GROQ ENGINE
 # ==========================================
+def get_groq_headers(key):
+    return {
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json"
+    }
+
+def fetch_available_models(keys_str):
+    """
+    Query Groq API to find out which models are ACTUALLY active.
+    """
+    keys = [k.strip() for k in keys_str.split(",") if k.strip()]
+    for key in keys:
+        try:
+            res = requests.get("https://api.groq.com/openai/v1/models", headers=get_groq_headers(key))
+            if res.status_code == 200:
+                data = res.json()
+                # Return list of model IDs
+                return [m['id'] for m in data['data']]
+        except:
+            continue
+    return ["Error fetching models. Check Keys."]
+
 def run_groq_query(payload, keys_str):
     keys = [k.strip() for k in keys_str.split(",") if k.strip()]
     random.shuffle(keys)
-    
     last_error = ""
     
     for key in keys:
         try:
-            headers = {
-                "Authorization": f"Bearer {key}",
-                "Content-Type": "application/json"
-            }
+            # 60s timeout for vision models
             res = requests.post(
                 "https://api.groq.com/openai/v1/chat/completions",
-                headers=headers,
+                headers=get_groq_headers(key),
                 json=payload,
                 timeout=60 
             )
@@ -102,6 +121,7 @@ st.markdown("""
     .report-container { background: #0d1117; border: 1px solid #30363d; border-radius: 12px; padding: 2rem; margin-top: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
     .analysis-card { background: rgba(255,255,255,0.03); border-radius: 8px; padding: 15px; margin-bottom: 10px; border-left: 4px solid #555; }
     button[kind="primary"] { background-color: #ff4d4d !important; border: none; color: white !important; font-weight: bold; letter-spacing: 1px; }
+    .stTextInput input { color: #facc15 !important; font-weight: bold; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -159,7 +179,7 @@ if not st.session_state["authenticated"]:
     with c2:
         st.markdown("<br><br><div class='login-box'>", unsafe_allow_html=True)
         st.title("🩸 StockPostmortem")
-        st.caption("v9.0 | Corrected Models")
+        st.caption("v10.0 | Bulletproof Model Selector")
         with st.form("login"):
             u = st.text_input("User"); p = st.text_input("Pass", type="password")
             if st.form_submit_button("ENTER", type="primary", use_container_width=True): check_login(u, p)
@@ -167,17 +187,34 @@ if not st.session_state["authenticated"]:
 
 else:
     user = st.session_state["user"]
+    
+    # --- SIDEBAR CONFIGURATION ---
     with st.sidebar:
         st.header(f"👤 {user}")
         if st.button("LOGOUT"): logout()
         st.divider()
+        st.subheader("⚙️ Model Config")
+        
+        # MODEL DEBUGGER
+        if st.button("🔎 Get Available Models"):
+            with st.spinner("Fetching list from Groq..."):
+                active_models = fetch_available_models(GROQ_KEYS_POOL)
+                st.write(active_models)
+                
+        # USER EDITABLE MODELS
+        st.caption("Paste a valid ID from the list above if these fail:")
+        vision_model = st.text_input("Vision Model ID", value="llama-3.2-11b-vision-preview")
+        text_model = st.text_input("Text Model ID", value="llama-3.3-70b-versatile")
+        
+        st.divider()
         st.caption("Engine Status:")
-        st.success("⚡ Vision: Llama 3.2 11B (Active)")
-        st.success("⚡ Logic: Llama 3.3 70B (Active)")
+        st.success(f"👁️ {vision_model}")
+        st.success(f"🧠 {text_model}")
 
     st.markdown("<h1 style='text-align:center'>STOCK<span style='color:#ff4d4d'>POSTMORTEM</span>.AI</h1>", unsafe_allow_html=True)
     t1, t2, t3 = st.tabs(["🔍 AUTOPSY", "⚖️ LAWS", "📈 STATS"])
 
+    # --- TAB 1: AUTOPSY ---
     with t1:
         my_rules = get_user_rules(user)
         if my_rules:
@@ -189,12 +226,14 @@ else:
         ready = False
         payload = {}
 
+        # --- MODE A: VISION ---
         if "Chart Vision" in mode:
             up_file = st.file_uploader("Upload Chart", type=["png", "jpg", "jpeg"])
             if up_file:
                 st.image(up_file, width=400)
                 if st.button("RUN VISION AUDIT", type="primary"):
                     with st.status("Processing Image...") as status:
+                        # 1. Image Optimization
                         image = Image.open(up_file)
                         if image.mode != 'RGB': image = image.convert('RGB')
                         
@@ -208,12 +247,10 @@ else:
                         image.save(buf, format="JPEG", quality=85)
                         img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
                         
-                        # --- UPDATED MODEL NAME ---
-                        model_name = "llama-3.2-11b-vision-preview" 
                         prompt_text = f"Analyze chart. RULES: {my_rules}. Output: [SCORE] 0-100, [TAGS] list, [TECH] text, [PSYCH] text, [RISK] text, [FIX] imperative."
                         
                         payload = {
-                            "model": model_name,
+                            "model": vision_model, # Uses Sidebar Input
                             "messages": [
                                 {
                                     "role": "user",
@@ -229,6 +266,7 @@ else:
                         ready = True
                         status.update(label="Sending to Groq...", state="complete")
 
+        # --- MODE B: TEXT ---
         else:
             with st.form("audit"):
                 c1,c2,c3,c4 = st.columns(4)
@@ -244,7 +282,6 @@ else:
                 note = st.text_area("Notes")
                 
                 if st.form_submit_button("AUDIT", type="primary", use_container_width=True):
-                    model_name = "llama-3.3-70b-versatile"
                     risk = abs(ent - stp)
                     viol = False
                     if (pos == "Long" and ex < stp) or (pos == "Short" and ex > stp): viol = True
@@ -269,15 +306,16 @@ else:
                     """
                     
                     payload = {
-                        "model": model_name,
+                        "model": text_model, # Uses Sidebar Input
                         "messages": [{"role": "user", "content": prompt_text}],
                         "max_tokens": 800,
                         "temperature": 0.1
                     }
                     ready = True
 
+        # --- EXECUTION ---
         if ready:
-            with st.spinner(f"Routing to Groq..."):
+            with st.spinner(f"Routing to Groq ({payload['model']})..."):
                 try:
                     raw_text = run_groq_query(payload, GROQ_KEYS_POOL)
                     report = parse_report(raw_text)
@@ -299,8 +337,10 @@ else:
                     """, unsafe_allow_html=True)
                     
                 except Exception as e:
-                    st.warning("Analysis interrupted. Check logs for details.")
+                    # Detailed error is already printed by run_groq_query
+                    st.warning("Analysis interrupted. Check logs or change Model ID in Sidebar.")
 
+    # --- TAB 2: LAWS ---
     with t2:
         st.subheader("📜 Constitution")
         rules = supabase.table("rules").select("*").eq("user_id", user).execute().data
@@ -310,6 +350,7 @@ else:
             if c2.button("🗑️", key=r['id']):
                 supabase.table("rules").delete().eq("id", r['id']).execute(); st.rerun()
 
+    # --- TAB 3: STATS ---
     with t3:
         st.subheader("📈 Performance")
         hist = supabase.table("trades").select("*").eq("user_id", user).order("created_at", desc=True).execute().data
