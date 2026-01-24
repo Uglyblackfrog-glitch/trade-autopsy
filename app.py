@@ -5,7 +5,7 @@ import io
 from PIL import Image
 
 # =========================================================
-# 1. CONFIG: WIDE LAYOUT & HIDE DEFAULT JUNK
+# 1. PAGE CONFIGURATION
 # =========================================================
 st.set_page_config(
     page_title="StockPostmortem.ai",
@@ -15,7 +15,7 @@ st.set_page_config(
 )
 
 # =========================================================
-# 2. YOUR CREDENTIALS (FROM SECRETS)
+# 2. YOUR API CREDENTIALS
 # =========================================================
 try:
     HF_TOKEN = st.secrets["HF_TOKEN"]
@@ -25,140 +25,204 @@ except Exception:
     st.stop()
 
 # =========================================================
-# 3. INJECT YOUR EXACT HTML & CSS (THE HYBRID METHOD)
+# 3. CSS ENGINE (HARDCODED - NO EXTERNAL SCRIPTS)
 # =========================================================
-# We include Tailwind CSS via CDN so your classes work instantly.
 st.markdown("""
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        /* GLOBAL RESET & FONTS */
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
-        
-        body { background-color: #0f171c; color: #e2e8f0; font-family: 'Inter', sans-serif; }
-        .stApp { background-color: #0f171c; } /* Streamlit background fix */
-        
-        /* HIDE STREAMLIT HEADER/FOOTER */
-        header {visibility: hidden;}
-        footer {visibility: hidden;}
-        #MainMenu {visibility: hidden;}
-        .block-container { padding-top: 0rem; padding-bottom: 0rem; }
-        
-        /* CUSTOM UTILS FROM YOUR FILE */
-        .bg-brand { background-color: #1f2e38; }
-        .accent-red { color: #ff4d4d; }
-        
-        /* THE GLASS CARD STYLING FOR UPLOADER */
-        .glass-card-style {
-            background: rgba(31, 46, 56, 0.6);
-            backdrop-filter: blur(10px);
-            border: 2px dashed #475569;
-            border-radius: 1rem;
-            padding: 3rem;
-            text-align: center;
-            transition: all 0.3s ease;
-        }
-        .glass-card-style:hover {
-            border-color: #ff4d4d;
-            background: rgba(31, 46, 56, 0.8);
-        }
+<style>
+    /* RESET & BASICS */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+    
+    * { box-sizing: border-box; }
+    
+    .stApp {
+        background-color: #0f171c !important;
+        font-family: 'Inter', sans-serif !important;
+        color: #e2e8f0;
+    }
 
-        /* FORCE STREAMLIT UPLOADER TO BE INVISIBLE BUT CLICKABLE */
-        /* We style the container to look like your HTML card */
-        [data-testid="stFileUploader"] {
-            width: 100%;
-            padding: 0;
-            margin: 0;
-        }
-        [data-testid="stFileUploaderDropzone"] {
-            background: transparent;
-            border: none;
-            color: transparent;
-        }
-        /* Hide the default text */
-        [data-testid="stFileUploaderDropzoneInstructions"] { display: none; }
-        [data-testid="stFileUploaderUploadedFiles"] { display: none; }
-        
-        /* Button Styling */
-        div.stButton > button {
-            background-color: #ff4d4d;
-            color: white;
-            border: none;
-            padding: 0.75rem 2rem;
-            border-radius: 9999px;
-            font-weight: 600;
-            transition: all 0.2s;
-        }
-        div.stButton > button:hover {
-            background-color: #dc2626;
-            transform: scale(1.05);
-        }
+    /* HIDE DEFAULT STREAMLIT BLOAT */
+    #MainMenu, header, footer { display: none !important; }
+    .block-container {
+        padding-top: 0rem !important;
+        padding-bottom: 5rem !important;
+        max-width: 1200px !important;
+    }
 
-    </style>
+    /* -------------------------------------------------------
+       NAVBAR STYLES
+    ------------------------------------------------------- */
+    .nav-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1.5rem 0;
+        border-bottom: 1px solid #2d4250;
+        margin-bottom: 4rem;
+    }
+    .logo {
+        font-size: 1.5rem;
+        font-weight: 800;
+        letter-spacing: -0.05em;
+        color: white;
+    }
+    .logo span { color: #ff4d4d; }
+    
+    .nav-links {
+        display: flex;
+        gap: 2rem;
+        font-size: 0.875rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: #cbd5e1;
+    }
+    .btn-cta {
+        background-color: #dc2626;
+        color: white;
+        padding: 0.5rem 1.25rem;
+        border-radius: 9999px;
+        font-weight: 600;
+        border: none;
+        cursor: pointer;
+    }
+
+    /* -------------------------------------------------------
+       HERO TEXT
+    ------------------------------------------------------- */
+    .hero-h1 {
+        font-size: 4rem;
+        font-weight: 800;
+        font-style: italic;
+        text-align: center;
+        margin-bottom: 1.5rem;
+        line-height: 1.1;
+    }
+    @media (max-width: 768px) { .hero-h1 { font-size: 2.5rem; } }
+    
+    .hero-p {
+        font-size: 1.25rem;
+        color: #94a3b8;
+        text-align: center;
+        max-width: 42rem;
+        margin: 0 auto 3rem auto;
+        line-height: 1.6;
+    }
+
+    /* -------------------------------------------------------
+       CUSTOM UPLOADER STYLING
+       This hacks the Streamlit uploader to look like your card
+    ------------------------------------------------------- */
+    [data-testid="stFileUploader"] {
+        background-color: rgba(31, 46, 56, 0.6);
+        border: 2px dashed #475569;
+        border-radius: 1rem;
+        padding: 3rem 1rem;
+        text-align: center;
+        transition: all 0.3s;
+        max-width: 800px;
+        margin: 0 auto;
+    }
+    [data-testid="stFileUploader"]:hover {
+        border-color: #ff4d4d;
+        background-color: rgba(31, 46, 56, 0.8);
+    }
+    /* Hide the small "Drag and drop" text */
+    [data-testid="stFileUploaderDropzoneInstructions"] { display: none; }
+    
+    /* Center the button inside */
+    [data-testid="stBaseButton-secondary"] {
+        margin: 0 auto;
+    }
+
+    /* -------------------------------------------------------
+       GRID LAYOUT
+    ------------------------------------------------------- */
+    .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 2rem;
+        margin-top: 5rem;
+    }
+    .feature-card {
+        background-color: #1f2e38;
+        padding: 1.5rem;
+        border-radius: 0.75rem;
+    }
+    .f-title {
+        font-weight: 700;
+        font-size: 1.125rem;
+        margin-bottom: 0.5rem;
+        color: white;
+    }
+    .f-desc {
+        font-size: 0.875rem;
+        color: #94a3b8;
+    }
+
+    /* -------------------------------------------------------
+       AI RESULT BOX
+    ------------------------------------------------------- */
+    .result-box {
+        background: #161b22;
+        border-left: 5px solid #ff4d4d;
+        padding: 2rem;
+        margin-top: 2rem;
+        border-radius: 8px;
+        color: #e2e8f0;
+    }
+</style>
 """, unsafe_allow_html=True)
 
 # =========================================================
-# 4. RENDER VISUALS (NAVBAR + HERO)
+# 4. RENDER UI
 # =========================================================
 
-# --- NAVBAR (HTML) ---
+# --- NAVBAR ---
 st.markdown("""
-    <nav class="p-6 flex justify-between items-center border-b border-[#2d4250] max-w-7xl mx-auto">
-        <div class="text-2xl font-bold tracking-tighter text-white">STOCK<span class="text-[#ff4d4d]">POSTMORTEM</span>.AI</div>
-        <div class="hidden md:flex space-x-8 text-sm uppercase tracking-widest text-slate-300">
-            <span class="cursor-pointer hover:text-[#ff4d4d]">Analyze</span>
-            <span class="cursor-pointer hover:text-[#ff4d4d]">Case Studies</span>
-            <span class="cursor-pointer hover:text-[#ff4d4d]">Pricing</span>
-        </div>
-        <button class="bg-[#ff4d4d] text-white px-5 py-2 rounded-full font-semibold hover:bg-red-700 transition">Get Started</button>
-    </nav>
+<div class="nav-container">
+    <div class="logo">STOCK<span>POSTMORTEM</span>.AI</div>
+    <div class="nav-links">
+        <span>Analyze</span>
+        <span>Case Studies</span>
+        <span>Pricing</span>
+    </div>
+    <button class="btn-cta">Get Started</button>
+</div>
 """, unsafe_allow_html=True)
 
-# --- HERO SECTION (HTML) ---
+# --- HERO ---
 st.markdown("""
-    <header class="max-w-6xl mx-auto pt-20 pb-12 text-center px-4">
-        <h1 class="text-5xl md:text-7xl font-extrabold mb-6 italic text-white">STOP BLEEDING CAPITAL.</h1>
-        <p class="text-xl text-slate-400 max-w-2xl mx-auto">
-            Upload your losing trade screenshots. Our AI identifies psychological traps, technical failures, and provides a surgical path to recovery.
-        </p>
-    </header>
+<h1 class="hero-h1">STOP BLEEDING CAPITAL.</h1>
+<p class="hero-p">Upload your losing trade screenshots. Our AI identifies psychological traps, technical failures, and provides a surgical path to recovery.</p>
 """, unsafe_allow_html=True)
 
-# =========================================================
-# 5. THE UPLOADER (STREAMLIT LOGIC DISGUISED AS HTML)
-# =========================================================
+# --- UPLOADER SECTION ---
+# We use standard Streamlit uploader, but the CSS above forces it to look like your card
+uploaded_file = st.file_uploader(" ", type=["png", "jpg", "jpeg"], label_visibility="collapsed")
 
-# We use columns to center it perfectly like your "max-w-4xl" container
-spacer_left, main_content, spacer_right = st.columns([1, 2, 1])
-
-with main_content:
-    # 1. We create a container that looks exactly like your "glass-card"
+# Visual guide text inside the uploader area (since we hid the default text)
+if not uploaded_file:
     st.markdown("""
-    <div class="glass-card-style mb-4">
-        <div class="mb-6 inline-block p-4 bg-[#1f2e38] rounded-full">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-[#ff4d4d]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-            </svg>
-        </div>
-        <h2 class="text-2xl font-semibold mb-2 text-white">Drop your P&L or Chart here</h2>
-        <p class="text-slate-500 mb-6">Supports PNG, JPG. Encrypted & Private.</p>
+    <div style="text-align: center; margin-top: -80px; margin-bottom: 40px; pointer-events: none; position: relative; z-index: 1;">
+        <div style="font-size: 3rem; margin-bottom: 10px;">☁️</div>
+        <div style="font-weight: 600; font-size: 1.2rem; color: white;">Drop your P&L or Chart screenshot here</div>
+        <div style="color: #64748b; font-size: 0.9rem;">Supports PNG, JPG (Max 10MB)</div>
     </div>
     """, unsafe_allow_html=True)
-    
-    # 2. THE ACTUAL STREAMLIT UPLOADER (Placed right below the visual cue)
-    uploaded_file = st.file_uploader("Upload Image", type=["png", "jpg", "jpeg"], label_visibility="collapsed")
-    
-    # 3. LOGIC: If file is uploaded, show the "Analyze" button
-    if uploaded_file:
-        st.success("✅ Image Loaded Securely")
+
+# --- ANALYSIS LOGIC ---
+if uploaded_file:
+    # Centered "Run Analysis" Button
+    c1, c2, c3 = st.columns([1, 2, 1])
+    with c2:
         if st.button("RUN FORENSIC ANALYSIS", type="primary", use_container_width=True):
-            with st.spinner("🔍 ANALYZING MARKET STRUCTURE & PSYCHOLOGY..."):
+            with st.spinner("🔍 DECRYPTING MARKET DATA..."):
                 try:
-                    # Prepare Image
+                    # Process Image
                     image = Image.open(uploaded_file)
                     buf = io.BytesIO()
                     image.save(buf, format="PNG")
                     img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
-
+                    
                     # AI Prompt
                     prompt = (
                         "ACT AS: Senior Trading Psychologist & Risk Manager. "
@@ -183,39 +247,30 @@ with main_content:
                     
                     if res.status_code == 200:
                         content = res.json()["choices"][0]["message"]["content"]
-                        # Render Result in a nice box
-                        st.markdown(f"""
-                        <div style="background: #161b22; border-left: 4px solid #ff4d4d; padding: 20px; border-radius: 8px; margin-top: 20px; color: #e2e8f0;">
-                            {content}
-                        </div>
-                        """, unsafe_allow_html=True)
+                        st.markdown(f'<div class="result-box">{content}</div>', unsafe_allow_html=True)
                     else:
-                        st.error("AI Server Busy. Please try again.")
+                        st.error("AI Server Error. Please try again.")
                 except Exception as e:
                     st.error(f"Error: {e}")
 
-# =========================================================
-# 6. FEATURE GRID (HTML)
-# =========================================================
+# --- FEATURE GRID ---
 st.markdown("""
-    <div class="max-w-5xl mx-auto px-4 pb-20 mt-20">
-        <div class="grid md:grid-cols-3 gap-8">
-            <div class="p-6 rounded-xl bg-[#1f2e38]">
-                <h3 class="font-bold text-lg mb-2 text-white">Pattern Recognition</h3>
-                <p class="text-sm text-slate-400">Did you buy the top? We identify if you're falling for FOMO or revenge trading.</p>
-            </div>
-            <div class="p-6 rounded-xl bg-[#1f2e38]">
-                <h3 class="font-bold text-lg mb-2 text-white">Risk Autopsy</h3>
-                <p class="text-sm text-slate-400">Calculates if your stop-loss was too tight or if your position sizing was reckless.</p>
-            </div>
-            <div class="p-6 rounded-xl bg-[#1f2e38]">
-                <h3 class="font-bold text-lg mb-2 text-white">Recovery Plan</h3>
-                <p class="text-sm text-slate-400">Step-by-step technical adjustments to ensure the next trade is a winner.</p>
-            </div>
-        </div>
+<div class="feature-grid">
+    <div class="feature-card">
+        <div class="f-title">Pattern Recognition</div>
+        <div class="f-desc">Did you buy the top? We identify if you're falling for FOMO or revenge trading instantly.</div>
     </div>
-    
-    <footer class="border-t border-[#2d4250] py-10 text-center text-slate-600 text-sm">
-        &copy; 2026 stockpostmortem.ai | Trading involves risk. Keep your head cool.
-    </footer>
+    <div class="feature-card">
+        <div class="f-title">Risk Autopsy</div>
+        <div class="f-desc">Calculates if your stop-loss was too tight or if your position sizing was reckless.</div>
+    </div>
+    <div class="feature-card">
+        <div class="f-title">Recovery Plan</div>
+        <div class="f-desc">Step-by-step technical adjustments to ensure the next trade is a winner.</div>
+    </div>
+</div>
+<br><br>
+<div style="text-align: center; color: #475569; font-size: 0.8rem; border-top: 1px solid #2d4250; padding-top: 2rem;">
+    &copy; 2026 stockpostmortem.ai | Trading involves risk. Keep your head cool.
+</div>
 """, unsafe_allow_html=True)
