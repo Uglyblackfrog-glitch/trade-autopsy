@@ -32,31 +32,29 @@ def logout():
     st.rerun()
 
 # ==========================================
-# 1. HUGGING FACE ENGINE
+# 1. HUGGING FACE ENGINE (Using Qwen Models)
 # ==========================================
 def get_hf_client():
-    """Initializes the HF Client safely"""
     token = st.secrets.get("HF_TOKEN") or st.secrets.get("hf_token")
     if not token:
         st.error("❌ Missing 'HF_TOKEN' in secrets.toml")
         st.stop()
     return InferenceClient(api_key=token)
 
-def run_hf_inference(messages, model_id, is_vision=False):
+def run_hf_inference(messages, model_id):
     """
-    Runs inference on Hugging Face.
-    Includes retry logic for 'Model Loading' (503) errors.
+    Runs inference with robust error handling for HF Free Tier limits.
     """
     client = get_hf_client()
+    # Retry logic for "Model Loading" (503) or generic timeouts
     max_retries = 3
     
     for attempt in range(max_retries):
         try:
-            # Max tokens must be adjusted based on model
             output = client.chat.completions.create(
                 model=model_id,
                 messages=messages,
-                max_tokens=1024,
+                max_tokens=2048, # Increased for Qwen
                 temperature=0.1,
                 stream=False
             )
@@ -64,14 +62,18 @@ def run_hf_inference(messages, model_id, is_vision=False):
             
         except Exception as e:
             err_str = str(e)
-            # If model is loading, wait and retry
+            # 503 means model is waking up (common on free tier)
             if "503" in err_str or "loading" in err_str.lower():
-                time.sleep(3) # Wait for model to wake up
+                with st.spinner(f"⚠️ Model is waking up (Attempt {attempt+1}/{max_retries})..."):
+                    time.sleep(5) 
                 continue
+            # 404 means model doesn't exist or is gated -> Stop immediately
+            elif "404" in err_str:
+                raise Exception(f"Model Not Found/Gated: {model_id}. Try a different model ID in sidebar.")
             else:
                 raise Exception(f"HF Error: {err_str}")
     
-    raise Exception("Model is busy or timed out. Try again in 10s.")
+    raise Exception("Model is busy. Please wait 30s and try again.")
 
 # ==========================================
 # 2. SETUP & DATABASE
@@ -96,6 +98,7 @@ st.markdown("""
     .report-container { background: #0d1117; border: 1px solid #30363d; border-radius: 12px; padding: 2rem; margin-top: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
     .analysis-card { background: rgba(255,255,255,0.03); border-radius: 8px; padding: 15px; margin-bottom: 10px; border-left: 4px solid #555; }
     button[kind="primary"] { background-color: #ff4d4d !important; border: none; color: white !important; font-weight: bold; letter-spacing: 1px; }
+    .stTextInput input { color: #facc15 !important; } 
 </style>
 """, unsafe_allow_html=True)
 
@@ -106,7 +109,6 @@ def get_user_rules(user_id):
     except: return []
 
 def parse_report(text):
-    # Clean markdown
     text = re.sub(r'\*\*', '', text) 
     text = re.sub(r'[^\w\s,.:;!?()\[\]\-\'\"%]', '', text).strip()
     
@@ -156,7 +158,7 @@ if not st.session_state["authenticated"]:
     with c2:
         st.markdown("<br><br><div class='login-box'>", unsafe_allow_html=True)
         st.title("🩸 StockPostmortem")
-        st.caption("v13.0 | Pure Hugging Face")
+        st.caption("v14.0 | Qwen Vision & Logic")
         with st.form("login"):
             u = st.text_input("User"); p = st.text_input("Pass", type="password")
             if st.form_submit_button("ENTER", type="primary", use_container_width=True): check_login(u, p)
@@ -169,11 +171,14 @@ else:
         st.header(f"👤 {user}")
         if st.button("LOGOUT"): logout()
         st.divider()
-        st.caption("Running on HF Hub:")
-        # User Editable Models in case one goes down
-        vision_model = st.text_input("Vision Model", "meta-llama/Llama-3.2-11B-Vision-Instruct")
+        st.subheader("⚙️ Models (Hugging Face)")
+        st.caption("If one fails, try the alternative.")
+        
+        # --- NEW DEFAULT MODELS (UN-GATED) ---
+        vision_model = st.text_input("Vision Model", "Qwen/Qwen2-VL-7B-Instruct")
         text_model = st.text_input("Text Model", "Qwen/Qwen2.5-72B-Instruct")
-        st.info("ℹ️ If you get 'Model Loading' errors, just wait 10s and click again. Free tier puts models to sleep.")
+        
+        st.info("✅ Qwen2-VL is free and reads charts better than Llama.")
 
     st.markdown("<h1 style='text-align:center'>STOCK<span style='color:#ff4d4d'>POSTMORTEM</span>.AI</h1>", unsafe_allow_html=True)
     t1, t2, t3 = st.tabs(["🔍 AUTOPSY", "⚖️ LAWS", "📈 STATS"])
@@ -186,27 +191,35 @@ else:
 
         mode = st.radio("Mode", ["Text Report", "Chart Vision"], horizontal=True, label_visibility="collapsed")
         
-        # --- MODE A: HF VISION ---
+        # --- MODE A: VISION (Qwen2-VL) ---
         if "Chart Vision" in mode:
-            st.info("📸 Upload a chart. Using Hugging Face Vision.")
+            st.info(f"📸 Mode: {vision_model}")
             up_file = st.file_uploader("Upload Chart", type=["png", "jpg", "jpeg"])
             
             if up_file:
                 st.image(up_file, width=400)
                 if st.button("RUN VISION AUDIT", type="primary"):
-                    with st.spinner("Uploading to HF... (Might take 10s if model is cold)"):
+                    with st.status("Analyzing Chart...") as status:
                         try:
-                            # Prepare Image
+                            # 1. Prepare Image
                             image = Image.open(up_file)
                             if image.mode != 'RGB': image = image.convert('RGB')
                             
-                            # Convert to base64 data URL for HF Client
+                            # 2. Resize to prevent token overflow (Qwen is efficient but let's be safe)
+                            max_dim = 1000
+                            if max(image.size) > max_dim:
+                                ratio = max_dim / max(image.size)
+                                new_size = (int(image.width * ratio), int(image.height * ratio))
+                                image = image.resize(new_size, Image.Resampling.LANCZOS)
+
+                            # 3. Base64 Encode
                             buf = io.BytesIO()
-                            image.save(buf, format="JPEG")
+                            image.save(buf, format="JPEG", quality=90)
                             img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
                             data_url = f"data:image/jpeg;base64,{img_b64}"
 
-                            prompt_text = f"Analyze this trading chart. RULES: {my_rules}. Output exactly in this format: [SCORE] 0-100, [TAGS] list, [TECH] text, [PSYCH] text, [RISK] text, [FIX] command."
+                            # 4. Prompt
+                            prompt_text = f"You are a Trading Auditor. Analyze this chart based on these RULES: {my_rules}. Output exactly in this format: [SCORE] 0-100, [TAGS] list, [TECH] text, [PSYCH] text, [RISK] text, [FIX] imperative command."
                             
                             messages = [
                                 {
@@ -218,12 +231,15 @@ else:
                                 }
                             ]
                             
-                            raw_text = run_hf_inference(messages, vision_model, is_vision=True)
+                            # 5. Run Inference
+                            status.update(label="Sending to Hugging Face...", state="running")
+                            raw_text = run_hf_inference(messages, vision_model)
                             
                             report = parse_report(raw_text)
                             save_analysis(user, report)
+                            status.update(label="Done!", state="complete")
                             
-                            # Render Report
+                            # 6. Render
                             c = "#ef4444" if report['score'] < 50 else "#10b981"
                             st.markdown(f"""
                             <div class="report-container">
@@ -240,9 +256,10 @@ else:
                             """, unsafe_allow_html=True)
                             
                         except Exception as e:
+                            status.update(label="Failed", state="error")
                             st.error(f"Vision Error: {e}")
 
-        # --- MODE B: HF TEXT ---
+        # --- MODE B: TEXT (Qwen2.5) ---
         else:
             with st.form("audit"):
                 c1,c2,c3,c4 = st.columns(4)
@@ -283,7 +300,7 @@ else:
                     
                     messages = [{"role": "user", "content": prompt_text}]
                     
-                    with st.spinner("Analyzing Logic..."):
+                    with st.spinner(f"Analyzing with {text_model}..."):
                         try:
                             raw_text = run_hf_inference(messages, text_model)
                             report = parse_report(raw_text)
