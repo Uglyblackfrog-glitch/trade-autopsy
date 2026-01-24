@@ -1,13 +1,12 @@
 import streamlit as st
-import requests
-import re
 import pandas as pd
-import random
-import base64
+import re
 import io
-import json
+import base64
+import time
 from PIL import Image
 from supabase import create_client, Client
+from huggingface_hub import InferenceClient
 
 # ==========================================
 # 0. CONFIG & AUTH
@@ -33,81 +32,57 @@ def logout():
     st.rerun()
 
 # ==========================================
-# 1. ROBUST GROQ ENGINE
+# 1. HUGGING FACE ENGINE
 # ==========================================
-def get_groq_headers(key):
-    return {
-        "Authorization": f"Bearer {key}",
-        "Content-Type": "application/json"
-    }
+def get_hf_client():
+    """Initializes the HF Client safely"""
+    token = st.secrets.get("HF_TOKEN") or st.secrets.get("hf_token")
+    if not token:
+        st.error("❌ Missing 'HF_TOKEN' in secrets.toml")
+        st.stop()
+    return InferenceClient(api_key=token)
 
-def fetch_available_models(keys_str):
+def run_hf_inference(messages, model_id, is_vision=False):
     """
-    Query Groq API to find out which models are ACTUALLY active.
+    Runs inference on Hugging Face.
+    Includes retry logic for 'Model Loading' (503) errors.
     """
-    keys = [k.strip() for k in keys_str.split(",") if k.strip()]
-    for key in keys:
-        try:
-            res = requests.get("https://api.groq.com/openai/v1/models", headers=get_groq_headers(key))
-            if res.status_code == 200:
-                data = res.json()
-                # Return list of model IDs
-                return [m['id'] for m in data['data']]
-        except:
-            continue
-    return ["Error fetching models. Check Keys."]
-
-def run_groq_query(payload, keys_str):
-    keys = [k.strip() for k in keys_str.split(",") if k.strip()]
-    random.shuffle(keys)
-    last_error = ""
+    client = get_hf_client()
+    max_retries = 3
     
-    for key in keys:
+    for attempt in range(max_retries):
         try:
-            # 60s timeout for vision models
-            res = requests.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers=get_groq_headers(key),
-                json=payload,
-                timeout=60 
+            # Max tokens must be adjusted based on model
+            output = client.chat.completions.create(
+                model=model_id,
+                messages=messages,
+                max_tokens=1024,
+                temperature=0.1,
+                stream=False
             )
+            return output.choices[0].message.content
             
-            if res.status_code == 200:
-                return res.json()["choices"][0]["message"]["content"]
-            elif res.status_code == 429:
-                continue 
-            else:
-                error_detail = res.text
-                print(f"Key failed ({res.status_code}): {error_detail}")
-                last_error = f"Status {res.status_code}: {error_detail}"
-                continue
-                
         except Exception as e:
-            last_error = str(e)
-            continue
-            
-    st.error(f"❌ API Request Failed. Last Error: {last_error}")
-    raise Exception("ALL KEYS EXHAUSTED OR FAILED")
+            err_str = str(e)
+            # If model is loading, wait and retry
+            if "503" in err_str or "loading" in err_str.lower():
+                time.sleep(3) # Wait for model to wake up
+                continue
+            else:
+                raise Exception(f"HF Error: {err_str}")
+    
+    raise Exception("Model is busy or timed out. Try again in 10s.")
 
 # ==========================================
 # 2. SETUP & DATABASE
 # ==========================================
 if st.session_state["authenticated"]:
     try:
-        if "GROQ_KEYS" in st.secrets:
-            GROQ_KEYS_POOL = st.secrets["GROQ_KEYS"]
-        elif "groq_keys" in st.secrets:
-            GROQ_KEYS_POOL = st.secrets["groq_keys"]
-        else:
-            st.error("❌ Missing 'GROQ_KEYS' in secrets.toml")
-            st.stop()
-
         SUPABASE_URL = st.secrets["SUPABASE_URL"]
         SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
         supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-        
     except Exception as e:
-        st.error(f"⚠️ Setup Error: {e}")
+        st.error(f"⚠️ Database Error: {e}")
         st.stop()
 
 # ==========================================
@@ -121,7 +96,6 @@ st.markdown("""
     .report-container { background: #0d1117; border: 1px solid #30363d; border-radius: 12px; padding: 2rem; margin-top: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
     .analysis-card { background: rgba(255,255,255,0.03); border-radius: 8px; padding: 15px; margin-bottom: 10px; border-left: 4px solid #555; }
     button[kind="primary"] { background-color: #ff4d4d !important; border: none; color: white !important; font-weight: bold; letter-spacing: 1px; }
-    .stTextInput input { color: #facc15 !important; font-weight: bold; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -132,7 +106,10 @@ def get_user_rules(user_id):
     except: return []
 
 def parse_report(text):
+    # Clean markdown
+    text = re.sub(r'\*\*', '', text) 
     text = re.sub(r'[^\w\s,.:;!?()\[\]\-\'\"%]', '', text).strip()
+    
     sections = { "score": 0, "tags": [], "tech": "N/A", "psych": "N/A", "risk": "N/A", "fix": "N/A" }
     
     score_match = re.search(r'\[SCORE\]\s*(\d+)', text)
@@ -179,7 +156,7 @@ if not st.session_state["authenticated"]:
     with c2:
         st.markdown("<br><br><div class='login-box'>", unsafe_allow_html=True)
         st.title("🩸 StockPostmortem")
-        st.caption("v10.0 | Bulletproof Model Selector")
+        st.caption("v13.0 | Pure Hugging Face")
         with st.form("login"):
             u = st.text_input("User"); p = st.text_input("Pass", type="password")
             if st.form_submit_button("ENTER", type="primary", use_container_width=True): check_login(u, p)
@@ -188,33 +165,19 @@ if not st.session_state["authenticated"]:
 else:
     user = st.session_state["user"]
     
-    # --- SIDEBAR CONFIGURATION ---
     with st.sidebar:
         st.header(f"👤 {user}")
         if st.button("LOGOUT"): logout()
         st.divider()
-        st.subheader("⚙️ Model Config")
-        
-        # MODEL DEBUGGER
-        if st.button("🔎 Get Available Models"):
-            with st.spinner("Fetching list from Groq..."):
-                active_models = fetch_available_models(GROQ_KEYS_POOL)
-                st.write(active_models)
-                
-        # USER EDITABLE MODELS
-        st.caption("Paste a valid ID from the list above if these fail:")
-        vision_model = st.text_input("Vision Model ID", value="llama-3.2-11b-vision-preview")
-        text_model = st.text_input("Text Model ID", value="llama-3.3-70b-versatile")
-        
-        st.divider()
-        st.caption("Engine Status:")
-        st.success(f"👁️ {vision_model}")
-        st.success(f"🧠 {text_model}")
+        st.caption("Running on HF Hub:")
+        # User Editable Models in case one goes down
+        vision_model = st.text_input("Vision Model", "meta-llama/Llama-3.2-11B-Vision-Instruct")
+        text_model = st.text_input("Text Model", "Qwen/Qwen2.5-72B-Instruct")
+        st.info("ℹ️ If you get 'Model Loading' errors, just wait 10s and click again. Free tier puts models to sleep.")
 
     st.markdown("<h1 style='text-align:center'>STOCK<span style='color:#ff4d4d'>POSTMORTEM</span>.AI</h1>", unsafe_allow_html=True)
     t1, t2, t3 = st.tabs(["🔍 AUTOPSY", "⚖️ LAWS", "📈 STATS"])
 
-    # --- TAB 1: AUTOPSY ---
     with t1:
         my_rules = get_user_rules(user)
         if my_rules:
@@ -223,50 +186,63 @@ else:
 
         mode = st.radio("Mode", ["Text Report", "Chart Vision"], horizontal=True, label_visibility="collapsed")
         
-        ready = False
-        payload = {}
-
-        # --- MODE A: VISION ---
+        # --- MODE A: HF VISION ---
         if "Chart Vision" in mode:
+            st.info("📸 Upload a chart. Using Hugging Face Vision.")
             up_file = st.file_uploader("Upload Chart", type=["png", "jpg", "jpeg"])
+            
             if up_file:
                 st.image(up_file, width=400)
                 if st.button("RUN VISION AUDIT", type="primary"):
-                    with st.status("Processing Image...") as status:
-                        # 1. Image Optimization
-                        image = Image.open(up_file)
-                        if image.mode != 'RGB': image = image.convert('RGB')
-                        
-                        max_dim = 1024
-                        if max(image.size) > max_dim:
-                            ratio = max_dim / max(image.size)
-                            new_size = (int(image.width * ratio), int(image.height * ratio))
-                            image = image.resize(new_size, Image.Resampling.LANCZOS)
-                        
-                        buf = io.BytesIO()
-                        image.save(buf, format="JPEG", quality=85)
-                        img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
-                        
-                        prompt_text = f"Analyze chart. RULES: {my_rules}. Output: [SCORE] 0-100, [TAGS] list, [TECH] text, [PSYCH] text, [RISK] text, [FIX] imperative."
-                        
-                        payload = {
-                            "model": vision_model, # Uses Sidebar Input
-                            "messages": [
+                    with st.spinner("Uploading to HF... (Might take 10s if model is cold)"):
+                        try:
+                            # Prepare Image
+                            image = Image.open(up_file)
+                            if image.mode != 'RGB': image = image.convert('RGB')
+                            
+                            # Convert to base64 data URL for HF Client
+                            buf = io.BytesIO()
+                            image.save(buf, format="JPEG")
+                            img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+                            data_url = f"data:image/jpeg;base64,{img_b64}"
+
+                            prompt_text = f"Analyze this trading chart. RULES: {my_rules}. Output exactly in this format: [SCORE] 0-100, [TAGS] list, [TECH] text, [PSYCH] text, [RISK] text, [FIX] command."
+                            
+                            messages = [
                                 {
                                     "role": "user",
                                     "content": [
                                         {"type": "text", "text": prompt_text},
-                                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}
+                                        {"type": "image_url", "image_url": {"url": data_url}}
                                     ]
                                 }
-                            ],
-                            "max_tokens": 1024,
-                            "temperature": 0.1
-                        }
-                        ready = True
-                        status.update(label="Sending to Groq...", state="complete")
+                            ]
+                            
+                            raw_text = run_hf_inference(messages, vision_model, is_vision=True)
+                            
+                            report = parse_report(raw_text)
+                            save_analysis(user, report)
+                            
+                            # Render Report
+                            c = "#ef4444" if report['score'] < 50 else "#10b981"
+                            st.markdown(f"""
+                            <div class="report-container">
+                                <div style="display:flex; justify-content:space-between;">
+                                    <div><div style="color:#888;">SCORE</div><div style="font-size:3.5rem; font-weight:900; color:{c};">{report['score']}</div></div>
+                                    <div style="text-align:right;"><div style="color:#fff;">{", ".join(report['tags'])}</div></div>
+                                </div>
+                                <hr style="border-color:#333;">
+                                <div class="analysis-card" style="border-left-color:#3b82f6"><b>TECH:</b> {report['tech']}</div>
+                                <div class="analysis-card" style="border-left-color:#f59e0b"><b>PSYCH:</b> {report['psych']}</div>
+                                <div class="analysis-card" style="border-left-color:#ef4444"><b>RISK:</b> {report['risk']}</div>
+                                <div class="analysis-card" style="border-left-color:#10b981"><b>FIX:</b> {report['fix']}</div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                            
+                        except Exception as e:
+                            st.error(f"Vision Error: {e}")
 
-        # --- MODE B: TEXT ---
+        # --- MODE B: HF TEXT ---
         else:
             with st.form("audit"):
                 c1,c2,c3,c4 = st.columns(4)
@@ -305,42 +281,31 @@ else:
                     [FIX] (Imperative)
                     """
                     
-                    payload = {
-                        "model": text_model, # Uses Sidebar Input
-                        "messages": [{"role": "user", "content": prompt_text}],
-                        "max_tokens": 800,
-                        "temperature": 0.1
-                    }
-                    ready = True
-
-        # --- EXECUTION ---
-        if ready:
-            with st.spinner(f"Routing to Groq ({payload['model']})..."):
-                try:
-                    raw_text = run_groq_query(payload, GROQ_KEYS_POOL)
-                    report = parse_report(raw_text)
-                    save_analysis(user, report)
+                    messages = [{"role": "user", "content": prompt_text}]
                     
-                    c = "#ef4444" if report['score'] < 50 else "#10b981"
-                    st.markdown(f"""
-                    <div class="report-container">
-                        <div style="display:flex; justify-content:space-between;">
-                            <div><div style="color:#888;">SCORE</div><div style="font-size:3.5rem; font-weight:900; color:{c};">{report['score']}</div></div>
-                            <div style="text-align:right;"><div style="color:#fff;">{", ".join(report['tags'])}</div></div>
-                        </div>
-                        <hr style="border-color:#333;">
-                        <div class="analysis-card" style="border-left-color:#3b82f6"><b>TECH:</b> {report['tech']}</div>
-                        <div class="analysis-card" style="border-left-color:#f59e0b"><b>PSYCH:</b> {report['psych']}</div>
-                        <div class="analysis-card" style="border-left-color:#ef4444"><b>RISK:</b> {report['risk']}</div>
-                        <div class="analysis-card" style="border-left-color:#10b981"><b>FIX:</b> {report['fix']}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                except Exception as e:
-                    # Detailed error is already printed by run_groq_query
-                    st.warning("Analysis interrupted. Check logs or change Model ID in Sidebar.")
+                    with st.spinner("Analyzing Logic..."):
+                        try:
+                            raw_text = run_hf_inference(messages, text_model)
+                            report = parse_report(raw_text)
+                            save_analysis(user, report)
+                            
+                            c = "#ef4444" if report['score'] < 50 else "#10b981"
+                            st.markdown(f"""
+                            <div class="report-container">
+                                <div style="display:flex; justify-content:space-between;">
+                                    <div><div style="color:#888;">SCORE</div><div style="font-size:3.5rem; font-weight:900; color:{c};">{report['score']}</div></div>
+                                    <div style="text-align:right;"><div style="color:#fff;">{", ".join(report['tags'])}</div></div>
+                                </div>
+                                <hr style="border-color:#333;">
+                                <div class="analysis-card" style="border-left-color:#3b82f6"><b>TECH:</b> {report['tech']}</div>
+                                <div class="analysis-card" style="border-left-color:#f59e0b"><b>PSYCH:</b> {report['psych']}</div>
+                                <div class="analysis-card" style="border-left-color:#ef4444"><b>RISK:</b> {report['risk']}</div>
+                                <div class="analysis-card" style="border-left-color:#10b981"><b>FIX:</b> {report['fix']}</div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                        except Exception as e:
+                            st.error(f"Analysis Error: {e}")
 
-    # --- TAB 2: LAWS ---
     with t2:
         st.subheader("📜 Constitution")
         rules = supabase.table("rules").select("*").eq("user_id", user).execute().data
@@ -350,7 +315,6 @@ else:
             if c2.button("🗑️", key=r['id']):
                 supabase.table("rules").delete().eq("id", r['id']).execute(); st.rerun()
 
-    # --- TAB 3: STATS ---
     with t3:
         st.subheader("📈 Performance")
         hist = supabase.table("trades").select("*").eq("user_id", user).order("created_at", desc=True).execute().data
