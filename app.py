@@ -13,7 +13,6 @@ from supabase import create_client, Client
 # ==========================================
 st.set_page_config(page_title="StockPostmortem.ai", page_icon="🩸", layout="wide")
 
-# Simple Hardcoded User Auth
 USERS = { "trader1": "profit2026", "demo": "12345", "admin": "admin" }
 
 if "authenticated" not in st.session_state:
@@ -36,10 +35,6 @@ def logout():
 # 1. ROBUST GROQ ENGINE
 # ==========================================
 def run_groq_query(payload, keys_str):
-    """
-    Handles API requests with Key Rotation and Error Details.
-    """
-    # Clean and split keys
     keys = [k.strip() for k in keys_str.split(",") if k.strip()]
     random.shuffle(keys)
     
@@ -51,7 +46,6 @@ def run_groq_query(payload, keys_str):
                 "Authorization": f"Bearer {key}",
                 "Content-Type": "application/json"
             }
-            # 60s timeout for large vision models
             res = requests.post(
                 "https://api.groq.com/openai/v1/chat/completions",
                 headers=headers,
@@ -62,10 +56,8 @@ def run_groq_query(payload, keys_str):
             if res.status_code == 200:
                 return res.json()["choices"][0]["message"]["content"]
             elif res.status_code == 429:
-                # Rate limit hit, silently try next key
                 continue 
             else:
-                # Capture the specific error from Groq (e.g., "Image too large")
                 error_detail = res.text
                 print(f"Key failed ({res.status_code}): {error_detail}")
                 last_error = f"Status {res.status_code}: {error_detail}"
@@ -75,7 +67,6 @@ def run_groq_query(payload, keys_str):
             last_error = str(e)
             continue
             
-    # If loop finishes without success
     st.error(f"❌ API Request Failed. Last Error: {last_error}")
     raise Exception("ALL KEYS EXHAUSTED OR FAILED")
 
@@ -84,7 +75,6 @@ def run_groq_query(payload, keys_str):
 # ==========================================
 if st.session_state["authenticated"]:
     try:
-        # Flexible Secret Loading (Handles case sensitivity)
         if "GROQ_KEYS" in st.secrets:
             GROQ_KEYS_POOL = st.secrets["GROQ_KEYS"]
         elif "groq_keys" in st.secrets:
@@ -122,7 +112,6 @@ def get_user_rules(user_id):
     except: return []
 
 def parse_report(text):
-    # Sanitize and parse the AI response
     text = re.sub(r'[^\w\s,.:;!?()\[\]\-\'\"%]', '', text).strip()
     sections = { "score": 0, "tags": [], "tech": "N/A", "psych": "N/A", "risk": "N/A", "fix": "N/A" }
     
@@ -157,7 +146,6 @@ def save_analysis(user_id, data):
         "fix_action": data.get('fix', '')
     }
     supabase.table("trades").insert(payload).execute()
-    # Auto-add rule if score is terrible
     if data.get('score', 0) < 50:
         clean_fix = data.get('fix', 'Follow process').replace('"', '')
         supabase.table("rules").insert({"user_id": user_id, "rule_text": clean_fix}).execute()
@@ -171,7 +159,7 @@ if not st.session_state["authenticated"]:
     with c2:
         st.markdown("<br><br><div class='login-box'>", unsafe_allow_html=True)
         st.title("🩸 StockPostmortem")
-        st.caption("v8.0 | Groq Vision + Logic")
+        st.caption("v9.0 | Corrected Models")
         with st.form("login"):
             u = st.text_input("User"); p = st.text_input("Pass", type="password")
             if st.form_submit_button("ENTER", type="primary", use_container_width=True): check_login(u, p)
@@ -184,13 +172,12 @@ else:
         if st.button("LOGOUT"): logout()
         st.divider()
         st.caption("Engine Status:")
-        st.success("⚡ Vision: Llama 3.2 90B")
-        st.success("⚡ Logic: Llama 3.3 70B")
+        st.success("⚡ Vision: Llama 3.2 11B (Active)")
+        st.success("⚡ Logic: Llama 3.3 70B (Active)")
 
     st.markdown("<h1 style='text-align:center'>STOCK<span style='color:#ff4d4d'>POSTMORTEM</span>.AI</h1>", unsafe_allow_html=True)
     t1, t2, t3 = st.tabs(["🔍 AUTOPSY", "⚖️ LAWS", "📈 STATS"])
 
-    # --- TAB 1: AUTOPSY ---
     with t1:
         my_rules = get_user_rules(user)
         if my_rules:
@@ -201,32 +188,28 @@ else:
         
         ready = False
         payload = {}
-        model_name = ""
 
-        # --- MODE A: VISION ---
         if "Chart Vision" in mode:
             up_file = st.file_uploader("Upload Chart", type=["png", "jpg", "jpeg"])
             if up_file:
                 st.image(up_file, width=400)
                 if st.button("RUN VISION AUDIT", type="primary"):
                     with st.status("Processing Image...") as status:
-                        # 1. Image Optimization (Fixes 400 Errors)
                         image = Image.open(up_file)
                         if image.mode != 'RGB': image = image.convert('RGB')
                         
-                        # Resize if too big (max 1024px)
                         max_dim = 1024
                         if max(image.size) > max_dim:
                             ratio = max_dim / max(image.size)
                             new_size = (int(image.width * ratio), int(image.height * ratio))
                             image = image.resize(new_size, Image.Resampling.LANCZOS)
                         
-                        # Compress to JPEG
                         buf = io.BytesIO()
                         image.save(buf, format="JPEG", quality=85)
                         img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
                         
-                        model_name = "llama-3.2-90b-vision-preview"
+                        # --- UPDATED MODEL NAME ---
+                        model_name = "llama-3.2-11b-vision-preview" 
                         prompt_text = f"Analyze chart. RULES: {my_rules}. Output: [SCORE] 0-100, [TAGS] list, [TECH] text, [PSYCH] text, [RISK] text, [FIX] imperative."
                         
                         payload = {
@@ -246,7 +229,6 @@ else:
                         ready = True
                         status.update(label="Sending to Groq...", state="complete")
 
-        # --- MODE B: TEXT ---
         else:
             with st.form("audit"):
                 c1,c2,c3,c4 = st.columns(4)
@@ -294,7 +276,6 @@ else:
                     }
                     ready = True
 
-        # --- EXECUTION ---
         if ready:
             with st.spinner(f"Routing to Groq..."):
                 try:
@@ -318,10 +299,8 @@ else:
                     """, unsafe_allow_html=True)
                     
                 except Exception as e:
-                    # Detailed error is already printed by run_groq_query
                     st.warning("Analysis interrupted. Check logs for details.")
 
-    # --- TAB 2: LAWS ---
     with t2:
         st.subheader("📜 Constitution")
         rules = supabase.table("rules").select("*").eq("user_id", user).execute().data
@@ -331,7 +310,6 @@ else:
             if c2.button("🗑️", key=r['id']):
                 supabase.table("rules").delete().eq("id", r['id']).execute(); st.rerun()
 
-    # --- TAB 3: STATS ---
     with t3:
         st.subheader("📈 Performance")
         hist = supabase.table("trades").select("*").eq("user_id", user).order("created_at", desc=True).execute().data
