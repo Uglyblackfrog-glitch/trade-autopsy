@@ -1,67 +1,78 @@
 import streamlit as st
 import time
+from supabase import create_client
+
+# 1. Initialize Supabase
+@st.cache_resource
+def init_supabase():
+    url = st.secrets["SUPABASE_URL"]
+    key = st.secrets["SUPABASE_KEY"]
+    return create_client(url, key)
+
+supabase = init_supabase()
 
 def show_login_page():
-    # Helper to clean session
-    if "auth_status" not in st.session_state:
-        st.session_state.auth_status = None
-
-    # --- CUSTOM CSS FOR LOGIN ---
+    # Helper CSS for the login form
     st.markdown("""
     <style>
-        .stTextInput > div > div > input {
-            background-color: #1f2e38; color: white; border: 1px solid #475569;
-        }
-        .stButton > button {
-            width: 100%; border-radius: 8px; font-weight: bold;
-        }
+        .stTextInput input { background-color: #1f2e38; color: white; border: 1px solid #475569; }
+        div[data-baseweb="tab-list"] { gap: 20px; }
+        .stButton button { width: 100%; border-radius: 8px; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
-    # --- UI LAYOUT ---
-    c1, c2, c3 = st.columns([1, 1, 1])
+    c1, c2, c3 = st.columns([1, 1.2, 1])
     with c2:
-        st.markdown("<h1 style='text-align: center; color: white; margin-bottom: 30px;'>STOCK<span style='color:#ff4d4d'>POSTMORTEM</span>.AI</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center; color: white; margin-bottom: 20px;'>STOCK<span style='color:#ff4d4d'>POSTMORTEM</span>.AI</h1>", unsafe_allow_html=True)
         
-        # Tabs for Login vs Signup
-        tab1, tab2 = st.tabs(["LOGIN", "SIGN UP"])
+        tab1, tab2 = st.tabs(["LOG IN", "SIGN UP"])
 
         # --- LOGIN TAB ---
         with tab1:
-            email = st.text_input("Email Address", key="login_email")
+            email = st.text_input("Email", key="login_email")
             password = st.text_input("Password", type="password", key="login_pass")
-            
             st.markdown("<br>", unsafe_allow_html=True)
             
             if st.button("LOG IN", type="primary"):
-                # ---------------------------------------------------------
-                # TODO: CONNECT BACKEND HERE (Firebase / Supabase / SQL)
-                # ---------------------------------------------------------
-                if email == "admin@gmail.com" and password == "1234":
-                    st.success("Welcome back!")
-                    time.sleep(1)
+                try:
+                    # Supabase Login
+                    response = supabase.auth.sign_in_with_password({"email": email, "password": password})
                     st.session_state.auth_status = True
-                    st.rerun() # Refresh to show dashboard
-                else:
-                    st.error("Invalid credentials")
+                    st.session_state.user_email = response.user.email
+                    st.success("Login Successful!")
+                    time.sleep(1)
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Login Failed: {e}")
 
         # --- SIGNUP TAB ---
         with tab2:
             new_email = st.text_input("Enter Email", key="signup_email")
             new_pass = st.text_input("Create Password", type="password", key="signup_pass")
-            confirm_pass = st.text_input("Confirm Password", type="password", key="signup_conf")
             
             st.markdown("<br>", unsafe_allow_html=True)
             
             if st.button("CREATE ACCOUNT"):
-                if new_pass != confirm_pass:
-                    st.error("Passwords do not match!")
-                elif not new_email:
-                    st.error("Email is required")
+                if not new_email or not new_pass:
+                    st.error("Please fill in all fields.")
                 else:
-                    # ---------------------------------------------------------
-                    # TODO: ADD GMAIL VERIFICATION CODE HERE
-                    # ---------------------------------------------------------
-                    with st.spinner("Sending verification email..."):
-                        time.sleep(2) # Fake delay
-                        st.success(f"Verification link sent to {new_email}! (Check Spam)")
+                    try:
+                        # CHANGE THIS TO YOUR LIVE URL
+                        site_url = "https://stockpostmortem.streamlit.app"
+                        
+                        response = supabase.auth.sign_up({
+                            "email": new_email, 
+                            "password": new_pass,
+                            "options": {
+                                "email_redirect_to": site_url 
+                            }
+                        })
+                        
+                        if response.user and response.user.identities and len(response.user.identities) > 0:
+                            st.success("✅ Account created! CHECK YOUR GMAIL for the verification link.")
+                            st.info(f"Link will redirect to: {site_url}")
+                        else:
+                            st.warning("User already exists or check your spam folder.")
+                            
+                    except Exception as e:
+                        st.error(f"Error: {e}")
