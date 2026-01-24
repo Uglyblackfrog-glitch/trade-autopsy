@@ -12,4 +12,10 @@ streamlit
 requests
 Pillow
 supabase
+streamlit
+google-generativeai
+requests
+pandas
+Pillow
+supabase
 
