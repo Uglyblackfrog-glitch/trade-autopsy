@@ -25,43 +25,46 @@ except Exception:
     st.stop()
 
 # =========================================================
-# 3. CSS ENGINE (PIXEL-PERFECT RECONSTRUCTION)
+# 3. CSS ENGINE (SURGICAL RECONSTRUCTION)
 # =========================================================
 st.markdown("""
     <style>
     /* --------------------------------------------------------
        FONTS & GLOBAL RESET
     -------------------------------------------------------- */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,600;0,700;0,800;1,800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
 
     .stApp {
         background-color: #0f171c;
         font-family: 'Inter', sans-serif;
     }
     
-    /* REMOVE DEFAULT STREAMLIT PADDING/MARGINS */
+    /* Hide Default Header/Footer */
+    header, footer, #MainMenu {display: none !important;}
+    
+    /* Layout Constraints - Fixes "Zoomed Out" feel */
     .block-container {
-        padding-top: 0rem !important;
+        max-width: 1200px;
+        padding-top: 2rem !important;
         padding-bottom: 5rem !important;
-        max-width: 1400px;
+        margin: 0 auto;
     }
-    header, footer, #MainMenu {visibility: hidden;}
 
     /* --------------------------------------------------------
-       NAVBAR (Exact Match)
+       NAVBAR (Flexbox)
     -------------------------------------------------------- */
-    .navbar-container {
+    .navbar {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 20px 0;
-        margin-bottom: 80px;
+        padding: 15px 0;
+        margin-bottom: 60px;
     }
     .logo {
-        font-size: 20px;
+        font-size: 22px;
         font-weight: 800;
         color: #fff;
-        letter-spacing: 0.5px;
+        letter-spacing: -0.5px;
     }
     .logo span { color: #ff4d4d; }
     
@@ -70,160 +73,145 @@ st.markdown("""
         gap: 40px;
         font-size: 13px;
         font-weight: 600;
-        color: #e2e8f0;
+        color: #cbd5e1;
         text-transform: uppercase;
-        letter-spacing: 1px;
+        letter-spacing: 0.5px;
     }
-    .get-started-btn {
+    
+    .btn-red {
         background-color: #ff4d4d;
         color: white;
         padding: 10px 24px;
-        border-radius: 50px;
-        font-weight: 700;
+        border-radius: 6px; /* Slightly squared like screenshot */
+        font-weight: 600;
         font-size: 14px;
-        text-decoration: none;
         border: none;
+        cursor: pointer;
     }
 
     /* --------------------------------------------------------
        HERO TEXT
     -------------------------------------------------------- */
     .hero-title {
-        font-size: 68px;
+        font-size: 64px;
         font-weight: 800;
         font-style: italic;
         color: #fff;
         text-align: center;
-        margin-bottom: 10px;
+        margin-bottom: 15px;
         line-height: 1.1;
-        letter-spacing: -1px;
     }
     .hero-sub {
-        font-size: 18px;
+        font-size: 16px;
         color: #94a3b8;
         text-align: center;
-        max-width: 750px;
-        margin: 0 auto 60px auto;
+        max-width: 650px;
+        margin: 0 auto 50px auto;
         line-height: 1.6;
     }
 
     /* --------------------------------------------------------
-       CUSTOM UPLOADER CONTAINER
-       We create a visual box, then hack the Streamlit uploader
-       to fit inside it perfectly.
+       THE UPLOADER HACK (The Magic Part)
+       We target the internal Streamlit classes to force the UI.
     -------------------------------------------------------- */
-    .upload-box {
-        border: 2px dashed #334155;
+    
+    /* 1. The Container Box (Dashed) */
+    [data-testid="stFileUploader"] {
         background-color: rgba(31, 46, 56, 0.4);
+        border: 2px dashed #334155;
         border-radius: 16px;
-        padding: 50px 20px 30px 20px; /* Top padding for icon/text */
+        padding: 60px 20px; /* Tall padding to fit icon/text */
         text-align: center;
-        max-width: 800px;
-        margin: 0 auto 80px auto;
-        position: relative;
+        transition: border-color 0.3s;
     }
-    .upload-icon {
-        font-size: 40px;
-        color: #ff4d4d;
-        margin-bottom: 15px;
-    }
-    .upload-title {
-        font-size: 20px;
-        font-weight: 700;
-        color: white;
-        margin-bottom: 8px;
-    }
-    .upload-desc {
-        font-size: 14px;
-        color: #64748b;
-        margin-bottom: 20px;
+    [data-testid="stFileUploader"]:hover {
+        border-color: #ff4d4d;
+        background-color: rgba(31, 46, 56, 0.6);
     }
 
-    /* --------------------------------------------------------
-       OVERRIDING STREAMLIT FILE UPLOADER
-    -------------------------------------------------------- */
-    /* Target the dropzone to make it invisible but present */
-    div[data-testid="stFileUploader"] {
-        width: 100%;
-        margin: 0 auto;
+    /* 2. Hide the default "Drag and drop file here" Text & Icon */
+    [data-testid="stFileUploaderDropzone"] div div::before {display: none;}
+    [data-testid="stFileUploaderDropzone"] div div span {display: none;} 
+    [data-testid="stFileUploaderDropzoneInstructions"] {display: none;}
+    
+    /* 3. Inject CUSTOM Icon and Text using Pseudo-elements on the Dropzone */
+    [data-testid="stFileUploaderDropzone"]::before {
+        content: "☁️"; /* Cloud Icon */
+        display: block;
+        font-size: 40px;
+        margin-bottom: 20px;
+        filter: hue-rotate(140deg); /* Adjust color if needed, or use emoji */
     }
-    section[data-testid="stFileUploaderDropzone"] {
-        background-color: transparent !important;
-        border: none !important;
-        padding: 0 !important;
-        min-height: 0px !important;
+    
+    [data-testid="stFileUploaderDropzone"]::after {
+        content: "Drop your P&L or Chart screenshot here\\A Supports PNG, JPG (Max 10MB). Your data is encrypted.";
+        white-space: pre-wrap; /* Allows line break \A */
+        display: block;
+        font-weight: 700;
+        font-size: 18px;
+        color: white;
+        margin-bottom: 20px;
+        line-height: 1.5;
     }
-    /* Hide the default drag-and-drop text/icon */
-    div[data-testid="stFileUploaderDropzoneInstructions"] {
-        display: none;
-    }
-    /* Style the Browse Button to look like "Select File" */
+
+    /* 4. Style the "Browse files" button to look like "Select File" (White) */
     button[data-testid="baseButton-secondary"] {
-        background-color: #ffffff !important;
+        background-color: white !important;
         color: #0f171c !important;
         border: none !important;
         border-radius: 6px !important;
-        font-weight: 700 !important;
         padding: 10px 24px !important;
+        font-weight: 700 !important;
         font-size: 14px !important;
-        transition: transform 0.2s;
-        margin: 0 auto !important;
-        display: block !important;
+        margin-top: 10px !important;
     }
     button[data-testid="baseButton-secondary"]:hover {
-        transform: scale(1.05);
         background-color: #f1f5f9 !important;
+        transform: scale(1.02);
     }
-    /* Small text below button (Limit 200MB) styling */
-    small {
-        color: #475569 !important;
-        font-size: 12px !important;
+
+    /* 5. Clean up the uploaded file list */
+    [data-testid="stFileUploaderUploadedFiles"] {
+        background: transparent;
     }
 
     /* --------------------------------------------------------
-       FEATURE CARDS (Bottom Grid)
+       FEATURE CARDS (Bottom)
     -------------------------------------------------------- */
-    .feature-grid {
-        display: flex;
-        gap: 20px;
-        justify-content: center;
-        max-width: 1100px;
-        margin: 0 auto;
-    }
     .feature-card {
-        background-color: #1a232b; /* Slightly lighter than bg */
-        border: 1px solid #2d3748; /* Subtle border */
-        padding: 30px;
+        background-color: #1a222a; /* Exact dark slate */
+        padding: 25px;
         border-radius: 8px;
-        flex: 1;
-        text-align: left;
+        height: 100%;
+        border: 1px solid #2d3748;
     }
-    .f-title {
-        color: white;
+    .f-head {
+        color: #fff;
         font-weight: 700;
         font-size: 16px;
-        margin-bottom: 12px;
+        margin-bottom: 10px;
     }
-    .f-desc {
-        color: #94a3b8;
-        font-size: 14px;
+    .f-body {
+        color: #8b9bb4;
+        font-size: 13px;
         line-height: 1.5;
     }
-    
-    /* Result Box Styling */
-    .result-container {
-        background: #161b22; 
+
+    /* Result Box */
+    .analysis-box {
+        background: #161b22;
         border-left: 4px solid #ff4d4d;
-        padding: 25px; 
-        border-radius: 6px; 
-        margin-top: 30px; 
+        padding: 20px;
+        border-radius: 6px;
+        margin-top: 30px;
+        font-family: 'Inter', monospace;
         color: #e2e8f0;
     }
     </style>
 """, unsafe_allow_html=True)
 
 # =========================================================
-# 4. AI LOGIC (Unchanged)
+# 4. AI BACKEND
 # =========================================================
 def query_router(payload):
     headers = {
@@ -243,67 +231,61 @@ def query_router(payload):
 
 # --- NAVBAR ---
 st.markdown("""
-<div class="navbar-container">
-    <div class="logo">STOCKPOSTMORTEM<span>.AI</span></div>
+<div class="navbar">
+    <div class="logo">STOCK<span>POSTMORTEM</span>.AI</div>
     <div class="nav-links">
         <span>Analyze</span>
         <span>Case Studies</span>
         <span>Pricing</span>
     </div>
-    <button class="get-started-btn">Get Started</button>
+    <button class="btn-red">Get Started</button>
 </div>
 """, unsafe_allow_html=True)
 
 # --- HERO SECTION ---
-st.markdown('<div class="hero-title">STOP BLEEDING CAPITAL.</div>', unsafe_allow_html=True)
-st.markdown('<div class="hero-sub">Upload your losing trade screenshots. Our AI identifies psychological traps, technical failures, and provides a surgical path to recovery.</div>', unsafe_allow_html=True)
+# We use columns to center the hero text tightly (fixing "zoomed out" look)
+h1, h2, h3 = st.columns([1, 8, 1])
+with h2:
+    st.markdown('<div class="hero-title">STOP BLEEDING CAPITAL.</div>', unsafe_allow_html=True)
+    st.markdown("""
+        <div class="hero-sub">
+            Upload your losing trade screenshots. Our AI identifies psychological traps,
+            technical failures, and provides a surgical path to recovery.
+        </div>
+    """, unsafe_allow_html=True)
 
-# --- THE "PERFECT" UPLOADER BOX ---
-# We create the visual container first
-st.markdown('<div class="upload-box">', unsafe_allow_html=True)
+# --- UPLOAD SECTION ---
+# We use a narrower column ratio for the uploader to match the screenshot width perfectly
+u1, u2, u3 = st.columns([1, 2, 1]) # 1:2:1 Ratio keeps it centered and bounded
 
-# Inner visual elements (Cloud, Text)
-st.markdown("""
-    <div class="upload-icon">☁️</div>
-    <div class="upload-title">Drop your P&L or Chart screenshot here</div>
-    <div class="upload-desc">Supports PNG, JPG (Max 10MB). Your data is encrypted and deleted after analysis.</div>
-""", unsafe_allow_html=True)
-
-# The Functional Streamlit Uploader (Styled to blend in via CSS)
-uploaded_file = st.file_uploader("", type=["jpg", "png", "jpeg"], label_visibility="collapsed")
-
-st.markdown('</div>', unsafe_allow_html=True) # Close box
-
-# --- ANALYSIS LOGIC ---
-if uploaded_file:
-    # We place the button outside/below the box or just trigger immediately
-    # To keep UI clean, let's show a big button once file is ready
-    col_c = st.columns([1,2,1])
-    with col_c[1]:
-        if st.button("RUN FORENSIC ANALYSIS", type="primary", use_container_width=True):
-            with st.spinner("Deciphering Trade Data..."):
+with u2:
+    # This single line creates the ENTIRE dashed box UI thanks to the CSS hacks above
+    uploaded_file = st.file_uploader("", type=["jpg", "png", "jpeg"], label_visibility="collapsed")
+    
+    if uploaded_file:
+        # Generate Analysis Button
+        if st.button("RUN DIAGNOSTIC", type="primary", use_container_width=True):
+            with st.spinner("ANALYZING PRICE ACTION & PSYCHOLOGY..."):
                 try:
+                    # Image Processing
                     image = Image.open(uploaded_file)
                     buf = io.BytesIO()
                     image.save(buf, format="PNG")
                     img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
                     
-                    system_logic = (
-                        "ACT AS: A Wall Street Trading Psychologist & Risk Manager. "
-                        "INPUT: A trading chart or P&L screenshot. "
-                        "TASK: "
-                        "1. Identify the 'Kill Zone' (Where the trade went wrong). "
-                        "2. Diagnose the Psychology (FOMO, Revenge, Greed). "
-                        "3. Audit the Risk (Stop loss placement, sizing). "
-                        "4. Provide a 3-step Recovery Protocol. "
-                        "OUTPUT STYLE: Brutally honest, direct, professional."
+                    # Prompt Logic
+                    prompt = (
+                        "ACT AS: Senior Trading Psychologist & Risk Manager. "
+                        "INPUT: Trading Chart or P&L. "
+                        "TASK: 1. Identify the 'Kill Zone' (Mistake). 2. Diagnose Psychology (FOMO/Revenge). 3. Audit Risk. 4. Fix it."
+                        "OUTPUT: Brutally honest, concise, bullet points."
                     )
                     
                     payload = {
                         "model": "Qwen/Qwen2.5-VL-7B-Instruct",
                         "messages": [
                             {"role": "user", "content": [
-                                {"type": "text", "text": system_logic},
+                                {"type": "text", "text": prompt},
                                 {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}}
                             ]}
                         ],
@@ -312,28 +294,39 @@ if uploaded_file:
                     
                     res = query_router(payload)
                     if res and res.status_code == 200:
-                        analysis = res.json()['choices'][0]['message']['content']
-                        st.markdown(f'<div class="result-container">{analysis}</div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="analysis-box">{res.json()["choices"][0]["message"]["content"]}</div>', unsafe_allow_html=True)
                     else:
-                        st.error("AI Connection Failed.")
+                        st.error("AI Connection Error.")
                 except Exception as e:
                     st.error(f"Error: {e}")
 
+# --- SPACER ---
+st.markdown("<br><br>", unsafe_allow_html=True)
+
 # --- FEATURE GRID ---
-# Using standard HTML columns for exact spacing match
-st.markdown("""
-<div class="feature-grid">
+# Columns match the screenshot's 3-card layout
+f1, f2, f3 = st.columns(3)
+
+with f1:
+    st.markdown("""
     <div class="feature-card">
-        <div class="f-title">Pattern Recognition</div>
-        <div class="f-desc">Did you buy the top? We identify if you're falling for FOMO or revenge trading.</div>
+        <div class="f-head">Pattern Recognition</div>
+        <div class="f-body">Did you buy the top? We identify if you're falling for FOMO or revenge trading instantly.</div>
     </div>
+    """, unsafe_allow_html=True)
+
+with f2:
+    st.markdown("""
     <div class="feature-card">
-        <div class="f-title">Risk Autopsy</div>
-        <div class="f-desc">Calculates if your stop-loss was too tight or if your position sizing was reckless.</div>
+        <div class="f-head">Risk Autopsy</div>
+        <div class="f-body">Calculates if your stop-loss was too tight or if your position sizing was reckless based on P&L.</div>
     </div>
+    """, unsafe_allow_html=True)
+
+with f3:
+    st.markdown("""
     <div class="feature-card">
-        <div class="f-title">Recovery Plan</div>
-        <div class="f-desc">Step-by-step technical adjustments to ensure the next trade is a winner.</div>
+        <div class="f-head">Recovery Plan</div>
+        <div class="f-body">Step-by-step technical adjustments to ensure the next trade is a winner, not a gamble.</div>
     </div>
-</div>
-""", unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
