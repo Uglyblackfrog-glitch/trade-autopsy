@@ -5,3 +5,6 @@ yfinance
 pandas
 pandas_ta
 plotly
+flask
+requests
+gunicorn
