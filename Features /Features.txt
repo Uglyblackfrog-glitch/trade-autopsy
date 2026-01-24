@@ -1,0 +1,108 @@
+
+   * Problem
+   * Customer Segments
+   * Unique Value Proposition
+   * Solution
+   * Channels
+   * Revenue Streams
+   * Cost Structure
+   * Key Metrics
+   * Unfair Advantage
+
+Each box has:
+
+* a **character limit**
+* plain text only
+
+---
+
+## ✍️ What You Should Paste (IMPORTANT)
+
+You should paste **short, sharp bullet points**, not paragraphs.
+
+Judges scan Lean Canvas **very fast**.
+
+---
+
+## 📌 EXACTLY HOW TO WRITE IT (UNSTOP-OPTIMIZED)
+
+Below is a **ready-to-paste version**, already **shortened and clean**.
+
+---
+
+### **Problem**
+
+* Retail traders repeat losses without understanding why
+* Trading journals show statistics, not mistake diagnosis
+* Behavioral and contextual errors go unnoticed
+
+---
+
+### **Customer Segments**
+
+* Retail traders (stocks, crypto, indices)
+* Beginner–intermediate traders
+* Trading communities and academies
+
+---
+
+### **Unique Value Proposition**
+
+Autopsy your trades. Learn why they failed.
+A post-trade diagnosis platform focused on decision quality, not predictions.
+
+---
+
+### **Solution**
+
+* Post-trade mistake diagnosis
+* Classification: wrong regime, late entry, poor risk–reward
+* AI-assisted explanations
+* Personal do-not-trade rules
+* Optional chart screenshot analysis
+
+---
+
+### **Channels**
+
+* Trading communities (Telegram, Discord)
+* YouTube trading educators
+* Twitter/X, Reddit
+* SEO content
+
+---
+
+### **Revenue Streams**
+
+* Freemium model
+* Subscription ₹299–₹599/month
+* B2B plans for trading academies
+
+---
+
+### **Cost Structure**
+
+* AI API usage
+* Hosting and infrastructure
+* Development and maintenance
+
+---
+
+### **Key Metrics**
+
+* Trades analyzed per user
+* Repeat mistake reduction
+* Weekly active users
+* Subscription conversion
+
+---
+
+### **Unfair Advantage**
+
+* Behavioral trade autopsy approach
+* Learning loop and discipline rules
+* Image-based chart understanding
+* Hard to copy psychology-driven system
+
+---
+
