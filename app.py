@@ -8,12 +8,13 @@ from PIL import Image
 st.set_page_config(page_title="StockPostmortem.ai", page_icon="🩸", layout="wide")
 
 # 2. API SETUP
+# We move the token check inside the execution to prevent app crashing on load
 try:
-    HF_TOKEN = st.secrets["HF_TOKEN"]
+    # Check if key exists in secrets, otherwise set to None to handle later
+    HF_TOKEN = st.secrets.get("HF_TOKEN", None)
     API_URL = "https://router.huggingface.co/v1/chat/completions"
 except Exception:
-    st.error("⚠️ HF_TOKEN is missing. Add it to Streamlit Secrets.")
-    st.stop()
+    HF_TOKEN = None
 
 # 3. CSS OVERRIDES (Global + Form Styling)
 st.markdown("""
@@ -165,56 +166,62 @@ with c_main:
             if uploaded_file:
                 st.markdown("<br>", unsafe_allow_html=True)
                 if st.button("RUN INSTITUTIONAL ANALYSIS (IMAGE)", type="primary", use_container_width=True):
-                    with st.spinner("🔍 CONDUCTING TECHNICAL AUDIT..."):
-                        try:
-                            image = Image.open(uploaded_file)
-                            buf = io.BytesIO()
-                            image.save(buf, format="PNG")
-                            img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+                    
+                    if not HF_TOKEN:
+                        st.error("❌ API ERROR: HF_TOKEN is missing in Streamlit Secrets.")
+                    else:
+                        with st.spinner("🔍 CONDUCTING TECHNICAL AUDIT..."):
+                            try:
+                                image = Image.open(uploaded_file)
+                                buf = io.BytesIO()
+                                image.save(buf, format="PNG")
+                                img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
 
-                            # --- INSTITUTIONAL IMAGE PROMPT (Strict No-Hallucination) ---
-                            prompt = """
-                            ROLE: Senior Quantitative Risk Analyst at a Proprietary Trading Firm.
-                            TASK: Conduct a forensic audit of the provided financial chart.
-                            
-                            STRICT AUDIT RULES:
-                            1. DO NOT HALLUCINATE: Do not assume the existence of indicators (RSI, MACD, Volume) unless they are clearly visible in the image.
-                            2. PRIMARY DIAGNOSIS: Identify the singular, most critical failure point (e.g., Structure Break, Liquidity Sweep, or Trend Violation).
-                            3. PRIORITY ORDER: Evaluate Market Structure first, then Risk Management, then Exit execution.
-                            
-                            OUTPUT FORMAT (Financial Report Style):
-                            
-                            **1. PRIMARY FAILURE MECHANISM**
-                            [Identify the root cause of the trade failure. Be specific about market structure.]
+                                prompt = """
+                                ROLE: Senior Quantitative Risk Analyst at a Proprietary Trading Firm.
+                                TASK: Conduct a forensic audit of the provided financial chart.
+                                
+                                STRICT AUDIT RULES:
+                                1. DO NOT HALLUCINATE: Do not assume the existence of indicators unless visible.
+                                2. PRIMARY DIAGNOSIS: Identify the singular, most critical failure point.
+                                3. PRIORITY ORDER: Evaluate Market Structure first, then Risk Management, then Exit.
+                                
+                                OUTPUT FORMAT (Financial Report Style):
+                                **1. PRIMARY FAILURE MECHANISM**
+                                [Identify root cause]
 
-                            **2. TECHNICAL SOLVENCY AUDIT**
-                            [Analyze the entry and exit precision. Was this a high-probability setup? Cite visual evidence only.]
+                                **2. TECHNICAL SOLVENCY AUDIT**
+                                [Analyze entry/exit precision]
 
-                            **3. BEHAVIORAL RISK ASSESSMENT**
-                            [Only diagnose psychology if the chart shows obvious emotional trading (e.g., chasing vertical candles, revenge trading zones). Otherwise, state "Insufficient data for psychological profile".]
+                                **3. BEHAVIORAL RISK ASSESSMENT**
+                                [Diagnose psychology if evident]
 
-                            **4. REMEDIATION PROTOCOL**
-                            [One specific, actionable trading rule to prevent this error in the future. Make it imperative and bold.]
-                            
-                            TONE: Clinical, Objective, Institutional. No conversational filler.
-                            """
-                            
-                            payload = {
-                                "model": "Qwen/Qwen2.5-VL-7B-Instruct",
-                                "messages": [{"role": "user", "content": [
-                                    {"type": "text", "text": prompt},
-                                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}}
-                                ]}],
-                                "max_tokens": 1000
-                            }
-                            headers = {"Authorization": f"Bearer {HF_TOKEN}", "Content-Type": "application/json"}
-                            res = requests.post(API_URL, headers=headers, json=payload)
-                            
-                            if res.status_code == 200:
-                                content = res.json()["choices"][0]["message"]["content"]
-                                st.markdown(f"""<div style="background: #161b22; border-left: 5px solid #ff4d4d; padding: 30px; border-radius: 8px; margin-top: 20px;">{content}</div>""", unsafe_allow_html=True)
-                        except Exception as e:
-                            st.error(f"Error: {e}")
+                                **4. REMEDIATION PROTOCOL**
+                                [One specific, actionable rule]
+                                """
+                                
+                                payload = {
+                                    "model": "Qwen/Qwen2.5-VL-7B-Instruct",
+                                    "messages": [{"role": "user", "content": [
+                                        {"type": "text", "text": prompt},
+                                        {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}}
+                                    ]}],
+                                    "max_tokens": 1000
+                                }
+                                headers = {"Authorization": f"Bearer {HF_TOKEN}", "Content-Type": "application/json"}
+                                res = requests.post(API_URL, headers=headers, json=payload)
+                                
+                                if res.status_code == 200:
+                                    content = res.json()["choices"][0]["message"]["content"]
+                                    st.markdown(f"""<div style="background: #161b22; border-left: 5px solid #ff4d4d; padding: 30px; border-radius: 8px; margin-top: 20px;">{content}</div>""", unsafe_allow_html=True)
+                                elif res.status_code == 401:
+                                    st.error("❌ 401 UNAUTHORIZED: This usually means your Token is invalid OR you haven't accepted the Model License.")
+                                    st.warning("FIX: Go to https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct and click 'Agree and Access Repository'.")
+                                else:
+                                    st.error(f"❌ API Error {res.status_code}: {res.text}")
+
+                            except Exception as e:
+                                st.error(f"System Error: {e}")
 
     # --- TAB 2: MANUAL INPUT ---
     with tab_manual:
@@ -242,12 +249,11 @@ with c_main:
                     with r2c3:
                         planned_stop = st.text_input("Planned Stop", placeholder="98.00")
 
-                    # NEW: Trade Intent Dropdown to guide the AI
                     intent = st.selectbox("Pre-Trade Intent", 
-                                          ["Planned & Rule-Based (I had a plan)", 
-                                           "Impulsive / FOMO (I chased price)", 
-                                           "Revenge / Tilt (Recovering losses)", 
-                                           "Unsure / No Plan"])
+                                            ["Planned & Rule-Based (I had a plan)", 
+                                             "Impulsive / FOMO (I chased price)", 
+                                             "Revenge / Tilt (Recovering losses)", 
+                                             "Unsure / No Plan"])
                     
                     st.markdown("<br>", unsafe_allow_html=True)
                     setup_desc = st.text_area("Thesis (Entry Logic)", placeholder="Describe market structure, indicators, and catalysts...")
@@ -258,11 +264,12 @@ with c_main:
                     if st.button("RUN INSTITUTIONAL ANALYSIS (TEXT)", type="primary", use_container_width=True):
                         if not ticker or not setup_desc:
                             st.warning("⚠️ Data insufficient for audit. Please complete the case file.")
+                        elif not HF_TOKEN:
+                            st.error("❌ API ERROR: HF_TOKEN is missing.")
                         else:
                             with st.spinner("🧠 CALCULATING RISK METRICS & BEHAVIORAL BIAS..."):
                                 try:
-                                    # --- BACKGROUND MATH CALCULATION (To Feed AI Hard Data) ---
-                                    # This ensures the AI doesn't do "shallow math"
+                                    # --- BACKGROUND MATH CALCULATION ---
                                     math_context = ""
                                     try:
                                         ep = float(entry_price)
@@ -272,15 +279,12 @@ with c_main:
                                         risk_per_share = abs(ep - sl)
                                         loss_per_share = abs(ep - xp)
                                         
-                                        # Avoid DivisionByZero if User enters same Entry/Stop
                                         if risk_per_share == 0:
                                             math_context = "Risk Metrics: Invalid (Entry Price equals Stop Loss)."
                                         else:
-                                            # Calculate Deviation
                                             slippage_pct = ((loss_per_share - risk_per_share) / risk_per_share) * 100
-                                            
                                             math_context = f"""
-                                            CALCULATED RISK METRICS (Use these facts):
+                                            CALCULATED RISK METRICS:
                                             - Planned Risk Per Share: {risk_per_share:.2f}
                                             - Actual Loss Per Share: {loss_per_share:.2f}
                                             - Deviation from Plan: {slippage_pct:.2f}% (If positive, they ignored their stop).
@@ -288,7 +292,6 @@ with c_main:
                                     except:
                                         math_context = "Risk Metrics: Insufficient numerical data to calculate."
 
-                                    # --- INSTITUTIONAL MANUAL PROMPT (Strict Logic) ---
                                     manual_prompt = f"""
                                     ROLE: Chief Risk Officer (CRO) at a Quantitative Hedge Fund.
                                     CONTEXT: A trader has submitted a failed trade for forensic audit.
@@ -303,25 +306,22 @@ with c_main:
                                     {math_context}
                                     
                                     STRICT AUDIT RULES:
-                                    1. DO NOT INVENT CONTEXT: If the user did not mention volume, RSI, or confirmation candles, do not assume they existed.
-                                    2. HIERARCHY OF ERROR: Evaluate the ENTRY first. If the entry was impulsive/chasing, the trade was invalid regardless of the exit.
-                                    3. PSYCHOLOGY GATE: Only diagnose "Fear/Greed" if the user explicitly stated emotional distress, admitted to FOMO in "Trade Intent", or if the math shows they ignored a stop loss (Deviation > 0%).
+                                    1. DO NOT INVENT CONTEXT.
+                                    2. HIERARCHY OF ERROR: Evaluate ENTRY first.
+                                    3. PSYCHOLOGY GATE: Only diagnose Fear/Greed if evident.
                                     
                                     OUTPUT FORMAT (Financial Report Style):
-                                    
-                                    **1. EXECUTIVE DIAGNOSIS (PRIMARY MISTAKE)**
-                                    [Identify the ONE singular reason this trade failed. E.g., "Impulsive Entry into Supply" or "Failure to adhere to Risk Limits".]
+                                    **1. EXECUTIVE DIAGNOSIS**
+                                    [Identify singular reason for failure]
                                     
                                     **2. TRADE EXPECTANCY AUDIT**
-                                    [Analyze the mathematical edge. Did the trade offer a valid Risk/Reward profile? Did the trader respect the stop loss?]
+                                    [Analyze mathematical edge]
                                     
                                     **3. BEHAVIORAL ECONOMICS PROFILE**
-                                    [Identify specific cognitive biases (e.g., Recency Bias, FOMO, Sunk Cost Fallacy) supported by the provided data.]
+                                    [Identify cognitive biases]
                                     
                                     **4. INSTITUTIONAL MANDATE**
-                                    [Write ONE single, imperative rule in bold. Do not explain the policy; state the command. Example: "**Hard stop enforcement at -1R. No averaging down on intraday positions.**"]
-                                    
-                                    TONE: Professional, Direct, Financial English. No slang. No emojis.
+                                    [ONE imperative rule in bold]
                                     """
                                     
                                     payload = {
@@ -335,8 +335,13 @@ with c_main:
                                     if res.status_code == 200:
                                         content = res.json()["choices"][0]["message"]["content"]
                                         st.markdown(f"""<div style="background: #161b22; border-left: 5px solid #ff4d4d; padding: 30px; border-radius: 8px; margin-top: 20px;">{content}</div>""", unsafe_allow_html=True)
+                                    elif res.status_code == 401:
+                                        st.error("❌ 401 UNAUTHORIZED: Access to Qwen/Qwen2.5-VL-7B-Instruct is likely restricted.")
+                                        st.warning("FIX: Log in to HuggingFace, search for 'Qwen2.5-VL-7B-Instruct', and click 'Agree and Access Repository'.")
+                                        st.info("Debugging: You can also try changing the model to 'meta-llama/Llama-3.2-11B-Vision-Instruct' in the code.")
                                     else:
-                                        st.error(f"AI Server Status: {res.status_code}")
+                                        st.error(f"❌ API Server Status: {res.status_code}")
+                                        st.code(res.text) # Print actual error message
                                 except Exception as e:
                                     st.error(f"System Error: {e}")
 
