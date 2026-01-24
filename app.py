@@ -88,7 +88,6 @@ st.markdown("""
     }
 
     /* --- INPUT FORM STYLING (Dark Theme) --- */
-    /* Input Boxes */
     div[data-baseweb="input"] { background-color: #1f2e38 !important; border: 1px solid #475569 !important; border-radius: 8px !important; }
     div[data-baseweb="select"] > div { background-color: #1f2e38 !important; border: 1px solid #475569 !important; border-radius: 8px !important; }
     input { color: white !important; }
@@ -105,7 +104,6 @@ st.markdown("""
     }
     [data-testid="stFileUploaderDropzone"]:hover { border-color: #ff4d4d !important; background-color: rgba(31, 46, 56, 0.8) !important; }
     
-    /* Uploader Icons & Text */
     [data-testid="stFileUploaderDropzone"]::before {
         content: ""; position: absolute; top: 70px; left: 50%; transform: translateX(-50%);
         width: 70px; height: 70px;
@@ -151,14 +149,13 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- MAIN CONTENT AREA ---
-# Create a container to center the tabs slightly better on wide screens
 c_main = st.container()
 
 with c_main:
     # 5. TABS LOGIC
     tab_image, tab_manual = st.tabs(["📸 UPLOAD SCREENSHOT", "📂 MANUAL CASE FILE"])
 
-    # --- TAB 1: IMAGE UPLOAD (Original) ---
+    # --- TAB 1: IMAGE UPLOAD ---
     with tab_image:
         st.markdown("<br>", unsafe_allow_html=True)
         c1, c2, c3 = st.columns([1, 4, 1]) 
@@ -167,16 +164,32 @@ with c_main:
 
             if uploaded_file:
                 st.markdown("<br>", unsafe_allow_html=True)
-                # Centered Button for Image
-                if st.button("RUN FORENSIC ANALYSIS (IMAGE)", type="primary", use_container_width=True):
-                    with st.spinner("🔍 ANALYZING CHART PIXELS..."):
+                if st.button("RUN INSTITUTIONAL ANALYSIS (IMAGE)", type="primary", use_container_width=True):
+                    with st.spinner("🔍 CONDUCTING TECHNICAL AUDIT..."):
                         try:
                             image = Image.open(uploaded_file)
                             buf = io.BytesIO()
                             image.save(buf, format="PNG")
                             img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
 
-                            prompt = "ACT AS: Trading Psychologist. INPUT: Image. OUTPUT: 1. Technical Mistake. 2. Emotional Trap. 3. Risk Management Fail. Be brutal."
+                            # --- UPDATED PROFESSIONAL PROMPT (IMAGE) ---
+                            prompt = """
+                            ACT AS: Senior Financial Risk Analyst and Behavioral Economist.
+                            TASK: Conduct a professional post-mortem audit of the provided financial chart/P&L.
+                            
+                            INSTRUCTIONS:
+                            1. Analyze Market Structure (Trends, Liquidity Sweeps, Supply/Demand Zones).
+                            2. Audit the Entry/Exit precision relative to standard institutional frameworks.
+                            3. Identify Psychological Biases (e.g., Sunk Cost Fallacy, Confirmation Bias, FOMO) based on the visual evidence.
+                            
+                            OUTPUT FORMAT (Strict Professional Tone):
+                            **1. EXECUTIVE DIAGNOSIS:** (Brief summary of the failure mechanism).
+                            **2. TECHNICAL INSOLVENCY:** (Detailed technical breakdown of why the setup failed: leverage, timing, or structure).
+                            **3. BEHAVIORAL AUDIT:** (Psychological state assessment).
+                            **4. REMEDIATION PROTOCOL:** (Specific, actionable rule to prevent recurrence).
+                            
+                            NOTE: Maintain a clinical, objective, and professional tone. No slang.
+                            """
                             
                             payload = {
                                 "model": "Qwen/Qwen2.5-VL-7B-Instruct",
@@ -195,18 +208,16 @@ with c_main:
                         except Exception as e:
                             st.error(f"Error: {e}")
 
-    # --- TAB 2: MANUAL INPUT (New Feature) ---
+    # --- TAB 2: MANUAL INPUT ---
     with tab_manual:
         st.markdown("<br>", unsafe_allow_html=True)
-        # Form Container
         with st.container():
             col_form_1, col_form_2, col_form_3 = st.columns([1, 6, 1])
             with col_form_2:
                 with st.container():
                     st.markdown("### 📂 CASE FILE DETAILS")
-                    st.markdown("<p style='color:#64748b; font-size:0.9rem; margin-bottom:20px;'>Be specific. The more honest you are, the better the diagnosis.</p>", unsafe_allow_html=True)
+                    st.markdown("<p style='color:#64748b; font-size:0.9rem; margin-bottom:20px;'>Provide precise data for an institutional-grade audit.</p>", unsafe_allow_html=True)
                     
-                    # Row 1
                     r1c1, r1c2, r1c3 = st.columns(3)
                     with r1c1:
                         ticker = st.text_input("Ticker", placeholder="$NVDA")
@@ -215,7 +226,6 @@ with c_main:
                     with r1c3:
                         timeframe = st.selectbox("Timeframe", ["Scalp (1m-5m)", "Day Trade (15m-1h)", "Swing (4h-Daily)", "Investing (Weekly)"])
                     
-                    # Row 2
                     r2c1, r2c2, r2c3 = st.columns(3)
                     with r2c1:
                         entry_price = st.text_input("Entry Price", placeholder="100.00")
@@ -224,45 +234,48 @@ with c_main:
                     with r2c3:
                         planned_stop = st.text_input("Planned Stop", placeholder="98.00")
                     
-                    # Row 3 (Wide Text Areas)
                     st.markdown("<br>", unsafe_allow_html=True)
-                    setup_desc = st.text_area("The Setup (Why did you enter?)", placeholder="Ex: Bull flag breakout above VWAP...")
-                    exit_desc = st.text_area("The Exit (Why did you close?)", placeholder="Ex: I got scared when it wicked down...")
+                    setup_desc = st.text_area("Thesis (Entry Logic)", placeholder="Describe market structure, indicators, and catalysts...")
+                    exit_desc = st.text_area("Execution (Exit Logic)", placeholder="Describe price action at exit and emotional state...")
                     
                     st.markdown("<br>", unsafe_allow_html=True)
                     
-                    # Submit Button
-                    if st.button("RUN FORENSIC ANALYSIS (TEXT)", type="primary", use_container_width=True):
+                    if st.button("RUN INSTITUTIONAL ANALYSIS (TEXT)", type="primary", use_container_width=True):
                         if not ticker or not setup_desc:
-                            st.warning("⚠️ Please provide at least a Ticker and Setup description.")
+                            st.warning("⚠️ Data insufficient for audit. Please complete the case file.")
                         else:
-                            with st.spinner("🧠 ANALYZING PSYCHOLOGY & PRICE ACTION..."):
+                            with st.spinner("🧠 CALCULATING RISK METRICS & BEHAVIORAL BIAS..."):
                                 try:
-                                    # Construct Prompt
+                                    # --- UPDATED PROFESSIONAL PROMPT (MANUAL) ---
                                     manual_prompt = f"""
-                                    ACT AS: A Brutal Trading Psychologist and Risk Manager.
+                                    ACT AS: Chief Risk Officer (CRO) & Trading Psychologist.
+                                    CONTEXT: A trader has submitted a failed trade for forensic analysis.
                                     
-                                    CASE FILE:
-                                    - Ticker: {ticker}
-                                    - Position: {position} ({timeframe})
-                                    - Entry: {entry_price} | Exit: {exit_price} | Stop: {planned_stop}
-                                    - Context (Setup): {setup_desc}
-                                    - Context (Exit): {exit_desc}
+                                    CASE FILE DATA:
+                                    - Asset: {ticker}
+                                    - Direction: {position} ({timeframe})
+                                    - Entry: {entry_price} | Exit: {exit_price} | Planned Stop: {planned_stop}
+                                    - Entry Thesis: {setup_desc}
+                                    - Exit Reality: {exit_desc}
                                     
-                                    TASK: Diagnose this trade failure.
-                                    OUTPUT FORMAT:
-                                    1. 🚩 TECHNICAL FAILURE: (Was the setup valid?)
-                                    2. 🧠 EMOTIONAL TRAP: (Fear, Greed, FOMO?)
-                                    3. 📉 RISK AUTOPSY: (Did they respect the stop?)
-                                    4. 💉 PRESCRIPTION: (What to do next time).
+                                    TASK: Perform a rigorous audit of the decision-making process.
                                     
-                                    Be direct and concise.
+                                    OUTPUT FORMAT (Professional Report):
+                                    **1. TRADE STRUCTURE ANALYSIS:** (Evaluate the R:R, entry timing, and adherence to the planned stop. Did they respect statistical probabilities?)
+                                    
+                                    **2. BEHAVIORAL ECONOMICS ASSESSMENT:** (Identify specific biases: e.g., Disposition Effect, Loss Aversion, Overconfidence Bias, Recency Bias).
+                                    
+                                    **3. RISK MANAGEMENT FAILURE:** (Analyze the mathematical error. Calculate the slippage or deviation from the plan).
+                                    
+                                    **4. INSTITUTIONAL MANDATE:** (A singular, professional instruction to correct this behavior in future sessions).
+                                    
+                                    TONE: Objective, High-Level Financial English, Analytical. No casual language.
                                     """
                                     
                                     payload = {
                                         "model": "Qwen/Qwen2.5-VL-7B-Instruct",
                                         "messages": [{"role": "user", "content": manual_prompt}],
-                                        "max_tokens": 800
+                                        "max_tokens": 1000
                                     }
                                     headers = {"Authorization": f"Bearer {HF_TOKEN}", "Content-Type": "application/json"}
                                     res = requests.post(API_URL, headers=headers, json=payload)
@@ -271,9 +284,9 @@ with c_main:
                                         content = res.json()["choices"][0]["message"]["content"]
                                         st.markdown(f"""<div style="background: #161b22; border-left: 5px solid #ff4d4d; padding: 30px; border-radius: 8px; margin-top: 20px;">{content}</div>""", unsafe_allow_html=True)
                                     else:
-                                        st.error(f"AI Error: {res.status_code}")
+                                        st.error(f"AI Server Status: {res.status_code}")
                                 except Exception as e:
-                                    st.error(f"Error: {e}")
+                                    st.error(f"System Error: {e}")
 
 # Footer Grid
 st.markdown("""
