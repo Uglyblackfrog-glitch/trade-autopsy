@@ -50,29 +50,28 @@ if st.session_state["authenticated"]:
         st.stop()
 
 # ==========================================
-# 2. THE NEW INTELLIGENCE ENGINE (SPLIT)
+# 2. THE NEW INTELLIGENCE ENGINE (UPDATED FOR QWEN 2.5)
 # ==========================================
 
 def run_smart_inference(messages, mode="text"):
     """
     Routes traffic to the correct specialist model.
+    UPDATED: Uses Qwen 2.5 for both logic and vision as per HF Whitelist.
     """
     api_url = "https://router.huggingface.co/v1/chat/completions"
     headers = {"Authorization": f"Bearer {HF_TOKEN}", "Content-Type": "application/json"}
     
-    # SELECTION LOGIC:
-    # If Text Mode -> Use 72B (Massive Brain)
-    # If Vision Mode -> Use VL-7B (Eyes)
+    # SELECTION LOGIC (Updated based on your Error 400 list):
     if mode == "text":
-        model_id = "Qwen/Qwen2.5-72B-Instruct" 
+        model_id = "Qwen/Qwen2.5-72B-Instruct"  # Logic Beast
     else:
-        model_id = "Qwen/Qwen2-VL-7B-Instruct"
+        model_id = "Qwen/Qwen2.5-VL-7B-Instruct" # Vision Beast (Updated from Qwen2-VL)
 
     payload = {
         "model": model_id,
         "messages": messages,
         "max_tokens": 1024,
-        "temperature": 0.3, # Slightly higher for better reasoning
+        "temperature": 0.3, 
     }
 
     # Retry logic for Free Tier (Handling model loading/503)
@@ -81,10 +80,11 @@ def run_smart_inference(messages, mode="text"):
             res = requests.post(api_url, headers=headers, json=payload, timeout=60)
             if res.status_code == 200:
                 return res.json()["choices"][0]["message"]["content"]
-            elif res.status_code == 503:
-                time.sleep(5) # Wait for model to wake up
+            elif res.status_code == 503: # Model loading
+                time.sleep(5) 
                 continue
             else:
+                # If 400 happens again, we print the raw error to debug
                 raise Exception(f"HF Error {res.status_code}: {res.text}")
         except Exception as e:
             if attempt == 2: raise e
@@ -145,11 +145,14 @@ def save_analysis(user_id, data):
         "risk_analysis": data.get('risk', ''),
         "fix_action": data.get('fix', '')
     }
-    supabase.table("trades").insert(payload).execute()
-    if data.get('score', 0) < 50:
-        clean_fix = data.get('fix', 'Follow process').replace('"', '')
-        supabase.table("rules").insert({"user_id": user_id, "rule_text": clean_fix}).execute()
-        st.toast("📉 New Rule Added")
+    try:
+        supabase.table("trades").insert(payload).execute()
+        if data.get('score', 0) < 50:
+            clean_fix = data.get('fix', 'Follow process').replace('"', '')
+            supabase.table("rules").insert({"user_id": user_id, "rule_text": clean_fix}).execute()
+            st.toast("📉 New Rule Added")
+    except Exception as e:
+        st.error(f"DB Error: {e}")
 
 # ==========================================
 # 4. MAIN APP
@@ -204,7 +207,7 @@ else:
                         ]
                     }]
                     
-                    with st.spinner("Analyzing Pixels (Qwen-VL)..."):
+                    with st.spinner("Analyzing Pixels (Qwen 2.5 Vision)..."):
                         try:
                             raw = run_smart_inference(messages, mode="vision")
                             report = parse_report(raw)
@@ -269,7 +272,7 @@ else:
                     
                     messages = [{"role": "user", "content": prompt}]
                     
-                    with st.spinner("Consulting Senior Trader (Qwen 72B)..."):
+                    with st.spinner("Consulting Senior Trader (Qwen 2.5 72B)..."):
                         try:
                             # Using 'text' mode triggers the 72B model
                             raw = run_smart_inference(messages, mode="text")
