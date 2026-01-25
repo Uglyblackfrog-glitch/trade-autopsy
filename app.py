@@ -181,7 +181,7 @@ def render_report_html(report):
     </div>"""
 
 # ==========================================
-# 3. UI RENDERING (FIXED NAV LOGIC)
+# 3. UI RENDERING (FIXED COLORS)
 # ==========================================
 st.markdown("""
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
@@ -192,7 +192,6 @@ st.markdown("""
     footer {visibility: hidden;}
     [data-testid="stSidebar"] { display: none; }
     
-    /* Remove padding */
     .block-container {
         padding-top: 0rem !important;
         padding-left: 0rem !important;
@@ -220,9 +219,9 @@ st.markdown("""
     .header-logo {
         font-size: 1.4rem;
         font-weight: 800;
-        color: white;
+        color: white !important;
         letter-spacing: -0.5px;
-        text-decoration: none;
+        text-decoration: none !important;
     }
     .header-logo span { color: #f85149; }
 
@@ -234,9 +233,9 @@ st.markdown("""
         height: 100%;
     }
 
-    /* Styled Links instead of divs */
-    .nav-link {
-        color: #8b949e; 
+    /* --- STRICTLY OVERRIDING LINK COLORS --- */
+    a.nav-link, div.nav-link {
+        color: #8b949e !important; /* The grey color you want */
         font-size: 0.8rem;
         font-weight: 700;
         text-transform: uppercase;
@@ -249,7 +248,11 @@ st.markdown("""
         letter-spacing: 0.5px;
         text-decoration: none !important;
     }
-    .nav-link:hover { color: white; }
+    a.nav-link:hover, div.nav-link:hover { color: white !important; }
+    
+    a.nav-link:visited { color: #8b949e !important; } /* Prevent visited purple */
+    a.nav-link:active { color: white !important; }
+    
     .nav-link span { margin-left: 5px; font-size: 10px; } 
 
     /* The Dropdown Box */
@@ -268,16 +271,17 @@ st.markdown("""
     }
     .nav-link:hover .dropdown-box { display: block; }
 
-    .dropdown-item {
+    /* Dropdown Items - Force Grey */
+    a.dropdown-item {
         padding: 12px 20px;
-        color: #c9d1d9;
+        color: #c9d1d9 !important;
         font-size: 0.75rem;
         font-weight: 600;
         display: block;
         transition: background 0.2s;
         text-decoration: none !important;
     }
-    .dropdown-item:hover { background-color: #21262d; color: white; }
+    a.dropdown-item:hover { background-color: #21262d; color: white !important; }
 
     /* Get Started Button */
     .btn-started {
@@ -321,7 +325,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 4. MAIN LAYOUT (ROUTER)
+# 4. MAIN LAYOUT
 # ==========================================
 if not st.session_state["authenticated"]:
     # LOGIN SCREEN
@@ -336,11 +340,10 @@ if not st.session_state["authenticated"]:
 else:
     user = st.session_state["user"]
     
-    # --- GET CURRENT VIEW FROM URL ---
-    # Default is 'visual' if no param exists
+    # --- GET VIEW FROM URL ---
     current_view = st.query_params.get("view", "visual")
 
-    # --- RENDER CUSTOM HEADER WITH LINKS ---
+    # --- HEADER ---
     st.markdown("""
     <div class="custom-header">
         <a href="?view=visual" class="header-logo">STOCK<span>POSTMORTEM</span>.AI</a>
@@ -360,18 +363,16 @@ else:
     <div class="header-spacer"></div>
     """, unsafe_allow_html=True)
 
-    # --- MAIN CONTENT CONTAINER ---
+    # --- BODY ---
     with st.container():
         st.markdown('<div class="main-container">', unsafe_allow_html=True)
         
-        # Logout Utility (Hidden top right)
+        # Logout Utility
         col_utils_1, col_utils_2 = st.columns([10, 1])
         with col_utils_2:
             if st.button("Logout", key="logout_btn"): logout()
 
-        # --- ROUTING LOGIC ---
-        
-        # VIEW 1: VISUAL EVIDENCE (DEFAULT)
+        # VIEW 1: VISUAL
         if current_view == "visual":
             st.markdown("""
                 <div style='text-align:center; margin-bottom:50px;'>
@@ -401,7 +402,7 @@ else:
                         save_to_lab_records(user, report)
                         st.markdown(render_report_html(report), unsafe_allow_html=True)
 
-        # VIEW 2: DETAILED TEXT LOG
+        # VIEW 2: TEXT LOG
         elif current_view == "text":
             st.markdown("""
                 <div style='text-align:center; margin-bottom:40px;'>
@@ -431,7 +432,7 @@ else:
                         save_to_lab_records(user, report)
                         st.markdown(render_report_html(report), unsafe_allow_html=True)
 
-        # VIEW 3: DATA VAULT
+        # VIEW 3: VAULT
         elif current_view == "vault":
             st.markdown("""
                 <div style='text-align:center; margin-bottom:40px;'>
@@ -447,4 +448,4 @@ else:
             else:
                 st.info("Data Vault unavailable (Database not connected).")
         
-        st.markdown('</div>', unsafe_allow_html=True) # End main-container
+        st.markdown('</div>', unsafe_allow_html=True)
