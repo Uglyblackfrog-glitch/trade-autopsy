@@ -1,3 +1,12 @@
+I have updated the code to remove the border line, expanded the header to look more seamless ("sleek"), and ensured it covers the full width without any gaps.
+
+**Key Changes:**
+
+1. **Removed the Border:** The line below the header is gone (`border-bottom: none`).
+2. **Expanded & Seamless:** I added `margin: 0` overrides to the main Streamlit container so the header sits perfectly flush against the very top and sides of the browser window.
+3. **Clean Look:** The header now blends into the page (using the same dark background) with a subtle shadow instead of a harsh line, making it look larger and more "premium."
+
+```python
 import streamlit as st
 import requests
 import base64
@@ -16,10 +25,10 @@ st.set_page_config(
     page_title="StockPostmortem.ai", 
     page_icon="🧬", 
     layout="wide",
-    initial_sidebar_state="collapsed" # Kept collapsed just in case
+    initial_sidebar_state="collapsed"
 )
 
-# Login Credentials (Simple Auth)
+# Login Credentials
 USERS = {
     "trader1": "profit2026",
     "demo": "12345",
@@ -57,7 +66,7 @@ if st.session_state["authenticated"]:
         HF_TOKEN = None
 
 # ==========================================
-# 2. INTELLIGENCE ENGINE
+# 2. INTELLIGENCE ENGINE (FUNCTIONS)
 # ==========================================
 def run_scientific_analysis(messages, mode="text"):
     if not HF_TOKEN: return '{"score": 50, "tags": ["Demo"], "technical_analysis": "Demo Mode", "psychological_profile": "Demo Mode", "risk_assessment": "Demo", "strategic_roadmap": "Fix secrets"}'
@@ -91,9 +100,6 @@ def run_scientific_analysis(messages, mode="text"):
             if attempt == 2: raise e
             time.sleep(2)
 
-# ==========================================
-# 3. SURGICAL PARSING
-# ==========================================
 def clean_text_surgical(text):
     if not isinstance(text, str): return str(text)
     text = text.replace('\n', ' ')
@@ -154,80 +160,91 @@ def parse_scientific_report(text):
     data["score"] = max(0, min(100, int(score)))
     return data
 
+def save_to_lab_records(user_id, data):
+    if not supabase: return
+    try:
+        payload = {"user_id": user_id, "score": data.get('score', 0), "mistake_tags": data.get('tags', []), "technical_analysis": data.get('tech', ''), "psych_analysis": data.get('psych', ''), "risk_analysis": data.get('risk', ''), "fix_action": data.get('fix', '')}
+        supabase.table("trades").insert(payload).execute()
+    except: pass
+
+def get_user_rules(user_id):
+    if not supabase: return []
+    try:
+        res = supabase.table("rules").select("*").eq("user_id", user_id).execute()
+        return [r['rule_text'] for r in res.data]
+    except: return []
+
 # ==========================================
-# 4. THEME & UI (SIDEBAR REMOVED)
+# 3. UI RENDERER (CLEANER HEADER)
 # ==========================================
 st.markdown("""
 <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,600;0,800;1,800&display=swap" rel="stylesheet">
 <style>
-    /* Reset & Background */
-    .stApp { background-color: #0d1117 !important; color: #c9d1d9; font-family: 'Inter', sans-serif; }
-    
-    /* Hide Streamlit Default Elements */
-    header {visibility: hidden;}
-    footer {visibility: hidden;}
-    [data-testid="stSidebar"] { display: none; } /* FORCE HIDE SIDEBAR */
-    
-    /* Typography */
-    h1, .hero-text { 
-        font-family: 'Inter', sans-serif; font-weight: 800; font-style: italic; 
-        letter-spacing: -0.05em; color: white; text-transform: uppercase;
+    /* 1. Global Reset for Sleek Look */
+    .stApp { 
+        background-color: #0d1117 !important; 
+        color: #c9d1d9; 
+        font-family: 'Inter', sans-serif; 
+        margin-top: 0 !important;
     }
     
-    /* --- STICKY NAVBAR STYLES --- */
+    /* Hide Default Header/Footer/Sidebar */
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+    [data-testid="stSidebar"] { display: none; }
+    
+    /* Remove top padding from main container so header sits flush */
+    .block-container {
+        padding-top: 0rem !important;
+    }
+
+    /* 2. CUSTOM SLEEK HEADER (Expanded, No Line) */
     .custom-nav-container {
         position: fixed;
         top: 0;
         left: 0;
         width: 100%;
-        background-color: #0d1117; 
+        height: 90px; /* Expanded height */
+        background-color: #0d1117; /* Seamless match with BG */
         z-index: 999999;
-        border-bottom: 1px solid #30363d;
-        height: 80px; 
+        /* No border-bottom for sleek look */
+        /* Subtle shadow for depth instead of a line */
+        box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5); 
         display: flex;
         align-items: center;
         justify-content: center;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.5);
     }
     
     .custom-nav-content {
-        width: 100%;
-        max-width: 1200px; 
+        width: 95%; /* Wider spread */
+        max-width: 1400px;
         display: flex; 
         justify-content: space-between; 
         align-items: center;
-        padding: 0 20px;
     }
 
-    .nav-logo { font-size: 1.5rem; font-weight: 800; font-style: italic; color: white; }
-    .nav-links { display: flex; gap: 30px; align-items: center; font-size: 0.9rem; font-weight: 600; }
-    .nav-item { color: #8b949e; cursor: pointer; text-decoration: none; transition: color 0.2s; }
-    .nav-item:hover { color: white; }
+    .nav-logo { font-size: 1.8rem; font-weight: 800; font-style: italic; color: white; letter-spacing: -1px; }
+    .nav-links { display: flex; gap: 40px; align-items: center; font-size: 1rem; font-weight: 600; }
+    .nav-item { color: #8b949e; cursor: pointer; text-decoration: none; transition: all 0.2s; }
+    .nav-item:hover { color: white; transform: translateY(-1px); }
     .nav-item.active { color: white; }
     
-    /* Logout Button in Header */
-    .nav-btn-logout { 
-        background-color: transparent; color: #f85149; padding: 6px 15px; 
-        border: 1px solid #f85149; border-radius: 99px; font-weight: 700; 
-        font-size: 0.8rem; text-transform: uppercase; cursor: pointer;
-        transition: all 0.2s;
-    }
-    .nav-btn-logout:hover {
-        background-color: #f85149; color: white;
-    }
-
-    /* Push Main Content Down */
+    /* 3. Spacer to push content below fixed header */
     .main-content-spacer {
-        margin-top: 60px; 
+        margin-top: 100px; /* Matches header height + padding */
     }
 
-    /* Cards & Form Containers */
+    /* 4. Component Styling */
+    h1, .hero-text { 
+        font-family: 'Inter', sans-serif; font-weight: 800; font-style: italic; 
+        letter-spacing: -0.05em; color: white; text-transform: uppercase;
+    }
+    
     [data-testid="stForm"], .report-box { 
         background-color: #161b22 !important; border: 1px solid #30363d !important; 
         border-radius: 24px !important; padding: 40px !important; 
     }
     
-    /* Main Content Buttons */
     div.stButton > button { 
         background-color: #da3633 !important; color: white !important; font-weight: 800 !important;
         border-radius: 99px !important; border: none !important; padding: 12px 30px !important;
@@ -235,7 +252,6 @@ st.markdown("""
     }
     div.stButton > button:hover { background-color: #f85149 !important; transform: scale(1.02); }
 
-    /* Tab Styling */
     .stTabs [data-baseweb="tab-list"] { background-color: transparent; }
     .stTabs [data-baseweb="tab"] { color: #8b949e; font-weight: 600; }
     .stTabs [aria-selected="true"] { color: white !important; border-bottom-color: #f85149 !important; }
@@ -259,25 +275,10 @@ def render_report_html(report):
         <div style="background:rgba(248, 81, 73, 0.1); border-left:4px solid #f85149; padding:15px; border-radius:4px; color:white; margin-top:10px;">{report["fix"]}</div>
     </div>"""
 
-def save_to_lab_records(user_id, data):
-    if not supabase: return
-    try:
-        payload = {"user_id": user_id, "score": data.get('score', 0), "mistake_tags": data.get('tags', []), "technical_analysis": data.get('tech', ''), "psych_analysis": data.get('psych', ''), "risk_analysis": data.get('risk', ''), "fix_action": data.get('fix', '')}
-        supabase.table("trades").insert(payload).execute()
-    except: pass
-
-def get_user_rules(user_id):
-    if not supabase: return []
-    try:
-        res = supabase.table("rules").select("*").eq("user_id", user_id).execute()
-        return [r['rule_text'] for r in res.data]
-    except: return []
-
 # ==========================================
-# 5. MAIN INTERFACE
+# 4. MAIN INTERFACE
 # ==========================================
 if not st.session_state["authenticated"]:
-    # Login Page
     c1, c2, c3 = st.columns([1, 1.5, 1])
     with c2:
         st.markdown("<div style='text-align:center; margin-top:100px;'><h1 style='font-size:2.5rem;'>STOCK<span style='color:#f85149'>POSTMORTEM</span>.AI</h1><p style='color:#8b949e'>OPERATOR AUTHENTICATION REQUIRED</p></div>", unsafe_allow_html=True)
@@ -288,12 +289,7 @@ if not st.session_state["authenticated"]:
 else:
     user = st.session_state["user"]
     
-    # --- HEADER WITH LOGOUT (Since sidebar is gone) ---
-    # We use Streamlit columns to hack a button into the header space visually if needed,
-    # but since the header is HTML/CSS, we need a Streamlit button to trigger the Python function.
-    # The hack below places the Python button invisible over the HTML button, OR we just put a button in main body.
-    # For simplicity and reliability in Streamlit: I will put a small logout button at top right of the BODY.
-    
+    # --- SLEEK HEADER (HTML) ---
     st.markdown("""
         <div class="custom-nav-container">
             <div class="custom-nav-content">
@@ -308,14 +304,15 @@ else:
         <div class="main-content-spacer"></div>
     """, unsafe_allow_html=True)
 
-    # Small Logout Button Top Right (Below Header)
-    col_Spacer, col_Logout = st.columns([8, 1])
-    with col_Logout:
-        if st.button("LOG OUT", type="secondary"): logout()
+    # Logout Button (Positioned Top Right in Body, aligned with header concept)
+    # Using columns to push it to the far right
+    col_A, col_B = st.columns([9, 1])
+    with col_B:
+        if st.button("LOG OUT"): logout()
 
     # Hero Branding
     st.markdown("""
-        <div style='text-align:center; margin-bottom:50px; padding-top:0px;'>
+        <div style='text-align:center; margin-bottom:50px; padding-top:10px;'>
             <h1 style='font-size:4rem;'>STOP <span style='color:#f85149'>BLEEDING</span> CAPITAL.</h1>
             <p style='color:#8b949e; font-size:1.2rem; max-width:700px; margin:auto;'>Upload your losing trade screenshots. Our AI identifies psychological traps and provides a surgical path to recovery.</p>
         </div>
@@ -375,3 +372,5 @@ else:
             if hist: st.dataframe(pd.DataFrame(hist), use_container_width=True)
         else:
             st.info("Data Vault unavailable (Database not connected)")
+
+```
