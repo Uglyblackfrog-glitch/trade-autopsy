@@ -101,20 +101,24 @@ def clean_text_surgical(text):
     Fixes formatting hallucinations:
     1. Flattens 'phantom' newlines.
     2. Stitches broken numbers (5,61, 937 -> 5,61,937).
-    3. Restores list formatting.
+    3. Glues broken negatives (- 50% -> -50%).
+    4. Restores list formatting.
     """
     if not isinstance(text, str): return str(text)
     
-    # Flatten newlines
+    # 1. Flatten newlines
     text = text.replace('\n', ' ')
     
-    # Fix broken numbers: Digit + Comma + Space + Digit
+    # 2. Fix broken numbers: Digit + Comma + Space + Digit
     text = re.sub(r'(\d),(\s+)(\d)', r'\1,\3', text)
     
-    # Remove excessive spaces
+    # 3. Fix broken negatives: Minus + Space + Digit
+    text = re.sub(r'-\s+(\d)', r'-\1', text)
+    
+    # 4. Remove excessive spaces
     text = re.sub(r'\s+', ' ', text)
     
-    # Restore List breaks
+    # 5. Restore List breaks
     text = re.sub(r'(?<!^)(\d+\.)', r'<br>\1', text)
     
     return text.strip()
@@ -187,11 +191,14 @@ def parse_scientific_report(text):
     # 3. DETERMINISTIC PYTHON SCORING (The Fix)
     score = 100
     
-    # A. Detect Drawdown % (e.g. -28.15%)
+    # A. Detect Drawdown % (e.g. -28.15% or -50%)
+    # Finds number following a minus sign and ending in %
     drawdown_matches = re.findall(r'-(\d+\.?\d*)%', clean_raw)
+    
     if drawdown_matches:
+        # Find the biggest loss mentioned
         max_loss = max([float(x) for x in drawdown_matches])
-        score -= max_loss # Subtract the loss directly
+        score -= max_loss 
     
     # B. Penalty for Toxic/Panic Keywords
     joined_text = (str(data["tags"]) + data["tech"] + data["psych"]).lower()
@@ -333,7 +340,7 @@ else:
                     
                     OUTPUT FORMAT: JSON ONLY (No Markdown).
                     {{
-                        "score": 50,
+                        "score": 100,
                         "tags": ["High Risk", "Panic Selling"],
                         "technical_analysis": "Text...",
                         "psychological_profile": "Text...",
@@ -379,7 +386,7 @@ else:
                     
                     OUTPUT FORMAT: JSON ONLY (No Markdown).
                     {{
-                        "score": 50,
+                        "score": 100,
                         "tags": ["Mistake1", "Mistake2"],
                         "technical_analysis": "Text...",
                         "psychological_profile": "Text...",
