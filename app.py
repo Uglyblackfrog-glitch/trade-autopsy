@@ -88,7 +88,7 @@ def run_scientific_analysis(messages, mode="text"):
             time.sleep(2)
 
 # ==========================================
-# 3. PARSING & DISPLAY LOGIC (FLATTENED TEXT FIX)
+# 3. PARSING & DISPLAY LOGIC (SMART FORMATTER)
 # ==========================================
 st.markdown("""
 <style>
@@ -108,7 +108,6 @@ def get_user_rules(user_id):
     except: return []
 
 def parse_scientific_report(text):
-    # Remove all markdown clutter
     text = text.replace("**", "").replace("##", "").replace("###", "").strip()
     
     sections = { 
@@ -124,16 +123,20 @@ def parse_scientific_report(text):
     score_match = re.search(r'(?:\[SCORE\]|Score:?)\s*(\d+)', text, re.IGNORECASE)
     if score_match: sections['score'] = int(score_match.group(1))
 
-    # 2. Extract Tags (Cleaned)
+    # 2. Extract Tags (Smart Splitter)
     tags_match = re.search(r'(?:\[TAGS\]|Tags:?)(.*?)(?=\[|\n[A-Z]|$)', text, re.DOTALL | re.IGNORECASE)
     if tags_match:
         raw_tags = tags_match.group(1)
-        clean_tags_str = re.sub(r'[\(\)]', '', raw_tags) 
-        # Split by comma OR newline to handle "bunched" tags
-        sections['tags'] = [t.strip() for t in re.split(r'[,\n]', clean_tags_str) if t.strip() and len(t) < 40]
+        clean_tags_str = re.sub(r'[\(\)]', '', raw_tags).strip()
+        
+        # Strategy A: Split by comma if present
+        if "," in clean_tags_str:
+            sections['tags'] = [t.strip() for t in clean_tags_str.split(',') if t.strip()]
+        # Strategy B: If mashed "RiskStrategyDrawdown", split by Uppercase letters
+        else:
+            sections['tags'] = re.findall(r'[A-Z][^A-Z]*', clean_tags_str)
 
-    # 3. Extract Sections - REPLACING NEWLINES WITH SPACES
-    # This ensures "The \n chart" becomes "The chart"
+    # 3. Extract Sections (Smart Formatting)
     patterns = {
         "tech": r"(?:\[TECHNICAL FORENSICS\]|Technical Forensics:)(.*?)(?=\[PSYCH|\[RISK|\[STRAT|\[SCORE|Psychological|Risk Assessment|$)",
         "psych": r"(?:\[PSYCHOLOGICAL PROFILE\]|Psychological Profile:)(.*?)(?=\[RISK|\[STRAT|\[SCORE|Risk Assessment|Strategic Roadmap|$)",
@@ -144,18 +147,26 @@ def parse_scientific_report(text):
     for key, pattern in patterns.items():
         match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
         if match:
-            # THIS LINE FIXES THE "WEIRD LINE BREAKS"
-            clean_content = match.group(1).strip().replace("\n", " ").replace("  ", " ")
-            sections[key] = clean_content
+            content = match.group(1).strip()
+            # If it looks like a list (1. 2. or -), preserve breaks. Else, flatten.
+            if "1." in content or "- " in content:
+                # Format lists nicely: Add breaks before numbers/bullets
+                content = re.sub(r'(\d+\.|- )', r'<br>\1', content)
+            else:
+                # Flatten paragraphs so they don't break mid-sentence
+                content = content.replace("\n", " ")
+            
+            sections[key] = content
             
     return sections
 
 def render_report_html(report):
     c_score = "#ff4d4d" if report['score'] < 50 else "#00e676"
     
+    # Safe Tag Rendering
     tags_html = "".join([
         f'<span style="background:#262626; border:1px solid #444; padding:4px 8px; border-radius:4px; font-size:0.8rem; margin-right:5px; display:inline-block; margin-bottom:5px;">{t}</span>' 
-        for t in report['tags']
+        for t in report['tags'] if len(t) < 30
     ])
     
     html_parts = [
@@ -243,7 +254,6 @@ else:
                     image.save(buf, format="JPEG")
                     img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
                     
-                    # PROMPT with explicit instructions to use commas for tags
                     prompt = f"""
                     You are Dr. Market, a Chief Investment Officer.
                     Your Task: Audit this image (Chart or P&L).
@@ -251,17 +261,17 @@ else:
                     USER RULES: {my_rules}
 
                     IF P&L DASHBOARD:
-                    1. [TECHNICAL FORENSICS]: Extract the data. Calculate the drawdown %. Identify the "Toxic Asset" (biggest loser). 
-                    2. [PSYCHOLOGICAL PROFILE]: Diagnose the behavior (e.g., "Disposition Effect" if holding losers).
+                    1. [TECHNICAL FORENSICS]: Extract data. Calculate drawdown %. Identify "Toxic Asset" (biggest loser). 
+                    2. [PSYCHOLOGICAL PROFILE]: Diagnose behavior (e.g., "Disposition Effect").
                     3. [SCORE]: If Unrealized Loss > 15%, Score MUST be < 30.
                     
                     IF CHART:
                     1. [TECHNICAL FORENSICS]: Analyze Market Structure, Liquidity Sweeps, and Volume.
                     2. [SCORE]: Grade the setup quality (0-100).
 
-                    STRICT OUTPUT FORMAT (Tags MUST be comma separated):
+                    STRICT OUTPUT FORMAT (Use commas for tags!):
                     [SCORE] 0-100
-                    [TAGS] Risk, Strategy, Drawdown
+                    [TAGS] Tag1, Tag2, Tag3
                     [TECHNICAL FORENSICS] ...
                     [PSYCHOLOGICAL PROFILE] ...
                     [RISK ASSESSMENT] ...
