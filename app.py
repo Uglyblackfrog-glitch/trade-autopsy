@@ -154,7 +154,7 @@ def fix_mashed_tags_surgical(tags_input):
 def parse_scientific_report(text):
     """
     PARSES text and CALCULATES score via Python logic.
-    Includes "Safety Caps" to prevent high scores for Panic/Risk scenarios.
+    SMART UPDATE: Detects 'Winning Trades' to prevent false negatives.
     """
     clean_raw = text.replace("```json", "").replace("```", "").strip()
     
@@ -189,37 +189,48 @@ def parse_scientific_report(text):
     data["fix"] = clean_text_surgical(data["fix"])
     
     # ====================================================
-    # 3. SCORING ENGINE (WITH SAFETY CAPS)
+    # 3. SCORING ENGINE (SMART WIN DETECTION)
     # ====================================================
     score = 100
     joined_text = (str(data["tags"]) + data["tech"] + data["psych"] + data["risk"]).lower()
     
-    # A. Direct Math Deductions (if numbers exist)
-    drawdown_matches = re.findall(r'-(\d+\.?\d*)%', clean_raw)
-    if drawdown_matches:
-        max_loss = max([float(x) for x in drawdown_matches])
-        score -= max_loss 
+    # --- WIN DETECTOR ---
+    # We look for proof of profit to protect the score
+    is_winning_trade = False
+    win_keywords = ["positive return", "profit", "gain", "winning", "target hit", "great exit"]
+    if any(w in joined_text for w in win_keywords):
+        is_winning_trade = True
     
-    # B. Keyword Penalties
+    # A. Direct Math Deductions (Only if NOT winning)
+    if not is_winning_trade:
+        drawdown_matches = re.findall(r'-(\d+\.?\d*)%', clean_raw)
+        if drawdown_matches:
+            max_loss = max([float(x) for x in drawdown_matches])
+            score -= max_loss 
+    
+    # B. Keyword Penalties (Context Aware)
     if "toxic" in joined_text: score -= 20
-    if "panic" in joined_text: score -= 15
     if "fomo" in joined_text: score -= 10
-    if "high risk" in joined_text: score -= 15
-    if "sell-off" in joined_text: score -= 10
-    if "structure" in joined_text and "break" in joined_text: score -= 10
-
-    # C. SAFETY CAPS (The "Common Sense" Override)
-    # Even if math says 90, if we see "Panic", we cap at 45.
     
-    # Level 1: DANGER -> Max Score 45 (Fail)
-    if "panic" in joined_text or "high risk" in joined_text or "margin call" in joined_text:
-        score = min(score, 45)
-        
-    # Level 2: WARNING -> Max Score 65 (D Grade)
-    elif "drawdown" in joined_text or "loss" in joined_text or "decline" in joined_text:
-        score = min(score, 65)
+    # Only penalize "panic" if it's NOT a winning trade
+    if not is_winning_trade:
+        if "panic" in joined_text: score -= 15
+        if "high risk" in joined_text: score -= 15
+        if "sell-off" in joined_text: score -= 10
+        if "structure" in joined_text and "break" in joined_text: score -= 10
 
-    # D. Final Clamp (0-100)
+    # C. SAFETY CAPS (The Override)
+    if is_winning_trade:
+        # If winning, verify score is at least 85 (A/B Grade)
+        score = max(score, 85)
+    else:
+        # If losing, apply the caps we built before
+        if "panic" in joined_text or "high risk" in joined_text:
+            score = min(score, 45)
+        elif "drawdown" in joined_text or "loss" in joined_text:
+            score = min(score, 65)
+
+    # D. Final Clamp
     score = max(0, min(100, int(score)))
     
     data["score"] = score
@@ -330,7 +341,6 @@ else:
         if "Visual Evidence" in mode:
             st.info("Supported: Candlestick Charts, P&L Dashboards (PNG, JPG, WEBP)")
             
-            # UPDATED: Added "webp" support
             up_file = st.file_uploader("Upload Evidence", type=["png", "jpg", "jpeg", "webp"])
             
             if up_file:
@@ -342,28 +352,27 @@ else:
                     image.save(buf, format="JPEG")
                     img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
                     
-                    # PROMPT: REQUEST JSON (UPDATED to prevent hallucinations)
+                    # PROMPT: Updated for Win/Loss Context
                     prompt = f"""
                     You are Dr. Market, a Chief Investment Officer.
                     Audit this image (Chart or P&L). Rules: {my_rules}.
                     
-                    CRITICAL INSTRUCTION: 
-                    - Identify the TICKER NAME exactly as shown in the image (e.g., LUPIN, RELIANCE). 
-                    - Do NOT hallucinate "AARTIIND" or other stocks if not present.
+                    CRITICAL INSTRUCTION:
+                    1. IDENTIFY CONTEXT: Is this a WINNING trade (Green P/L, Profit) or LOSING trade?
+                    2. TICKER: Identify the ticker name exactly (e.g. TSL, LUPIN).
                     
                     TASK:
-                    1. Analyze Technicals (Drawdown, Toxic Assets, Structure).
-                    2. Analyze Psychology (Disposition Effect, Panic).
-                    3. Assess Risk.
+                    - If WINNING: Score HIGH (85-100). Label as "Strategic Exit". Do NOT use words like "Panic".
+                    - If LOSING: Score LOW. Analyze Mistakes.
                     
                     OUTPUT FORMAT: JSON ONLY (No Markdown).
                     {{
                         "score": 100,
-                        "tags": ["High Risk", "Panic Selling"],
-                        "technical_analysis": "The chart for [TICKER] shows...",
+                        "tags": ["Tag1", "Tag2"], 
+                        "technical_analysis": "Text...",
                         "psychological_profile": "Text...",
                         "risk_assessment": "Text...",
-                        "strategic_roadmap": "1. Step one. 2. Step two."
+                        "strategic_roadmap": "Text..."
                     }}
                     """
                     
