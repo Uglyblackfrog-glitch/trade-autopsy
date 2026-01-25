@@ -216,18 +216,17 @@ st.markdown("""
     }
     
     /* --- LOGIN CARD SPECIFIC STYLING --- */
-    /* Target the Form Container to act as the Card */
     [data-testid="stForm"] {
         background: rgba(22, 32, 42, 0.6);
         border: 1px solid #1f2d38;
         border-radius: 16px;
         box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
         padding: 40px;
-        border-top: 4px solid #ff4d4d; /* Minor Color Accent */
+        border-top: 4px solid #ff4d4d;
         backdrop-filter: blur(10px);
     }
 
-    /* --- INPUT FIELDS (Global but styled for Login) --- */
+    /* --- INPUT FIELDS --- */
     .stTextInput label p {
         color: #8b95a1 !important;
         font-size: 12px !important;
@@ -241,12 +240,21 @@ st.markdown("""
         border: 1px solid #2c3a47 !important;
         color: #fff !important;
         border-radius: 8px !important;
-        padding-left: 15px !important; /* Streamlit prevents internal icons easily, so purely CSS inputs */
+        padding-left: 15px !important;
         font-size: 14px !important;
         transition: all 0.3s ease;
     }
+    
+    /* Text Area Styling for the new input */
+    .stTextArea > div > div > textarea {
+        background-color: #0a1014 !important;
+        border: 1px solid #2c3a47 !important;
+        color: #fff !important;
+        border-radius: 8px !important;
+        font-family: 'Inter', sans-serif;
+    }
 
-    .stTextInput > div > div > input:focus {
+    .stTextInput > div > div > input:focus, .stTextArea > div > div > textarea:focus {
         border-color: #ff4d4d !important;
         box-shadow: 0 0 0 4px rgba(255, 77, 77, 0.1) !important;
     }
@@ -271,17 +279,7 @@ st.markdown("""
         box-shadow: 0 6px 20px rgba(255, 77, 77, 0.4) !important;
     }
 
-    div.stButton > button:active {
-        transform: translateY(0);
-    }
-
-    /* --- CHECKBOX --- */
-    .stCheckbox label span {
-        color: #8b95a1;
-        font-size: 13px;
-    }
-
-    /* --- REPORT BOXES (From Previous Code - Kept for Dashboard) --- */
+    /* --- REPORT BOXES --- */
     .report-box { 
         background: #151e24; 
         border: 1px solid #2a3239; 
@@ -301,38 +299,10 @@ st.markdown("""
         margin-bottom: 10px; 
     }
     
-    /* Login Header Styling */
-    .login-header h2 {
-        font-size: 28px;
-        font-weight: 700;
-        margin-bottom: 8px;
-        letter-spacing: -0.5px;
-        text-align: center;
-        color: #fff;
-        margin-top: 0;
-    }
-    .login-header p {
-        color: #8b95a1;
-        font-size: 14px;
-        text-align: center;
-        margin-bottom: 30px;
-    }
-    
-    /* Login Footer Styling */
-    .login-footer {
-        margin-top: 25px;
-        text-align: center;
-        font-size: 14px;
-        color: #8b95a1;
-    }
-    .login-footer a {
-        color: #ff4d4d;
-        text-decoration: none;
-        font-weight: 600;
-    }
-    .login-footer a:hover {
-        text-decoration: underline;
-    }
+    .login-header h2 { font-size: 28px; font-weight: 700; margin-bottom: 8px; color: #fff; text-align: center; margin-top: 0; }
+    .login-header p { color: #8b95a1; font-size: 14px; text-align: center; margin-bottom: 30px; }
+    .login-footer { margin-top: 25px; text-align: center; font-size: 14px; color: #8b95a1; }
+    .login-footer a { color: #ff4d4d; text-decoration: none; font-weight: 600; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -402,48 +372,26 @@ def get_user_rules(user_id):
 # 5. MAIN INTERFACE
 # ==========================================
 
-# 🔒 LOGIN PAGE (Matching New HTML UI)
+# 🔒 LOGIN PAGE
 if not st.session_state["authenticated"]:
-    # Columns to center the card on screen
     c1, c2, c3 = st.columns([1, 1, 1])
-    
     with c2:
-        # Using a Form to act as the "Card" wrapper
         with st.form("login_card", clear_on_submit=False):
-            
-            # Header
             st.markdown("""
                 <div class="login-header">
                     <h2>System Access</h2>
                     <p>Enter your Operator credentials.</p>
                 </div>
             """, unsafe_allow_html=True)
-            
-            # Inputs
             u = st.text_input("Operator ID", placeholder="OP-4921")
             p = st.text_input("Password", type="password", placeholder="••••••••")
-            
-            # Actions Row (Checkbox + Forgot Link)
             col_act1, col_act2 = st.columns([1, 1])
-            with col_act1:
-                st.checkbox("Remember ID")
-            with col_act2:
-                st.markdown('<div style="text-align:right; padding-top:5px;"><a href="#" style="color:#8b95a1; text-decoration:none; font-size:13px;">Forgot password?</a></div>', unsafe_allow_html=True)
-            
+            with col_act1: st.checkbox("Remember ID")
+            with col_act2: st.markdown('<div style="text-align:right; padding-top:5px;"><a href="#" style="color:#8b95a1; text-decoration:none; font-size:13px;">Forgot password?</a></div>', unsafe_allow_html=True)
             st.markdown("<br>", unsafe_allow_html=True)
-            
-            # Button (Styled via CSS to be red)
             submitted = st.form_submit_button("Authenticate")
-            
-            if submitted:
-                check_login(u, p)
-
-        # Footer
-        st.markdown("""
-            <div class="login-footer">
-                <p>Issue with your ID? <a href="#">Contact Support</a></p>
-            </div>
-        """, unsafe_allow_html=True)
+            if submitted: check_login(u, p)
+        st.markdown("""<div class="login-footer"><p>Issue with your ID? <a href="#">Contact Support</a></p></div>""", unsafe_allow_html=True)
 
 # 🔓 DASHBOARD PAGE
 else:
@@ -537,22 +485,16 @@ else:
                             st.markdown(final_html, unsafe_allow_html=True)
                         except Exception as e: st.error(str(e))
 
-        # --- TEXT LOG ANALYSIS ---
+        # --- TEXT LOG ANALYSIS (MODIFIED SECTION) ---
         else:
             with st.form("text_audit"):
-                c1,c2 = st.columns(2)
-                with c1: tick = st.text_input("Ticker", "BTC/USD")
-                with c2: context = st.text_area("Context/Notes")
-                c1,c2,c3 = st.columns(3)
-                with c1: ent = st.number_input("Entry", 0.0)
-                with c2: ex = st.number_input("Exit", 0.0)
-                with c3: stp = st.number_input("Stop", 0.0)
+                # UPDATED: Replaced multiple boxes with single "Trade Log" input as requested
+                trade_data = st.text_area("Trade Log / Narrative", height=200, placeholder="Paste your execution log, trade journal, or notes here...")
                 
-                if st.form_submit_button("SUBMIT", type="primary"):
-                    math_block = f"Entry: {ent}, Exit: {ex}, Stop: {stp}"
+                if st.form_submit_button("INITIATE DIAGNOSTIC", type="primary"):
                     prompt = f"""
                     You are Dr. Market. Audit this trade log. Rules: {my_rules}.
-                    Data: {math_block}. Context: {context}.
+                    Trade Log Data: {trade_data}.
                     OUTPUT FORMAT: JSON ONLY (No Markdown).
                     {{
                         "trade_direction": "Long" or "Short", 
