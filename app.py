@@ -1,12 +1,10 @@
 import streamlit as st
 import requests
 import base64
-import io
 import re
 import pandas as pd
 import time
 import json
-from PIL import Image
 from supabase import create_client, Client
 
 # ==========================================
@@ -57,7 +55,7 @@ if st.session_state["authenticated"]:
         HF_TOKEN = None
 
 # ==========================================
-# 2. INTELLIGENCE ENGINE (FUNCTIONS)
+# 2. INTELLIGENCE ENGINE
 # ==========================================
 def run_scientific_analysis(messages, mode="text"):
     if not HF_TOKEN: return '{"score": 50, "tags": ["Demo"], "technical_analysis": "Demo Mode", "psychological_profile": "Demo Mode", "risk_assessment": "Demo", "strategic_roadmap": "Fix secrets"}'
@@ -165,90 +163,6 @@ def get_user_rules(user_id):
         return [r['rule_text'] for r in res.data]
     except: return []
 
-# ==========================================
-# 3. UI RENDERER (CLEANER HEADER)
-# ==========================================
-st.markdown("""
-<link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,600;0,800;1,800&display=swap" rel="stylesheet">
-<style>
-    /* 1. Global Reset for Sleek Look */
-    .stApp { 
-        background-color: #0d1117 !important; 
-        color: #c9d1d9; 
-        font-family: 'Inter', sans-serif; 
-        margin-top: 0 !important;
-    }
-    
-    /* Hide Default Header/Footer/Sidebar */
-    header {visibility: hidden;}
-    footer {visibility: hidden;}
-    [data-testid="stSidebar"] { display: none; }
-    
-    /* Remove top padding from main container so header sits flush */
-    .block-container {
-        padding-top: 0rem !important;
-    }
-
-    /* 2. CUSTOM SLEEK HEADER (Expanded, No Line) */
-    .custom-nav-container {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 90px; /* Expanded height */
-        background-color: #0d1117; /* Seamless match with BG */
-        z-index: 999999;
-        /* No border-bottom for sleek look */
-        /* Subtle shadow for depth instead of a line */
-        box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5); 
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-    
-    .custom-nav-content {
-        width: 95%; /* Wider spread */
-        max-width: 1400px;
-        display: flex; 
-        justify-content: space-between; 
-        align-items: center;
-    }
-
-    .nav-logo { font-size: 1.8rem; font-weight: 800; font-style: italic; color: white; letter-spacing: -1px; }
-    .nav-links { display: flex; gap: 40px; align-items: center; font-size: 1rem; font-weight: 600; }
-    .nav-item { color: #8b949e; cursor: pointer; text-decoration: none; transition: all 0.2s; }
-    .nav-item:hover { color: white; transform: translateY(-1px); }
-    .nav-item.active { color: white; }
-    
-    /* 3. Spacer to push content below fixed header */
-    .main-content-spacer {
-        margin-top: 100px; /* Matches header height + padding */
-    }
-
-    /* 4. Component Styling */
-    h1, .hero-text { 
-        font-family: 'Inter', sans-serif; font-weight: 800; font-style: italic; 
-        letter-spacing: -0.05em; color: white; text-transform: uppercase;
-    }
-    
-    [data-testid="stForm"], .report-box { 
-        background-color: #161b22 !important; border: 1px solid #30363d !important; 
-        border-radius: 24px !important; padding: 40px !important; 
-    }
-    
-    div.stButton > button { 
-        background-color: #da3633 !important; color: white !important; font-weight: 800 !important;
-        border-radius: 99px !important; border: none !important; padding: 12px 30px !important;
-        text-transform: uppercase; letter-spacing: 0.5px;
-    }
-    div.stButton > button:hover { background-color: #f85149 !important; transform: scale(1.02); }
-
-    .stTabs [data-baseweb="tab-list"] { background-color: transparent; }
-    .stTabs [data-baseweb="tab"] { color: #8b949e; font-weight: 600; }
-    .stTabs [aria-selected="true"] { color: white !important; border-bottom-color: #f85149 !important; }
-</style>
-""", unsafe_allow_html=True)
-
 def render_report_html(report):
     c_score = "#f85149" if report['score'] < 50 else "#3fb950"
     tags_html = "".join([f'<span style="background:#21262d; border:1px solid #30363d; padding:4px 12px; border-radius:99px; font-size:0.7rem; margin-right:5px; color:#8b949e;">{t}</span>' for t in report['tags']])
@@ -267,12 +181,164 @@ def render_report_html(report):
     </div>"""
 
 # ==========================================
-# 4. MAIN INTERFACE
+# 3. UI RENDERING (PRECISE CSS MATCH)
+# ==========================================
+st.markdown("""
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+    /* RESET & BASE */
+    .stApp { background-color: #0d1117 !important; color: #c9d1d9; font-family: 'Inter', sans-serif; margin: 0; padding: 0;}
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+    [data-testid="stSidebar"] { display: none; }
+    
+    /* Remove standard streamlit padding to allow full-width header */
+    .block-container {
+        padding-top: 0rem !important;
+        padding-left: 0rem !important;
+        padding-right: 0rem !important;
+        max-width: 100% !important;
+    }
+
+    /* --- EXACT HEADER REPLICATION --- */
+    .navbar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw; /* Full Viewport Width */
+        height: 70px;
+        background-color: #0d1117;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0 40px; /* Side spacing */
+        box-sizing: border-box;
+        z-index: 999999;
+    }
+
+    /* Logo Section */
+    .nav-logo {
+        font-size: 1.5rem;
+        font-weight: 800;
+        color: white;
+        letter-spacing: -0.5px;
+    }
+    .red-text { color: #f85149; }
+
+    /* Center Menu Links */
+    .nav-menu {
+        display: flex;
+        gap: 40px;
+        align-items: center;
+        height: 100%;
+    }
+
+    .nav-item {
+        font-size: 0.85rem;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        color: #8b949e; /* The "opacity" look */
+        cursor: pointer;
+        text-transform: uppercase;
+        transition: color 0.2s ease;
+        position: relative;
+        display: flex;
+        align-items: center;
+        height: 100%; /* For hover hit area */
+    }
+    
+    .nav-item:hover { color: white; }
+    
+    /* Dropdown Arrow */
+    .arrow-icon {
+        font-size: 0.7rem;
+        margin-left: 6px;
+        transition: transform 0.2s;
+    }
+    .nav-item:hover .arrow-icon { transform: rotate(180deg); }
+
+    /* The Hover Dropdown Box (Exact visual match) */
+    .dropdown-content {
+        display: none;
+        position: absolute;
+        top: 60px; /* Just below header */
+        left: -20px;
+        background-color: #161b22;
+        min-width: 220px;
+        border: 1px solid #30363d;
+        border-radius: 8px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+        padding: 8px 0;
+        z-index: 1000000;
+    }
+    
+    .nav-item:hover .dropdown-content { display: block; }
+    
+    .dropdown-link {
+        color: #c9d1d9;
+        padding: 12px 20px;
+        text-decoration: none;
+        display: block;
+        font-size: 0.8rem;
+        font-weight: 600;
+        border-left: 3px solid transparent;
+    }
+    .dropdown-link:hover {
+        background-color: #21262d;
+        color: white;
+        border-left: 3px solid #f85149;
+    }
+
+    /* Right Side Button */
+    .get-started-btn {
+        background-color: #e31e1e; /* Bright Red */
+        color: white;
+        font-weight: 700;
+        font-size: 0.9rem;
+        padding: 10px 24px;
+        border-radius: 99px;
+        border: none;
+        cursor: pointer;
+        transition: transform 0.2s;
+        text-transform: capitalize;
+    }
+    .get-started-btn:hover { transform: scale(1.03); background-color: #f85149; }
+
+    /* Spacer for content */
+    .main-spacer { height: 100px; }
+    
+    /* Content Padding Wrapper */
+    .content-wrapper { padding: 0 5%; max-width: 1400px; margin: 0 auto; }
+
+    /* Standard Elements Styling */
+    h1 { font-family: 'Inter', sans-serif; font-weight: 800; text-transform: uppercase; font-style: italic; }
+    [data-testid="stForm"], .report-box { 
+        background-color: #161b22 !important; border: 1px solid #30363d !important; 
+        border-radius: 24px !important; padding: 40px !important; margin-bottom: 20px;
+    }
+    div.stButton > button { 
+        background-color: #e31e1e !important; color: white !important; font-weight: 800 !important;
+        border-radius: 99px !important; border: none !important; padding: 12px 30px !important;
+        text-transform: uppercase;
+    }
+    
+    /* Tab Styling */
+    .stTabs [data-baseweb="tab-list"] { background-color: transparent; gap: 20px; }
+    .stTabs [data-baseweb="tab"] { color: #8b949e; font-weight: 600; background-color: transparent !important; border: none !important;}
+    .stTabs [aria-selected="true"] { color: white !important; border-bottom: 2px solid #f85149 !important; }
+
+</style>
+""", unsafe_allow_html=True)
+
+# ==========================================
+# 4. MAIN LAYOUT
 # ==========================================
 if not st.session_state["authenticated"]:
-    c1, c2, c3 = st.columns([1, 1.5, 1])
+    # --- LOGIN SCREEN ---
+    c1, c2, c3 = st.columns([1, 1, 1])
     with c2:
-        st.markdown("<div style='text-align:center; margin-top:100px;'><h1 style='font-size:2.5rem;'>STOCK<span style='color:#f85149'>POSTMORTEM</span>.AI</h1><p style='color:#8b949e'>OPERATOR AUTHENTICATION REQUIRED</p></div>", unsafe_allow_html=True)
+        st.markdown("<div style='height: 150px;'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='text-align:center;'><h1 style='font-size:2.5rem;'>STOCK<span style='color:#f85149'>POSTMORTEM</span>.AI</h1></div>", unsafe_allow_html=True)
         with st.form("login"):
             u = st.text_input("Operator ID")
             p = st.text_input("Password", type="password")
@@ -280,86 +346,100 @@ if not st.session_state["authenticated"]:
 else:
     user = st.session_state["user"]
     
-    # --- SLEEK HEADER (HTML) ---
+    # --- HEADER HTML (This renders the visual top bar) ---
     st.markdown("""
-        <div class="custom-nav-container">
-            <div class="custom-nav-content">
-                <div class="nav-logo">STOCK<span style="color:#f85149">POSTMORTEM</span>.AI</div>
-                <div class="nav-links">
-                    <div class="nav-item active">ANALYZE ⌄</div>
-                    <div class="nav-item">DATA VAULT</div>
-                    <div class="nav-item">PRICING</div>
+    <nav class="navbar">
+        <div class="nav-logo">STOCK<span class="red-text">POSTMORTEM</span>.AI</div>
+        
+        <div class="nav-menu">
+            <div class="nav-item">
+                ANALYZE <span class="arrow-icon">⌄</span>
+                <div class="dropdown-content">
+                    <div class="dropdown-link">VISUAL EVIDENCE</div>
+                    <div class="dropdown-link">DETAILED TEXT LOG</div>
                 </div>
             </div>
-        </div>
-        <div class="main-content-spacer"></div>
-    """, unsafe_allow_html=True)
-
-    # Logout Button (Positioned Top Right in Body, aligned with header concept)
-    # Using columns to push it to the far right
-    col_A, col_B = st.columns([9, 1])
-    with col_B:
-        if st.button("LOG OUT"): logout()
-
-    # Hero Branding
-    st.markdown("""
-        <div style='text-align:center; margin-bottom:50px; padding-top:10px;'>
-            <h1 style='font-size:4rem;'>STOP <span style='color:#f85149'>BLEEDING</span> CAPITAL.</h1>
-            <p style='color:#8b949e; font-size:1.2rem; max-width:700px; margin:auto;'>Upload your losing trade screenshots. Our AI identifies psychological traps and provides a surgical path to recovery.</p>
-        </div>
-    """, unsafe_allow_html=True)
-
-    # TABS
-    tab_analyse, tab_data = st.tabs(["🔬 ANALYSE", "📊 DATA VAULT"])
-
-    with tab_analyse:
-        my_rules = get_user_rules(user)
-        mode = st.radio("Source", ["Visual Evidence", "Detailed Text Log"], horizontal=True, label_visibility="collapsed")
-        
-        if "Visual" in mode:
-            st.markdown("""
-            <div style="border: 2px dashed #30363d; border-radius: 24px; padding: 40px; background: #161b22; text-align: center; margin-bottom: 20px;">
-                <h2 style='color:white; font-weight:800;'>Drop your P&L or Chart screenshot here</h2>
-                <p style='color:#8b949e'>PNG, JPG (Max 10MB)</p>
-            </div>
-            """, unsafe_allow_html=True)
             
-            up_file = st.file_uploader("Upload", type=["png", "jpg", "jpeg"], label_visibility="collapsed")
-            if up_file:
-                st.image(up_file, use_container_width=True)
-                if st.button("Initiate Forensic Scan"):
-                    img_b64 = base64.b64encode(up_file.getvalue()).decode('utf-8')
-                    prompt = f"Audit this chart. Rules: {my_rules}. Output JSON."
-                    messages = [{"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}]}]
-                    with st.spinner("🔬 Scanning..."):
-                        raw = run_scientific_analysis(messages, mode="vision")
-                        report = parse_scientific_report(raw)
-                        save_to_lab_records(user, report)
-                        st.markdown(render_report_html(report), unsafe_allow_html=True)
-        else:
-            with st.form("text_audit"):
-                c1, c2, c3 = st.columns(3)
-                with c1: tick = st.text_input("Ticker", placeholder="$NVDA")
-                with c2: pos = st.selectbox("Position", ["Long (Buy)", "Short (Sell)"])
-                with c3: tf = st.selectbox("Timeframe", ["Scalp", "Day Trade", "Swing", "Position"])
-                c4, c5, c6 = st.columns(3)
-                with c4: ent = st.number_input("Entry Price", min_value=0.0, format="%.2f")
-                with c5: ex = st.number_input("Exit Price", min_value=0.0, format="%.2f")
-                with c6: stp = st.number_input("Planned Stop", min_value=0.0, format="%.2f")
-                setup = st.text_area("The Setup (Why did you enter?)")
-                exit_rsn = st.text_area("The Exit (Why did you close?)")
-                if st.form_submit_button("Run Forensic Analysis"):
-                    prompt = f"Audit Trade. Ticker: {tick}, Pos: {pos}, TF: {tf}, Entry: {ent}, Exit: {ex}, Stop: {stp}, Setup: {setup}, Exit Reason: {exit_rsn}. Rules: {my_rules}. Output JSON."
-                    messages = [{"role": "user", "content": prompt}]
-                    with st.spinner("🔬 Analyzing..."):
-                        raw = run_scientific_analysis(messages, mode="text")
-                        report = parse_scientific_report(raw)
-                        save_to_lab_records(user, report)
-                        st.markdown(render_report_html(report), unsafe_allow_html=True)
+            <div class="nav-item">DATA VAULT</div>
+            <div class="nav-item">PRICING</div>
+        </div>
+        
+        <button class="get-started-btn">Get Started</button>
+    </nav>
+    <div class="main-spacer"></div>
+    """, unsafe_allow_html=True)
 
-    with tab_data:
-        if supabase:
-            hist = supabase.table("trades").select("*").eq("user_id", user).order("created_at", desc=True).execute().data
-            if hist: st.dataframe(pd.DataFrame(hist), use_container_width=True)
-        else:
-            st.info("Data Vault unavailable (Database not connected)")
+    # --- MAIN CONTENT WRAPPER ---
+    with st.container():
+        # Using a container to apply the side padding for the actual tool content
+        st.markdown('<div class="content-wrapper">', unsafe_allow_html=True)
+        
+        # Small Logout Button (Hidden functionality for user)
+        col_L, col_R = st.columns([10, 1])
+        with col_R:
+            if st.button("Log Out"): logout()
+
+        # Hero Text
+        st.markdown("""
+            <div style='text-align:center; margin-bottom:50px;'>
+                <h1 style='font-size:3.5rem; margin:0;'>STOP <span style='color:#f85149'>BLEEDING</span> CAPITAL.</h1>
+                <p style='color:#8b949e; font-size:1.1rem; max-width:600px; margin:10px auto;'>AI-Powered Forensic Trading Analysis.</p>
+            </div>
+        """, unsafe_allow_html=True)
+
+        # Tabs
+        tab_analyse, tab_data = st.tabs(["🔬 ANALYSE", "📊 DATA VAULT"])
+
+        with tab_analyse:
+            my_rules = get_user_rules(user)
+            mode = st.radio("Source", ["Visual Evidence", "Detailed Text Log"], horizontal=True, label_visibility="collapsed")
+            
+            if "Visual" in mode:
+                st.markdown("""
+                <div style="border: 2px dashed #30363d; border-radius: 24px; padding: 40px; background: #161b22; text-align: center; margin-bottom: 20px;">
+                    <h3 style='color:white; margin:0;'>Drop your Chart Screenshot</h3>
+                    <p style='color:#8b949e; font-size:0.9rem;'>Supports PNG, JPG</p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                up_file = st.file_uploader("Upload", type=["png", "jpg", "jpeg"], label_visibility="collapsed")
+                if up_file:
+                    st.image(up_file, use_container_width=True)
+                    if st.button("Initiate Forensic Scan"):
+                        img_b64 = base64.b64encode(up_file.getvalue()).decode('utf-8')
+                        prompt = f"Audit this chart. Rules: {my_rules}. Output JSON."
+                        messages = [{"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}]}]
+                        with st.spinner("Scanning..."):
+                            raw = run_scientific_analysis(messages, mode="vision")
+                            report = parse_scientific_report(raw)
+                            save_to_lab_records(user, report)
+                            st.markdown(render_report_html(report), unsafe_allow_html=True)
+            else:
+                with st.form("text_audit"):
+                    c1, c2, c3 = st.columns(3)
+                    with c1: tick = st.text_input("Ticker", placeholder="$NVDA")
+                    with c2: pos = st.selectbox("Position", ["Long (Buy)", "Short (Sell)"])
+                    with c3: tf = st.selectbox("Timeframe", ["Scalp", "Day Trade", "Swing"])
+                    c4, c5, c6 = st.columns(3)
+                    with c4: ent = st.number_input("Entry", min_value=0.0)
+                    with c5: ex = st.number_input("Exit", min_value=0.0)
+                    with c6: stp = st.number_input("Stop", min_value=0.0)
+                    setup = st.text_area("Setup Details")
+                    exit_rsn = st.text_area("Exit Reason")
+                    if st.form_submit_button("Run Analysis"):
+                        prompt = f"Audit Trade. Ticker: {tick}, Pos: {pos}, TF: {tf}, Entry: {ent}, Exit: {ex}, Stop: {stp}, Setup: {setup}, Exit Reason: {exit_rsn}. Rules: {my_rules}. Output JSON."
+                        messages = [{"role": "user", "content": prompt}]
+                        with st.spinner("Analyzing..."):
+                            raw = run_scientific_analysis(messages, mode="text")
+                            report = parse_scientific_report(raw)
+                            save_to_lab_records(user, report)
+                            st.markdown(render_report_html(report), unsafe_allow_html=True)
+
+        with tab_data:
+            if supabase:
+                hist = supabase.table("trades").select("*").eq("user_id", user).order("created_at", desc=True).execute().data
+                if hist: st.dataframe(pd.DataFrame(hist), use_container_width=True)
+            else:
+                st.info("Data Vault unavailable.")
+        
+        st.markdown('</div>', unsafe_allow_html=True) # End content-wrapper
