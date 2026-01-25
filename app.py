@@ -160,7 +160,6 @@ def parse_scientific_report(text):
     data["risk"] = clean_text_surgical(data["risk"])
     data["fix"] = clean_text_surgical(data["fix"])
 
-    # ☢️ NUCLEAR LOGIC PATCH
     if "short" in data["type"]:
         combined_text_lower = (data["tech"] + data["risk"]).lower()
         triggers = ["drop", "break", "down", "bearish", "red", "collapse", "below", "support break"]
@@ -208,25 +207,23 @@ st.markdown("""
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/remixicon@2.5.0/fonts/remixicon.css" rel="stylesheet">
 <style>
-    /* --- RESET & BASE --- */
     body, .stApp { 
         background-color: #0f171c !important; 
         color: #ffffff; 
         font-family: 'Inter', sans-serif; 
     }
     
-    /* --- LOGIN CARD SPECIFIC STYLING --- */
     [data-testid="stForm"] {
         background: rgba(22, 32, 42, 0.6);
         border: 1px solid #1f2d38;
         border-radius: 16px;
         box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
         padding: 40px;
-        border-top: 4px solid #ff4d4d;
+        border-top: 4px solid #ff4d4d; 
         backdrop-filter: blur(10px);
     }
 
-    .stTextInput label p {
+    .stTextInput label p, .stSelectbox label p, .stTextArea label p {
         color: #8b95a1 !important;
         font-size: 12px !important;
         font-weight: 500 !important;
@@ -234,19 +231,12 @@ st.markdown("""
         letter-spacing: 0.5px !important;
     }
 
-    .stTextInput > div > div > input {
+    .stTextInput > div > div > input, .stSelectbox > div > div > div, .stTextArea > div > div > textarea {
         background-color: #0a1014 !important;
         border: 1px solid #2c3a47 !important;
         color: #fff !important;
         border-radius: 8px !important;
-        padding-left: 15px !important;
         font-size: 14px !important;
-        transition: all 0.3s ease;
-    }
-
-    .stTextInput > div > div > input:focus {
-        border-color: #ff4d4d !important;
-        box-shadow: 0 0 0 4px rgba(255, 77, 77, 0.1) !important;
     }
 
     div.stButton > button {
@@ -258,14 +248,12 @@ st.markdown("""
         font-weight: 600 !important;
         padding: 14px 20px !important;
         width: 100% !important;
-        box-shadow: 0 4px 15px rgba(255, 77, 77, 0.3) !important;
         transition: all 0.3s ease !important;
     }
     
     div.stButton > button:hover {
         background-color: #ff3333 !important;
         transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(255, 77, 77, 0.4) !important;
     }
 
     .report-box { 
@@ -274,7 +262,6 @@ st.markdown("""
         border-radius: 12px; 
         padding: 25px; 
         margin-top: 20px; 
-        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
     }
     .section-title { 
         color: #ff4d4d; 
@@ -284,48 +271,18 @@ st.markdown("""
         border-bottom: 1px solid #2a3239; 
         padding-bottom: 5px; 
         margin-top: 25px; 
-        margin-bottom: 10px; 
-    }
-    
-    .login-header h2 {
-        font-size: 28px;
-        font-weight: 700;
-        margin-bottom: 8px;
-        text-align: center;
-        color: #fff;
-    }
-    .login-header p {
-        color: #8b95a1;
-        font-size: 14px;
-        text-align: center;
-        margin-bottom: 30px;
     }
 </style>
 """, unsafe_allow_html=True)
 
 def render_report_html(report):
     c_score = "#ff4d4d" if report['score'] < 50 else "#00e676"
+    tags_html = "".join([f'<span style="background:#262626; border:1px solid #444; padding:4px 8px; border-radius:4px; font-size:0.8rem; margin-right:5px; display:inline-block; margin-bottom:5px;">{t}</span> ' for t in report['tags']])
     
-    tags_html = "".join([
-        f'<span style="background:#262626; border:1px solid #444; padding:4px 8px; border-radius:4px; font-size:0.8rem; margin-right:5px; display:inline-block; margin-bottom:5px;">{t}</span> ' 
-        for t in report['tags']
-    ])
-    
-    direction_badge = ""
-    if "short" in report.get("type", ""):
-        direction_badge = '<span style="background:#8b0000; color:#fff; padding:2px 6px; border-radius:3px; font-size:0.7rem; margin-left:10px; font-family:monospace;">SHORT POS</span>'
-    elif "long" in report.get("type", ""):
-        direction_badge = '<span style="background:#006400; color:#fff; padding:2px 6px; border-radius:3px; font-size:0.7rem; margin-left:10px; font-family:monospace;">LONG POS</span>'
-
-    reality_warning = ""
-    if "simulated" in str(report.get("reality", "")).lower() or "fictional" in str(report.get("reality", "")).lower():
-        reality_warning = '<div style="background:#3d1818; color:#ff8b8b; padding:10px; border-radius:5px; margin-bottom:15px; font-size:0.9rem;">⚠️ <b>SIMULATION DETECTED:</b> Fictional asset detected.</div>'
-
     html_parts = [
         f'<div class="report-box">',
-        f'{reality_warning}',
         f'  <div style="display:flex; justify-content:space-between; border-bottom:1px solid #444;">',
-        f'      <div><h2 style="color:#fff; margin:0; display:inline-block;">DIAGNOSTIC REPORT</h2>{direction_badge}</div>',
+        f'      <div><h2 style="color:#fff; margin:0; display:inline-block;">DIAGNOSTIC REPORT</h2></div>',
         f'      <div class="score-circle" style="color:{c_score}; font-size:4rem; font-weight:800;">{report["score"]}</div>',
         f'  </div>',
         f'  <div style="margin:10px 0;">{tags_html}</div>',
@@ -342,21 +299,12 @@ def render_report_html(report):
     return "".join(html_parts)
 
 def save_to_lab_records(user_id, data):
-    payload = {
-        "user_id": user_id,
-        "score": data.get('score', 0),
-        "mistake_tags": data.get('tags', []),
-        "technical_analysis": data.get('tech', ''),
-        "psych_analysis": data.get('psych', ''),
-        "risk_analysis": data.get('risk', ''),
-        "fix_action": data.get('fix', '')
-    }
     try:
+        payload = {"user_id": user_id, "score": data.get('score', 0), "mistake_tags": data.get('tags', []), "technical_analysis": data.get('tech', ''), "psych_analysis": data.get('psych', ''), "risk_analysis": data.get('risk', ''), "fix_action": data.get('fix', '')}
         supabase.table("trades").insert(payload).execute()
         if data.get('score', 0) < 50:
             clean_fix = data.get('fix', 'Follow Protocol').split('.')[0][:100]
             supabase.table("rules").insert({"user_id": user_id, "rule_text": clean_fix}).execute()
-            st.toast("🧬 Violation Recorded & Rule Added.")
     except: pass
 
 def get_user_rules(user_id):
@@ -373,79 +321,61 @@ if not st.session_state["authenticated"]:
     c1, c2, c3 = st.columns([1, 1, 1])
     with c2:
         with st.form("login_card", clear_on_submit=False):
-            st.markdown("""
-                <div class="login-header">
-                    <h2>System Access</h2>
-                    <p>Enter your Operator credentials.</p>
-                </div>
-            """, unsafe_allow_html=True)
-            u = st.text_input("Operator ID", placeholder="OP-4921")
-            p = st.text_input("Password", type="password", placeholder="••••••••")
-            submitted = st.form_submit_button("Authenticate")
-            if submitted:
+            st.markdown("<h2 style='text-align:center;'>System Access</h2>", unsafe_allow_html=True)
+            u = st.text_input("Operator ID")
+            p = st.text_input("Password", type="password")
+            if st.form_submit_button("Authenticate"):
                 check_login(u, p)
-
 else:
     user = st.session_state["user"]
     with st.sidebar:
         st.title(f"Operator: {user}")
         if st.button("🔒 TERMINATE SESSION"): logout()
 
-    st.markdown("""
-    <div style="border-bottom: 1px solid #2a3239; padding-bottom: 20px; margin-bottom: 20px;">
-        <h1 style="margin:0;">🧬 FORENSIC <span style='color:#ff4d4d'>TRADING LAB</span></h1>
-        <p style="color:#666; margin:0;">Active Session // Monitoring Real-Time Diagnostics</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
+    st.markdown("<h1>🧬 FORENSIC <span style='color:#ff4d4d'>TRADING LAB</span></h1>", unsafe_allow_html=True)
     tab_audit, tab_laws, tab_data = st.tabs(["🔬 DIAGNOSTIC AUDIT", "⚖️ PROTOCOLS", "📊 DATA VAULT"])
 
     with tab_audit:
         my_rules = get_user_rules(user)
-        mode = st.radio("Input Source", ["Detailed Text Log", "Visual Evidence (Chart/P&L)"], horizontal=True, label_visibility="collapsed")
+        mode = st.radio("Source", ["Detailed Text Log", "Visual Evidence"], horizontal=True, label_visibility="collapsed")
         
         if "Visual Evidence" in mode:
             up_file = st.file_uploader("Upload Evidence", type=["png", "jpg", "jpeg", "webp"])
             if up_file:
                 st.image(up_file, width=500)
                 if st.button("INITIATE FORENSIC SCAN", type="primary"):
-                    image = Image.open(up_file)
-                    if image.mode != 'RGB': image = image.convert('RGB')
-                    buf = io.BytesIO()
-                    image.save(buf, format="JPEG")
-                    img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
-                    
-                    prompt = f"Audit this chart based on these rules: {my_rules}. Output JSON."
-                    messages = [{
-                        "role": "user",
-                        "content": [
-                            {"type": "text", "text": prompt},
-                            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}
-                        ]
-                    }]
-                    
-                    with st.spinner("🔬 Running Spectral Analysis..."):
-                        try:
-                            raw = run_scientific_analysis(messages, mode="vision")
-                            report = parse_scientific_report(raw)
-                            save_to_lab_records(user, report)
-                            st.markdown(render_report_html(report), unsafe_allow_html=True)
-                        except Exception as e: st.error(str(e))
+                    img_b64 = base64.b64encode(up_file.getvalue()).decode('utf-8')
+                    prompt = f"Audit this chart. Rules: {my_rules}. Output JSON."
+                    messages = [{"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}]}]
+                    with st.spinner("🔬 Scanning..."):
+                        raw = run_scientific_analysis(messages, mode="vision")
+                        report = parse_scientific_report(raw)
+                        save_to_lab_records(user, report)
+                        st.markdown(render_report_html(report), unsafe_allow_html=True)
         else:
             with st.form("text_audit"):
-                c1,c2 = st.columns(2)
-                with c1: tick = st.text_input("Ticker", "BTC/USD")
-                with c2: context = st.text_area("Context/Notes")
-                if st.form_submit_button("SUBMIT", type="primary"):
-                    prompt = f"Audit trade: {tick}. Context: {context}. Rules: {my_rules}. Output JSON."
+                st.markdown("### 📂 CASE FILE DETAILS")
+                c1, c2, c3 = st.columns(3)
+                with c1: tick = st.text_input("Ticker", placeholder="$NVDA")
+                with c2: pos = st.selectbox("Position", ["Long (Buy)", "Short (Sell)"])
+                with c3: tf = st.selectbox("Timeframe", ["Scalp (1m-5m)", "Day Trade (15m-1h)", "Swing", "Position"])
+                
+                c4, c5, c6 = st.columns(3)
+                with c4: ent = st.number_input("Entry Price", min_value=0.0, format="%.2f")
+                with c5: ex = st.number_input("Exit Price", min_value=0.0, format="%.2f")
+                with c6: stp = st.number_input("Planned Stop", min_value=0.0, format="%.2f")
+                
+                setup = st.text_area("The Setup (Why did you enter?)", placeholder="Ex: Bull flag breakout above VWAP...")
+                exit_rsn = st.text_area("The Exit (Why did you close?)", placeholder="Ex: I got scared when it wicked down...")
+                
+                if st.form_submit_button("RUN FORENSIC ANALYSIS (TEXT)", type="primary", use_container_width=True):
+                    prompt = f"Audit Trade. Ticker: {tick}, Pos: {pos}, TF: {tf}, Entry: {ent}, Exit: {ex}, Stop: {stp}, Setup: {setup}, Exit Reason: {exit_rsn}. Rules: {my_rules}. Output JSON."
                     messages = [{"role": "user", "content": prompt}]
-                    with st.spinner("Computing..."):
-                        try:
-                            raw = run_scientific_analysis(messages, mode="text")
-                            report = parse_scientific_report(raw)
-                            save_to_lab_records(user, report)
-                            st.markdown(render_report_html(report), unsafe_allow_html=True)
-                        except Exception as e: st.error(str(e))
+                    with st.spinner("🔬 Analyzing..."):
+                        raw = run_scientific_analysis(messages, mode="text")
+                        report = parse_scientific_report(raw)
+                        save_to_lab_records(user, report)
+                        st.markdown(render_report_html(report), unsafe_allow_html=True)
 
     with tab_laws:
         rules = supabase.table("rules").select("*").eq("user_id", user).execute().data
