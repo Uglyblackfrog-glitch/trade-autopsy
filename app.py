@@ -154,7 +154,7 @@ def fix_mashed_tags_surgical(tags_input):
 def parse_scientific_report(text):
     """
     PARSES text and CALCULATES score via Python logic.
-    Ignores AI score to prevent '0' hallucinations.
+    Includes "Safety Caps" to prevent high scores for Panic/Risk scenarios.
     """
     clean_raw = text.replace("```json", "").replace("```", "").strip()
     
@@ -188,25 +188,38 @@ def parse_scientific_report(text):
     data["risk"] = clean_text_surgical(data["risk"])
     data["fix"] = clean_text_surgical(data["fix"])
     
-    # 3. DETERMINISTIC PYTHON SCORING
+    # ====================================================
+    # 3. SCORING ENGINE (WITH SAFETY CAPS)
+    # ====================================================
     score = 100
+    joined_text = (str(data["tags"]) + data["tech"] + data["psych"] + data["risk"]).lower()
     
-    # A. Detect Drawdown %
+    # A. Direct Math Deductions (if numbers exist)
     drawdown_matches = re.findall(r'-(\d+\.?\d*)%', clean_raw)
-    
     if drawdown_matches:
         max_loss = max([float(x) for x in drawdown_matches])
         score -= max_loss 
     
-    # B. Penalty for Toxic/Panic Keywords
-    joined_text = (str(data["tags"]) + data["tech"] + data["psych"]).lower()
-    
+    # B. Keyword Penalties
     if "toxic" in joined_text: score -= 20
-    if "panic" in joined_text: score -= 10
+    if "panic" in joined_text: score -= 15
     if "fomo" in joined_text: score -= 10
+    if "high risk" in joined_text: score -= 15
+    if "sell-off" in joined_text: score -= 10
     if "structure" in joined_text and "break" in joined_text: score -= 10
 
-    # C. Clamp Score (0-100)
+    # C. SAFETY CAPS (The "Common Sense" Override)
+    # Even if math says 90, if we see "Panic", we cap at 45.
+    
+    # Level 1: DANGER -> Max Score 45 (Fail)
+    if "panic" in joined_text or "high risk" in joined_text or "margin call" in joined_text:
+        score = min(score, 45)
+        
+    # Level 2: WARNING -> Max Score 65 (D Grade)
+    elif "drawdown" in joined_text or "loss" in joined_text or "decline" in joined_text:
+        score = min(score, 65)
+
+    # D. Final Clamp (0-100)
     score = max(0, min(100, int(score)))
     
     data["score"] = score
@@ -314,8 +327,9 @@ else:
         
         # --- VISION ANALYSIS ---
         if "Visual Evidence" in mode:
-            st.info("Supported: Candlestick Charts OR P&L Dashboards")
-            # UPDATED: Added "webp" to allowed types
+            st.info("Supported: Candlestick Charts, P&L Dashboards (PNG, JPG, WEBP)")
+            
+            # UPDATED: Added "webp" support here
             up_file = st.file_uploader("Upload Evidence", type=["png", "jpg", "jpeg", "webp"])
             
             if up_file:
