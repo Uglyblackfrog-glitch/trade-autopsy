@@ -188,15 +188,13 @@ def parse_scientific_report(text):
     data["risk"] = clean_text_surgical(data["risk"])
     data["fix"] = clean_text_surgical(data["fix"])
     
-    # 3. DETERMINISTIC PYTHON SCORING (The Fix)
+    # 3. DETERMINISTIC PYTHON SCORING
     score = 100
     
-    # A. Detect Drawdown % (e.g. -28.15% or -50%)
-    # Finds number following a minus sign and ending in %
+    # A. Detect Drawdown %
     drawdown_matches = re.findall(r'-(\d+\.?\d*)%', clean_raw)
     
     if drawdown_matches:
-        # Find the biggest loss mentioned
         max_loss = max([float(x) for x in drawdown_matches])
         score -= max_loss 
     
@@ -317,7 +315,8 @@ else:
         # --- VISION ANALYSIS ---
         if "Visual Evidence" in mode:
             st.info("Supported: Candlestick Charts OR P&L Dashboards")
-            up_file = st.file_uploader("Upload Evidence", type=["png", "jpg", "jpeg"])
+            # UPDATED: Added "webp" to allowed types
+            up_file = st.file_uploader("Upload Evidence", type=["png", "jpg", "jpeg", "webp"])
             
             if up_file:
                 st.image(up_file, width=500)
