@@ -46,6 +46,7 @@ def logout():
 # ==========================================
 if st.session_state["authenticated"]:
     try:
+        # ENSURE THESE EXIST IN YOUR .streamlit/secrets.toml FILE
         HF_TOKEN = st.secrets["HF_TOKEN"]
         SUPABASE_URL = st.secrets["SUPABASE_URL"]
         SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
@@ -61,6 +62,7 @@ def run_scientific_analysis(messages, mode="text"):
     api_url = "https://router.huggingface.co/v1/chat/completions"
     headers = {"Authorization": f"Bearer {HF_TOKEN}", "Content-Type": "application/json"}
     
+    # Selecting the best model for the job
     if mode == "text":
         model_id = "Qwen/Qwen2.5-72B-Instruct" 
     else:
@@ -73,6 +75,7 @@ def run_scientific_analysis(messages, mode="text"):
         "temperature": 0.4, 
     }
 
+    # Retry logic for stability
     for attempt in range(3):
         try:
             res = requests.post(api_url, headers=headers, json=payload, timeout=90)
@@ -97,18 +100,19 @@ st.markdown("""
     .report-box { background: #161B22; border: 1px solid #30363D; border-radius: 12px; padding: 25px; margin-top: 20px; }
     .section-title { color: #58A6FF; font-family: 'JetBrains Mono', monospace; font-weight: bold; font-size: 1.1rem; border-bottom: 1px solid #30363D; padding-bottom: 5px; margin-top: 25px; margin-bottom: 10px; }
     .score-circle { font-size: 4rem; font-weight: 800; line-height: 1; }
-    .tag-pill { background:#262626; border:1px solid #444; padding:4px 8px; border-radius:4px; font-size:0.8rem; margin-right:5px; display: inline-block; margin-bottom: 5px; }
     button[kind="primary"] { background: #238636 !important; border: none; font-family: 'JetBrains Mono', monospace; }
 </style>
 """, unsafe_allow_html=True)
 
 def get_user_rules(user_id):
+    """Fetches active protocols for the specific user."""
     try:
         res = supabase.table("rules").select("*").eq("user_id", user_id).execute()
         return [r['rule_text'] for r in res.data]
     except: return []
 
 def parse_scientific_report(text):
+    """Parses the raw AI text into a structured dictionary."""
     text = text.replace("```json", "").replace("```", "").strip()
     
     sections = { 
@@ -146,28 +150,42 @@ def parse_scientific_report(text):
             
     return sections
 
-# --- THE FIX: NO INDENTATION IN HTML STRING ---
 def render_report_html(report):
+    """
+    Renders the HTML report using a list-join approach. 
+    This prevents python indentation from creating 'code blocks' in markdown.
+    """
     c_score = "#ff4d4d" if report['score'] < 50 else "#00e676"
-    tags_html = ' '.join([f'<span class="tag-pill">{t}</span>' for t in report['tags']])
     
-    # NOTE: The triple quotes are flushed to the left. Do not indent them.
-    html = f"""<div class="report-box">
-<div style="display:flex; justify-content:space-between; border-bottom:1px solid #444;">
-<h2 style="color:#fff; margin:0;">DIAGNOSTIC REPORT</h2>
-<div class="score-circle" style="color:{c_score};">{report['score']}</div>
-</div>
-<div style="margin:10px 0;">{tags_html}</div>
-<div class="section-title">📊 TECHNICAL FORENSICS</div>
-<div style="color:#d0d7de; line-height:1.6;">{report['tech']}</div>
-<div class="section-title">🧠 PSYCHOLOGICAL PROFILE</div>
-<div style="color:#d0d7de; line-height:1.6;">{report['psych']}</div>
-<div class="section-title">⚖️ RISK ASSESSMENT</div>
-<div style="color:#d0d7de; line-height:1.6;">{report['risk']}</div>
-<div class="section-title">🚀 STRATEGIC ROADMAP</div>
-<div style="background:rgba(46, 160, 67, 0.1); border-left:4px solid #2ea043; padding:15px; color:#fff;">{report['fix']}</div>
-</div>"""
-    return html
+    tags_html = "".join([
+        f'<span style="background:#262626; border:1px solid #444; padding:4px 8px; border-radius:4px; font-size:0.8rem; margin-right:5px; display:inline-block; margin-bottom:5px;">{t}</span>' 
+        for t in report['tags']
+    ])
+    
+    # We build the HTML as a list of strings to avoid indentation issues
+    html_parts = [
+        f'<div class="report-box">',
+        f'  <div style="display:flex; justify-content:space-between; border-bottom:1px solid #444;">',
+        f'      <h2 style="color:#fff; margin:0;">DIAGNOSTIC REPORT</h2>',
+        f'      <div class="score-circle" style="color:{c_score};">{report["score"]}</div>',
+        f'  </div>',
+        f'  <div style="margin:10px 0;">{tags_html}</div>',
+        
+        f'  <div class="section-title">📊 TECHNICAL FORENSICS</div>',
+        f'  <div style="color:#d0d7de; line-height:1.6;">{report["tech"]}</div>',
+        
+        f'  <div class="section-title">🧠 PSYCHOLOGICAL PROFILE</div>',
+        f'  <div style="color:#d0d7de; line-height:1.6;">{report["psych"]}</div>',
+        
+        f'  <div class="section-title">⚖️ RISK ASSESSMENT</div>',
+        f'  <div style="color:#d0d7de; line-height:1.6;">{report["risk"]}</div>',
+        
+        f'  <div class="section-title">🚀 STRATEGIC ROADMAP</div>',
+        f'  <div style="background:rgba(46, 160, 67, 0.1); border-left:4px solid #2ea043; padding:15px; color:#fff;">{report["fix"]}</div>',
+        f'</div>'
+    ]
+    
+    return "".join(html_parts)
 
 def save_to_lab_records(user_id, data):
     payload = {
@@ -181,10 +199,11 @@ def save_to_lab_records(user_id, data):
     }
     try:
         supabase.table("trades").insert(payload).execute()
+        # Auto-create a rule if score is low
         if data.get('score', 0) < 50:
             clean_fix = data.get('fix', 'Follow Protocol').split('.')[0][:100]
             supabase.table("rules").insert({"user_id": user_id, "rule_text": clean_fix}).execute()
-            st.toast("🧬 Violation Recorded.")
+            st.toast("🧬 Violation Recorded & Rule Added.")
     except Exception as e:
         st.error(f"DB Error: {e}")
 
