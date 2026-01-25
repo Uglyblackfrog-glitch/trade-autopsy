@@ -16,7 +16,7 @@ st.set_page_config(
     page_title="StockPostmortem.ai", 
     page_icon="🧬", 
     layout="wide",
-    initial_sidebar_state="collapsed" # Collapsed by default for cleaner login
+    initial_sidebar_state="collapsed"
 )
 
 # Login Credentials (Simple Auth)
@@ -160,10 +160,9 @@ def parse_scientific_report(text):
     data["risk"] = clean_text_surgical(data["risk"])
     data["fix"] = clean_text_surgical(data["fix"])
 
-    # ☢️ NUCLEAR LOGIC PATCH (Updated with Trigger List)
+    # ☢️ NUCLEAR LOGIC PATCH
     if "short" in data["type"]:
         combined_text_lower = (data["tech"] + data["risk"]).lower()
-        # Updated Trigger List per our conversation
         triggers = ["drop", "break", "down", "bearish", "red", "collapse", "below", "support break"]
         
         if any(t in combined_text_lower for t in triggers):
@@ -183,7 +182,6 @@ def parse_scientific_report(text):
     elif "loss" in data["outcome"]: is_winning_trade = False
     
     if not is_winning_trade:
-        # Regex updated to catch "dropped by 66%"
         drawdown_matches = re.findall(r'(?:-|dropped by\s*)(\d+\.?\d*)%', clean_raw, re.IGNORECASE)
         if drawdown_matches: score -= max([float(x) for x in drawdown_matches])
         if "panic" in joined_text: score -= 15
@@ -207,17 +205,83 @@ def parse_scientific_report(text):
 # 4. GLOBAL CSS & UI STYLING
 # ==========================================
 st.markdown("""
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@2.5.0/fonts/remixicon.css" rel="stylesheet">
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@300;400;600&display=swap');
-    
-    /* MAIN BACKGROUND */
+    /* --- RESET & BASE --- */
     body, .stApp { 
         background-color: #0f171c !important; 
-        color: #E0E0E0; 
+        color: #ffffff; 
         font-family: 'Inter', sans-serif; 
     }
     
-    /* REPORT BOXES */
+    /* --- LOGIN CARD SPECIFIC STYLING --- */
+    /* Target the Form Container to act as the Card */
+    [data-testid="stForm"] {
+        background: rgba(22, 32, 42, 0.6);
+        border: 1px solid #1f2d38;
+        border-radius: 16px;
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+        padding: 40px;
+        border-top: 4px solid #ff4d4d; /* Minor Color Accent */
+        backdrop-filter: blur(10px);
+    }
+
+    /* --- INPUT FIELDS (Global but styled for Login) --- */
+    .stTextInput label p {
+        color: #8b95a1 !important;
+        font-size: 12px !important;
+        font-weight: 500 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.5px !important;
+    }
+
+    .stTextInput > div > div > input {
+        background-color: #0a1014 !important;
+        border: 1px solid #2c3a47 !important;
+        color: #fff !important;
+        border-radius: 8px !important;
+        padding-left: 15px !important; /* Streamlit prevents internal icons easily, so purely CSS inputs */
+        font-size: 14px !important;
+        transition: all 0.3s ease;
+    }
+
+    .stTextInput > div > div > input:focus {
+        border-color: #ff4d4d !important;
+        box-shadow: 0 0 0 4px rgba(255, 77, 77, 0.1) !important;
+    }
+
+    /* --- BUTTONS --- */
+    div.stButton > button {
+        background-color: #ff4d4d !important;
+        color: #ffffff !important;
+        border: none !important;
+        border-radius: 8px !important;
+        font-size: 16px !important;
+        font-weight: 600 !important;
+        padding: 14px 20px !important;
+        width: 100% !important;
+        box-shadow: 0 4px 15px rgba(255, 77, 77, 0.3) !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    div.stButton > button:hover {
+        background-color: #ff3333 !important;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(255, 77, 77, 0.4) !important;
+    }
+
+    div.stButton > button:active {
+        transform: translateY(0);
+    }
+
+    /* --- CHECKBOX --- */
+    .stCheckbox label span {
+        color: #8b95a1;
+        font-size: 13px;
+    }
+
+    /* --- REPORT BOXES (From Previous Code - Kept for Dashboard) --- */
     .report-box { 
         background: #151e24; 
         border: 1px solid #2a3239; 
@@ -226,10 +290,8 @@ st.markdown("""
         margin-top: 20px; 
         box-shadow: 0 4px 20px rgba(0,0,0,0.3);
     }
-    
-    /* TITLES & HEADERS */
     .section-title { 
-        color: #ff4d4d; /* ACCENT COLOR */
+        color: #ff4d4d; 
         font-family: 'JetBrains Mono', monospace; 
         font-weight: bold; 
         font-size: 1.1rem; 
@@ -239,63 +301,37 @@ st.markdown("""
         margin-bottom: 10px; 
     }
     
-    /* BUTTONS */
-    div.stButton > button {
-        background-color: #ff4d4d !important;
-        color: white !important;
-        border: none !important;
-        font-family: 'JetBrains Mono', monospace !important;
-        font-weight: bold !important;
-        border-radius: 6px !important;
-        transition: all 0.2s ease;
-    }
-    div.stButton > button:hover {
-        background-color: #ff1a1a !important;
-        box-shadow: 0 0 10px rgba(255, 77, 77, 0.4);
-    }
-    
-    /* INPUT FIELDS */
-    .stTextInput > div > div > input {
-        background-color: #151e24 !important;
-        color: #fff !important;
-        border: 1px solid #2a3239 !important;
-        border-radius: 6px;
-    }
-    .stTextInput > div > div > input:focus {
-        border-color: #ff4d4d !important;
-        box-shadow: 0 0 5px rgba(255, 77, 77, 0.2);
-    }
-    
-    /* LOGIN CONTAINER */
-    .login-container {
-        max-width: 400px;
-        margin: 0 auto;
-        padding: 40px;
-        background: #151e24;
-        border: 1px solid #2a3239;
-        border-radius: 12px;
-        text-align: center;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-    }
-    .login-logo {
-        font-size: 4rem;
-        margin-bottom: 10px;
-    }
-    .login-title {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 1.5rem;
+    /* Login Header Styling */
+    .login-header h2 {
+        font-size: 28px;
         font-weight: 700;
+        margin-bottom: 8px;
+        letter-spacing: -0.5px;
+        text-align: center;
         color: #fff;
-        margin-bottom: 5px;
-        letter-spacing: -1px;
+        margin-top: 0;
     }
-    .login-subtitle {
-        color: #ff4d4d;
-        font-size: 0.9rem;
-        font-weight: 600;
-        letter-spacing: 2px;
+    .login-header p {
+        color: #8b95a1;
+        font-size: 14px;
+        text-align: center;
         margin-bottom: 30px;
-        text-transform: uppercase;
+    }
+    
+    /* Login Footer Styling */
+    .login-footer {
+        margin-top: 25px;
+        text-align: center;
+        font-size: 14px;
+        color: #8b95a1;
+    }
+    .login-footer a {
+        color: #ff4d4d;
+        text-decoration: none;
+        font-weight: 600;
+    }
+    .login-footer a:hover {
+        text-decoration: underline;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -366,34 +402,48 @@ def get_user_rules(user_id):
 # 5. MAIN INTERFACE
 # ==========================================
 
-# 🔒 LOGIN PAGE (New Custom UI)
+# 🔒 LOGIN PAGE (Matching New HTML UI)
 if not st.session_state["authenticated"]:
-    # Using columns to center the login box perfectly
-    c1, c2, c3 = st.columns([1, 2, 1])
+    # Columns to center the card on screen
+    c1, c2, c3 = st.columns([1, 1, 1])
     
     with c2:
-        st.markdown("""
-        <div class="login-container">
-            <div class="login-logo">🧬</div>
-            <div class="login-title">STOCK POSTMORTEM</div>
-            <div class="login-subtitle">FORENSIC TRADING INTELLIGENCE</div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        with st.form("login"):
-            u = st.text_input("OPERATOR ID", placeholder="Enter your ID")
-            p = st.text_input("ACCESS KEY", type="password", placeholder="Enter your Key")
+        # Using a Form to act as the "Card" wrapper
+        with st.form("login_card", clear_on_submit=False):
+            
+            # Header
+            st.markdown("""
+                <div class="login-header">
+                    <h2>System Access</h2>
+                    <p>Enter your Operator credentials.</p>
+                </div>
+            """, unsafe_allow_html=True)
+            
+            # Inputs
+            u = st.text_input("Operator ID", placeholder="OP-4921")
+            p = st.text_input("Password", type="password", placeholder="••••••••")
+            
+            # Actions Row (Checkbox + Forgot Link)
+            col_act1, col_act2 = st.columns([1, 1])
+            with col_act1:
+                st.checkbox("Remember ID")
+            with col_act2:
+                st.markdown('<div style="text-align:right; padding-top:5px;"><a href="#" style="color:#8b95a1; text-decoration:none; font-size:13px;">Forgot password?</a></div>', unsafe_allow_html=True)
+            
             st.markdown("<br>", unsafe_allow_html=True)
-            submitted = st.form_submit_button("INITIATE SESSION", use_container_width=True)
+            
+            # Button (Styled via CSS to be red)
+            submitted = st.form_submit_button("Authenticate")
             
             if submitted:
                 check_login(u, p)
-                
-    st.markdown("""
-    <div style="text-align:center; margin-top:50px; color:#444; font-size:0.8rem;">
-        SECURE CONNECTION • ENCRYPTED VIA SUPABASE • VERSION 2.4.1
-    </div>
-    """, unsafe_allow_html=True)
+
+        # Footer
+        st.markdown("""
+            <div class="login-footer">
+                <p>Issue with your ID? <a href="#">Contact Support</a></p>
+            </div>
+        """, unsafe_allow_html=True)
 
 # 🔓 DASHBOARD PAGE
 else:
@@ -445,14 +495,14 @@ else:
                     1. IDENTIFY DIRECTION: Look for "Open Short", "Sell", "Put" vs "Buy", "Long".
                     
                     2. APPLY THE LAWS OF PHYSICS:
-                       - IF SHORT: 
-                         - RED Candle / Price Drop / Support Break = MASSIVE PROFIT (WIN).
-                         - GREEN Candle / Price Rally = LOSS (DANGER).
-                         - ⚠️ NEVER say "Support Break is a risk" to a Short Seller. It is a JACKPOT.
-                         
-                       - IF LONG:
-                         - GREEN Candle / Price Up = PROFIT (WIN).
-                         - RED Candle / Price Down = LOSS.
+                        - IF SHORT: 
+                          - RED Candle / Price Drop / Support Break = MASSIVE PROFIT (WIN).
+                          - GREEN Candle / Price Rally = LOSS (DANGER).
+                          - ⚠️ NEVER say "Support Break is a risk" to a Short Seller. It is a JACKPOT.
+                          
+                        - IF LONG:
+                          - GREEN Candle / Price Up = PROFIT (WIN).
+                          - RED Candle / Price Down = LOSS.
                     
                     3. REALITY CHECK: Is the ticker (e.g. OmniVerse, Solaris) real or simulated?
                     
