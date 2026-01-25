@@ -16,10 +16,10 @@ st.set_page_config(
     page_title="StockPostmortem.ai", 
     page_icon="🧬", 
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="collapsed" # Kept collapsed just in case
 )
 
-# Login Credentials
+# Login Credentials (Simple Auth)
 USERS = {
     "trader1": "profit2026",
     "demo": "12345",
@@ -155,7 +155,7 @@ def parse_scientific_report(text):
     return data
 
 # ==========================================
-# 4. THEME & UI (FIXED SIDEBAR TOGGLE + STICKY HEADER)
+# 4. THEME & UI (SIDEBAR REMOVED)
 # ==========================================
 st.markdown("""
 <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,600;0,800;1,800&display=swap" rel="stylesheet">
@@ -163,72 +163,15 @@ st.markdown("""
     /* Reset & Background */
     .stApp { background-color: #0d1117 !important; color: #c9d1d9; font-family: 'Inter', sans-serif; }
     
-    /* CRITICAL FIX: sidebar toggle logic
-       1. Make standard header transparent (so we see our custom nav).
-       2. Disable pointer events on the header container so clicks pass through to our custom nav.
-       3. Re-enable pointer events ONLY for the sidebar toggle button (arrow) and menu.
-    */
-    header[data-testid="stHeader"] {
-        background: transparent !important;
-        pointer-events: none; 
-        z-index: 999999999 !important; /* Ensure it sits on top */
-    }
-    
-    [data-testid="stSidebarCollapsedControl"], [data-testid="stToolbar"] {
-        pointer-events: auto !important; /* Make buttons clickable */
-        color: white !important;
-        background-color: #161b22 !important; /* Dark bg for the button itself */
-        border: 1px solid #30363d;
-        border-radius: 8px;
-        margin-top: 20px; /* Align slightly down */
-    }
-
+    /* Hide Streamlit Default Elements */
+    header {visibility: hidden;}
     footer {visibility: hidden;}
+    [data-testid="stSidebar"] { display: none; } /* FORCE HIDE SIDEBAR */
     
     /* Typography */
     h1, .hero-text { 
         font-family: 'Inter', sans-serif; font-weight: 800; font-style: italic; 
         letter-spacing: -0.05em; color: white; text-transform: uppercase;
-    }
-    
-    /* --- SIDEBAR STYLING --- */
-    section[data-testid="stSidebar"] {
-        background-color: #161b22 !important; 
-        border-right: 1px solid #30363d;
-        z-index: 9999999999 !important; /* Highest priority */
-    }
-    
-    section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] {
-        gap: 1rem;
-        padding-top: 2rem;
-    }
-
-    /* Sidebar User Profile Card */
-    .sidebar-user-card {
-        background-color: #21262d;
-        border: 1px solid #30363d;
-        border-radius: 12px;
-        padding: 20px;
-        text-align: center;
-        margin-bottom: 20px;
-    }
-    .sidebar-user-avatar { font-size: 3rem; margin-bottom: 10px; }
-    .sidebar-user-name { color: white; font-weight: 800; font-size: 1.1rem; }
-    .sidebar-user-status {
-        color: #3fb950; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; margin-top: 5px;
-    }
-
-    /* Custom Sidebar Button Styling */
-    section[data-testid="stSidebar"] .stButton > button {
-        width: 100%;
-        background-color: #21262d !important;
-        border: 1px solid #da3633 !important;
-        color: #da3633 !important;
-        transition: all 0.3s ease;
-    }
-    section[data-testid="stSidebar"] .stButton > button:hover {
-        background-color: #da3633 !important;
-        color: white !important;
     }
     
     /* --- STICKY NAVBAR STYLES --- */
@@ -238,7 +181,7 @@ st.markdown("""
         left: 0;
         width: 100%;
         background-color: #0d1117; 
-        z-index: 999990; /* High, but below Streamlit sidebar toggle */
+        z-index: 999999;
         border-bottom: 1px solid #30363d;
         height: 80px; 
         display: flex;
@@ -254,8 +197,6 @@ st.markdown("""
         justify-content: space-between; 
         align-items: center;
         padding: 0 20px;
-        /* Add padding to left to avoid overlap with sidebar arrow if window is narrow */
-        padding-left: 60px; 
     }
 
     .nav-logo { font-size: 1.5rem; font-weight: 800; font-style: italic; color: white; }
@@ -264,14 +205,21 @@ st.markdown("""
     .nav-item:hover { color: white; }
     .nav-item.active { color: white; }
     
-    .nav-btn { 
-        background-color: #da3633; color: white; padding: 8px 20px; 
-        border-radius: 99px; font-weight: 700; font-size: 0.9rem; 
-        text-transform: uppercase; border: none; cursor: pointer;
+    /* Logout Button in Header */
+    .nav-btn-logout { 
+        background-color: transparent; color: #f85149; padding: 6px 15px; 
+        border: 1px solid #f85149; border-radius: 99px; font-weight: 700; 
+        font-size: 0.8rem; text-transform: uppercase; cursor: pointer;
+        transition: all 0.2s;
+    }
+    .nav-btn-logout:hover {
+        background-color: #f85149; color: white;
     }
 
     /* Push Main Content Down */
-    .main-content-spacer { margin-top: 60px; }
+    .main-content-spacer {
+        margin-top: 60px; 
+    }
 
     /* Cards & Form Containers */
     [data-testid="stForm"], .report-box { 
@@ -340,23 +288,12 @@ if not st.session_state["authenticated"]:
 else:
     user = st.session_state["user"]
     
-    # --- STYLISH SIDEBAR ---
-    with st.sidebar:
-        # User Profile "Badge" Look
-        st.markdown(f"""
-        <div class="sidebar-user-card">
-            <div class="sidebar-user-avatar">🧬</div>
-            <div class="sidebar-user-name">{user}</div>
-            <div class="sidebar-user-status">● OPERATIONAL</div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.write("") 
-        
-        # LOG OUT Button
-        if st.button("LOG OUT"): logout()
-
-    # --- CUSTOM STICKY NAVBAR ---
+    # --- HEADER WITH LOGOUT (Since sidebar is gone) ---
+    # We use Streamlit columns to hack a button into the header space visually if needed,
+    # but since the header is HTML/CSS, we need a Streamlit button to trigger the Python function.
+    # The hack below places the Python button invisible over the HTML button, OR we just put a button in main body.
+    # For simplicity and reliability in Streamlit: I will put a small logout button at top right of the BODY.
+    
     st.markdown("""
         <div class="custom-nav-container">
             <div class="custom-nav-content">
@@ -365,16 +302,20 @@ else:
                     <div class="nav-item active">ANALYZE ⌄</div>
                     <div class="nav-item">DATA VAULT</div>
                     <div class="nav-item">PRICING</div>
-                    <button class="nav-btn">Get Started</button>
                 </div>
             </div>
         </div>
         <div class="main-content-spacer"></div>
     """, unsafe_allow_html=True)
 
+    # Small Logout Button Top Right (Below Header)
+    col_Spacer, col_Logout = st.columns([8, 1])
+    with col_Logout:
+        if st.button("LOG OUT", type="secondary"): logout()
+
     # Hero Branding
     st.markdown("""
-        <div style='text-align:center; margin-bottom:50px; padding-top:20px;'>
+        <div style='text-align:center; margin-bottom:50px; padding-top:0px;'>
             <h1 style='font-size:4rem;'>STOP <span style='color:#f85149'>BLEEDING</span> CAPITAL.</h1>
             <p style='color:#8b949e; font-size:1.2rem; max-width:700px; margin:auto;'>Upload your losing trade screenshots. Our AI identifies psychological traps and provides a surgical path to recovery.</p>
         </div>
