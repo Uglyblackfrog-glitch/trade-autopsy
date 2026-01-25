@@ -46,7 +46,6 @@ def logout():
 # ==========================================
 if st.session_state["authenticated"]:
     try:
-        # ENSURE THESE EXIST IN YOUR .streamlit/secrets.toml FILE
         HF_TOKEN = st.secrets["HF_TOKEN"]
         SUPABASE_URL = st.secrets["SUPABASE_URL"]
         SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
@@ -62,7 +61,6 @@ def run_scientific_analysis(messages, mode="text"):
     api_url = "https://router.huggingface.co/v1/chat/completions"
     headers = {"Authorization": f"Bearer {HF_TOKEN}", "Content-Type": "application/json"}
     
-    # Selecting the best model for the job
     if mode == "text":
         model_id = "Qwen/Qwen2.5-72B-Instruct" 
     else:
@@ -72,10 +70,9 @@ def run_scientific_analysis(messages, mode="text"):
         "model": model_id,
         "messages": messages,
         "max_tokens": 2048,
-        "temperature": 0.4, 
+        "temperature": 0.3, # Lowered temp for stricter formatting
     }
 
-    # Retry logic for stability
     for attempt in range(3):
         try:
             res = requests.post(api_url, headers=headers, json=payload, timeout=90)
@@ -91,7 +88,7 @@ def run_scientific_analysis(messages, mode="text"):
             time.sleep(2)
 
 # ==========================================
-# 3. PARSING & DISPLAY LOGIC (FIXED)
+# 3. PARSING & DISPLAY LOGIC (STRICT FIX)
 # ==========================================
 st.markdown("""
 <style>
@@ -105,15 +102,14 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 def get_user_rules(user_id):
-    """Fetches active protocols for the specific user."""
     try:
         res = supabase.table("rules").select("*").eq("user_id", user_id).execute()
         return [r['rule_text'] for r in res.data]
     except: return []
 
 def parse_scientific_report(text):
-    """Parses the raw AI text into a structured dictionary."""
-    text = text.replace("```json", "").replace("```", "").strip()
+    # Clean text: remove Markdown bolding/headers to make regex easier
+    text = text.replace("**", "").replace("##", "").strip()
     
     sections = { 
         "score": 0, 
@@ -134,12 +130,15 @@ def parse_scientific_report(text):
         raw = tags_match.group(1).replace('[', '').replace(']', '').split(',')
         sections['tags'] = [t.strip() for t in raw if t.strip()]
 
-    # 3. Extract Sections
+    # 3. Extract Sections - STRICT PATTERNS ONLY
+    # We removed the loose "|Risk:?" patterns that were matching words in sentences.
+    # Now it strictly looks for [BRACKETS] or Header: at start of line.
+    
     patterns = {
-        "tech": r"(?:\[TECHNICAL FORENSICS\]|Technical:?)(.*?)(?=\[PSYCH|\[RISK|\[STRAT|\[SCORE|\[TAGS|$)",
-        "psych": r"(?:\[PSYCHOLOGICAL PROFILE\]|Psychology:?)(.*?)(?=\[RISK|\[STRAT|\[SCORE|\[TAGS|$)",
-        "risk": r"(?:\[RISK ASSESSMENT\]|Risk:?)(.*?)(?=\[STRAT|\[SCORE|\[TAGS|$)",
-        "fix": r"(?:\[STRATEGIC ROADMAP\]|Fix:?)(.*?)(?=\[SCORE|\[TAGS|$)"
+        "tech": r"(?:\[TECHNICAL FORENSICS\]|Technical Forensics:)(.*?)(?=\[PSYCH|\[RISK|\[STRAT|\[SCORE|Psychological|Risk Assessment|$)",
+        "psych": r"(?:\[PSYCHOLOGICAL PROFILE\]|Psychological Profile:)(.*?)(?=\[RISK|\[STRAT|\[SCORE|Risk Assessment|Strategic Roadmap|$)",
+        "risk": r"(?:\[RISK ASSESSMENT\]|Risk Assessment:)(.*?)(?=\[STRAT|\[SCORE|Strategic Roadmap|$)",
+        "fix": r"(?:\[STRATEGIC ROADMAP\]|Strategic Roadmap:)(.*?)(?=\[SCORE|\[TAGS|$)"
     }
     
     for key, pattern in patterns.items():
@@ -151,10 +150,7 @@ def parse_scientific_report(text):
     return sections
 
 def render_report_html(report):
-    """
-    Renders the HTML report using a list-join approach. 
-    This prevents python indentation from creating 'code blocks' in markdown.
-    """
+    # Using the "List-Join" method to prevent indentation errors
     c_score = "#ff4d4d" if report['score'] < 50 else "#00e676"
     
     tags_html = "".join([
@@ -162,7 +158,6 @@ def render_report_html(report):
         for t in report['tags']
     ])
     
-    # We build the HTML as a list of strings to avoid indentation issues
     html_parts = [
         f'<div class="report-box">',
         f'  <div style="display:flex; justify-content:space-between; border-bottom:1px solid #444;">',
@@ -199,11 +194,10 @@ def save_to_lab_records(user_id, data):
     }
     try:
         supabase.table("trades").insert(payload).execute()
-        # Auto-create a rule if score is low
         if data.get('score', 0) < 50:
             clean_fix = data.get('fix', 'Follow Protocol').split('.')[0][:100]
             supabase.table("rules").insert({"user_id": user_id, "rule_text": clean_fix}).execute()
-            st.toast("🧬 Violation Recorded & Rule Added.")
+            st.toast("🧬 Violation Recorded.")
     except Exception as e:
         st.error(f"DB Error: {e}")
 
@@ -249,6 +243,7 @@ else:
                     image.save(buf, format="JPEG")
                     img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
                     
+                    # STRICTER PROMPT
                     prompt = f"""
                     You are Dr. Market, a Chief Investment Officer.
                     Your Task: Audit this image (Chart or P&L).
@@ -264,7 +259,7 @@ else:
                     1. [TECHNICAL FORENSICS]: Analyze Market Structure, Liquidity Sweeps, and Volume.
                     2. [SCORE]: Grade the setup quality (0-100).
 
-                    OUTPUT FORMAT (PLAIN TEXT ONLY, NO MARKDOWN BOLDING):
+                    STRICT OUTPUT FORMAT (USE EXACT BRACKETS):
                     [SCORE] (0-100)
                     [TAGS] (Comma separated list)
                     [TECHNICAL FORENSICS] (Detailed paragraph)
@@ -308,7 +303,13 @@ else:
                     prompt = f"""
                     You are Dr. Market. Audit this trade text log. Rules: {my_rules}.
                     Data: {math_block}. Context: {context}.
-                    OUTPUT FORMAT (PLAIN TEXT ONLY): [SCORE], [TAGS], [TECHNICAL FORENSICS], [PSYCHOLOGICAL PROFILE], [RISK ASSESSMENT], [STRATEGIC ROADMAP].
+                    STRICT OUTPUT FORMAT:
+                    [SCORE] ...
+                    [TAGS] ...
+                    [TECHNICAL FORENSICS] ...
+                    [PSYCHOLOGICAL PROFILE] ...
+                    [RISK ASSESSMENT] ...
+                    [STRATEGIC ROADMAP] ...
                     """
                     messages = [{"role": "user", "content": prompt}]
                     
