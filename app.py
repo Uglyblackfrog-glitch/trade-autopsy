@@ -1,12 +1,3 @@
-I have updated the code to remove the border line, expanded the header to look more seamless ("sleek"), and ensured it covers the full width without any gaps.
-
-**Key Changes:**
-
-1. **Removed the Border:** The line below the header is gone (`border-bottom: none`).
-2. **Expanded & Seamless:** I added `margin: 0` overrides to the main Streamlit container so the header sits perfectly flush against the very top and sides of the browser window.
-3. **Clean Look:** The header now blends into the page (using the same dark background) with a subtle shadow instead of a harsh line, making it look larger and more "premium."
-
-```python
 import streamlit as st
 import requests
 import base64
@@ -372,5 +363,3 @@ else:
             if hist: st.dataframe(pd.DataFrame(hist), use_container_width=True)
         else:
             st.info("Data Vault unavailable (Database not connected)")
-
-```
