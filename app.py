@@ -285,9 +285,10 @@ else:
         </div>
     """, unsafe_allow_html=True)
 
-    tab_audit, tab_laws, tab_data = st.tabs(["🔬 DIAGNOSTIC AUDIT", "⚖️ PROTOCOLS", "📊 DATA VAULT"])
+    # REMOVED PROTOCOLS, RENAMED DIAGNOSTIC AUDIT TO ANALYSE
+    tab_analyse, tab_data = st.tabs(["🔬 ANALYSE", "📊 DATA VAULT"])
 
-    with tab_audit:
+    with tab_analyse:
         my_rules = get_user_rules(user)
         mode = st.radio("Source", ["Visual Evidence", "Detailed Text Log"], horizontal=True, label_visibility="collapsed")
         
@@ -325,14 +326,6 @@ else:
                         report = parse_scientific_report(raw)
                         save_to_lab_records(user, report)
                         st.markdown(render_report_html(report), unsafe_allow_html=True)
-
-    with tab_laws:
-        rules = supabase.table("rules").select("*").eq("user_id", user).execute().data
-        for r in rules:
-            c1,c2 = st.columns([5,1])
-            c1.error(f"⛔ {r['rule_text']}")
-            if c2.button("🗑️", key=r['id']):
-                supabase.table("rules").delete().eq("id", r['id']).execute(); st.rerun()
 
     with tab_data:
         hist = supabase.table("trades").select("*").eq("user_id", user).order("created_at", desc=True).execute().data
