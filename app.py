@@ -19,6 +19,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Demo Users
 USERS = {
     "trader1": "profit2026",
     "demo": "12345",
@@ -47,6 +48,7 @@ def logout():
 # ==========================================
 if st.session_state["authenticated"]:
     try:
+        # ⚠️ MAKE SURE THESE ARE IN .streamlit/secrets.toml
         HF_TOKEN = st.secrets["HF_TOKEN"]
         SUPABASE_URL = st.secrets["SUPABASE_URL"]
         SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
@@ -62,6 +64,7 @@ def run_scientific_analysis(messages, mode="text"):
     api_url = "https://router.huggingface.co/v1/chat/completions"
     headers = {"Authorization": f"Bearer {HF_TOKEN}", "Content-Type": "application/json"}
     
+    # Select Model
     if mode == "text":
         model_id = "Qwen/Qwen2.5-72B-Instruct" 
     else:
@@ -71,9 +74,10 @@ def run_scientific_analysis(messages, mode="text"):
         "model": model_id,
         "messages": messages,
         "max_tokens": 2048,
-        "temperature": 0.2, 
+        "temperature": 0.2, # Low temperature = More consistent math/JSON
     }
 
+    # Retry Logic
     for attempt in range(3):
         try:
             res = requests.post(api_url, headers=headers, json=payload, timeout=90)
@@ -89,64 +93,63 @@ def run_scientific_analysis(messages, mode="text"):
             time.sleep(2)
 
 # ==========================================
-# 3. PARSING & DISPLAY LOGIC (BULLETPROOF)
+# 3. TEXT SURGERY & PARSING (THE FIX)
 # ==========================================
-st.markdown("""
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@300;400;600&display=swap');
-    body, .stApp { background-color: #0E1117 !important; color: #E0E0E0; font-family: 'Inter', sans-serif; }
-    .report-box { background: #161B22; border: 1px solid #30363D; border-radius: 12px; padding: 25px; margin-top: 20px; }
-    .section-title { color: #58A6FF; font-family: 'JetBrains Mono', monospace; font-weight: bold; font-size: 1.1rem; border-bottom: 1px solid #30363D; padding-bottom: 5px; margin-top: 25px; margin-bottom: 10px; }
-    .score-circle { font-size: 4rem; font-weight: 800; line-height: 1; }
-    button[kind="primary"] { background: #238636 !important; border: none; font-family: 'JetBrains Mono', monospace; }
-</style>
-""", unsafe_allow_html=True)
 
-def get_user_rules(user_id):
-    try:
-        res = supabase.table("rules").select("*").eq("user_id", user_id).execute()
-        return [r['rule_text'] for r in res.data]
-    except: return []
-
-# --- CLEANING HELPERS ---
-def clean_text(text):
-    """Removes phantom newlines inside sentences."""
+def clean_text_surgical(text):
+    """
+    1. Flattens newlines.
+    2. Stitches broken numbers (5,61, 937 -> 5,61,937).
+    3. Restores list formatting.
+    """
     if not isinstance(text, str): return str(text)
-    # 1. Replace newlines with spaces
+    
+    # Step 1: Replace newlines with spaces
     text = text.replace('\n', ' ')
-    # 2. Fix multiple spaces
+    
+    # Step 2: Fix "Fractured Numbers" (Digit + Comma + Space + Digit)
+    text = re.sub(r'(\d),(\s+)(\d)', r'\1,\3', text)
+    
+    # Step 3: Remove excessive spaces
     text = re.sub(r'\s+', ' ', text)
-    # 3. Restore list formatting (1. Step -> <br>1. Step)
+    
+    # Step 4: Add line breaks before numbered lists (e.g. "1. Step" -> "<br>1. Step")
     text = re.sub(r'(?<!^)(\d+\.)', r'<br>\1', text)
+    
     return text.strip()
 
-def fix_mashed_tags(tags_input):
-    """Splits 'ToxicAssetPanic' into ['Toxic Asset', 'Panic']"""
-    final_tags = []
+def fix_mashed_tags_surgical(tags_input):
+    """
+    Splits collided tags (e.g. 'HighRisk' -> 'High Risk')
+    """
+    raw_list = []
     
-    # Ensure input is a list
+    # Normalize input
     if isinstance(tags_input, str):
-        # Check if it looks like a JSON list string
-        if "[" in tags_input and "]" in tags_input:
-            try: tags_input = json.loads(tags_input)
-            except: tags_input = [tags_input]
-        else:
-            tags_input = tags_input.split(',')
+        try: raw_list = json.loads(tags_input)
+        except: raw_list = tags_input.split(',')
+    elif isinstance(tags_input, list):
+        raw_list = tags_input
+    else:
+        return []
 
-    for tag in tags_input:
+    final_tags = []
+    for tag in raw_list:
         tag = str(tag).strip()
-        # If tag is one long CamelCase word with no spaces (e.g. "HighDrawdown")
-        if " " not in tag and len(tag) > 8 and any(c.isupper() for c in tag[1:]):
-            # Split by capital letters
-            split_tags = re.findall(r'[A-Z][^A-Z]*', tag)
-            final_tags.extend(split_tags)
-        else:
-            final_tags.append(tag)
+        # Look for [lowercase][Uppercase] collision
+        split_tag = re.sub(r'([a-z])([A-Z])', r'\1,\2', tag)
+        
+        for sub_tag in split_tag.split(','):
+            clean = sub_tag.strip()
+            if clean and len(clean) < 40:
+                final_tags.append(clean)
             
-    return [t.strip() for t in final_tags if t.strip()]
+    return final_tags
 
 def parse_scientific_report(text):
-    """Attempts JSON first, falls back to Regex, then applies cleaning."""
+    """
+    Hybrid Parser: Tries JSON first, falls back to Regex.
+    """
     clean_raw = text.replace("```json", "").replace("```", "").strip()
     
     data = { "score": 0, "tags": [], "tech": "", "psych": "", "risk": "", "fix": "" }
@@ -165,7 +168,6 @@ def parse_scientific_report(text):
         score_match = re.search(r'"score":\s*(\d+)', clean_raw)
         if score_match: data['score'] = int(score_match.group(1))
         
-        # Simple extraction for text blocks if JSON fails
         patterns = {
             "tech": r'"technical_analysis":\s*"(.*?)"',
             "psych": r'"psychological_profile":\s*"(.*?)"',
@@ -177,14 +179,28 @@ def parse_scientific_report(text):
             m = re.search(p, clean_raw, re.DOTALL)
             if m: data[k] = m.group(1)
 
-    # FINAL CLEANUP STEP (Apply to both JSON and Regex results)
-    data["tags"] = fix_mashed_tags(data["tags"])
-    data["tech"] = clean_text(data["tech"])
-    data["psych"] = clean_text(data["psych"])
-    data["risk"] = clean_text(data["risk"])
-    data["fix"] = clean_text(data["fix"])
+    # APPLY SURGICAL CLEANING
+    data["tags"] = fix_mashed_tags_surgical(data["tags"])
+    data["tech"] = clean_text_surgical(data["tech"])
+    data["psych"] = clean_text_surgical(data["psych"])
+    data["risk"] = clean_text_surgical(data["risk"])
+    data["fix"] = clean_text_surgical(data["fix"])
     
     return data
+
+# ==========================================
+# 4. DISPLAY COMPONENTS
+# ==========================================
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@300;400;600&display=swap');
+    body, .stApp { background-color: #0E1117 !important; color: #E0E0E0; font-family: 'Inter', sans-serif; }
+    .report-box { background: #161B22; border: 1px solid #30363D; border-radius: 12px; padding: 25px; margin-top: 20px; }
+    .section-title { color: #58A6FF; font-family: 'JetBrains Mono', monospace; font-weight: bold; font-size: 1.1rem; border-bottom: 1px solid #30363D; padding-bottom: 5px; margin-top: 25px; margin-bottom: 10px; }
+    .score-circle { font-size: 4rem; font-weight: 800; line-height: 1; }
+    button[kind="primary"] { background: #238636 !important; border: none; font-family: 'JetBrains Mono', monospace; }
+</style>
+""", unsafe_allow_html=True)
 
 def render_report_html(report):
     c_score = "#ff4d4d" if report['score'] < 50 else "#00e676"
@@ -237,8 +253,14 @@ def save_to_lab_records(user_id, data):
     except Exception as e:
         st.error(f"DB Error: {e}")
 
+def get_user_rules(user_id):
+    try:
+        res = supabase.table("rules").select("*").eq("user_id", user_id).execute()
+        return [r['rule_text'] for r in res.data]
+    except: return []
+
 # ==========================================
-# 4. MAIN INTERFACE
+# 5. MAIN INTERFACE
 # ==========================================
 if not st.session_state["authenticated"]:
     c1,c2,c3 = st.columns([1,1,1])
@@ -257,6 +279,7 @@ else:
     
     tab_audit, tab_laws, tab_data = st.tabs(["🔬 DIAGNOSTIC AUDIT", "⚖️ PROTOCOLS", "📊 DATA VAULT"])
 
+    # --- TAB 1: AUDIT ---
     with tab_audit:
         my_rules = get_user_rules(user)
         if my_rules:
@@ -265,7 +288,7 @@ else:
 
         mode = st.radio("Input Source", ["Detailed Text Log", "Visual Evidence (Chart/P&L)"], horizontal=True, label_visibility="collapsed")
         
-        # --- VISION ANALYSIS ---
+        # --- VISION ANALYSIS (WITH SCORING RUBRIC) ---
         if "Visual Evidence" in mode:
             st.info("Supported: Candlestick Charts OR P&L Dashboards")
             up_file = st.file_uploader("Upload Evidence", type=["png", "jpg", "jpeg"])
@@ -279,11 +302,25 @@ else:
                     image.save(buf, format="JPEG")
                     img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
                     
+                    # PROMPT with SCORING RUBRIC
                     prompt = f"""
-                    You are Dr. Market. Audit this image. Rules: {my_rules}.
-                    Task: Tech Forensics, Psychology, Risk, Roadmap.
+                    You are Dr. Market, a Chief Investment Officer.
+                    Audit this image (Chart or P&L). Rules: {my_rules}.
                     
-                    OUTPUT FORMAT: JSON ONLY.
+                    TASK:
+                    1. Analyze Technicals (Drawdown, Toxic Assets, Structure).
+                    2. Analyze Psychology (Disposition Effect, Panic).
+                    3. Assess Risk.
+                    
+                    SCORING RUBRIC (STRICTLY FOLLOW THIS MATH):
+                    - Start with 100 points.
+                    - Deduct 1 point for every 1% of unrealized loss (e.g., -28% loss = -28 points).
+                    - Deduct 20 points if a single "Toxic Asset" (loser > 20%) is found.
+                    - Deduct 10 points if "Panic Selling" or "FOMO" is detected.
+                    - Deduct 15 points if Market Structure is bearish/broken.
+                    - FINAL SCORE CANNOT BE LOWER THAN 0.
+
+                    OUTPUT FORMAT: JSON ONLY (No Markdown, No ```json tags).
                     {{
                         "score": 0,
                         "tags": ["High Risk", "Panic Selling"],
@@ -326,10 +363,16 @@ else:
                 if st.form_submit_button("SUBMIT", type="primary"):
                     math_block = f"Entry: {ent}, Exit: {ex}, Stop: {stp}"
                     prompt = f"""
-                    You are Dr. Market. Audit this trade text log. Rules: {my_rules}.
+                    You are Dr. Market. Audit this trade log. Rules: {my_rules}.
                     Data: {math_block}. Context: {context}.
                     
-                    OUTPUT FORMAT: JSON ONLY.
+                    SCORING RUBRIC:
+                    - Start at 100.
+                    - Loss > 5% without stop loss = -30 points.
+                    - Ignored Stop Loss = -40 points.
+                    - FOMO Entry = -20 points.
+                    
+                    OUTPUT FORMAT: JSON ONLY (No Markdown).
                     {{
                         "score": 0,
                         "tags": ["Mistake1", "Mistake2"],
@@ -351,6 +394,7 @@ else:
                             st.markdown(final_html, unsafe_allow_html=True)
                         except Exception as e: st.error(str(e))
 
+    # --- TAB 2: LAWS ---
     with tab_laws:
         rules = supabase.table("rules").select("*").eq("user_id", user).execute().data
         for r in rules:
@@ -359,6 +403,7 @@ else:
             if c2.button("🗑️", key=r['id']):
                 supabase.table("rules").delete().eq("id", r['id']).execute(); st.rerun()
 
+    # --- TAB 3: DATA ---
     with tab_data:
         hist = supabase.table("trades").select("*").eq("user_id", user).order("created_at", desc=True).execute().data
         if hist: st.dataframe(pd.DataFrame(hist)[['created_at', 'score', 'mistake_tags', 'fix_action']])
