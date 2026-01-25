@@ -181,7 +181,7 @@ def render_report_html(report):
     </div>"""
 
 # ==========================================
-# 3. UI RENDERING (FIXED CSS & HEADER)
+# 3. UI RENDERING (FIXED NAV LOGIC)
 # ==========================================
 st.markdown("""
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
@@ -192,7 +192,7 @@ st.markdown("""
     footer {visibility: hidden;}
     [data-testid="stSidebar"] { display: none; }
     
-    /* Remove standard streamlit padding to allow full-width header */
+    /* Remove padding */
     .block-container {
         padding-top: 0rem !important;
         padding-left: 0rem !important;
@@ -214,7 +214,6 @@ st.markdown("""
         padding: 0 50px;
         box-sizing: border-box;
         z-index: 999999;
-        /* No border, just clean dark BG */
     }
 
     /* Logo */
@@ -235,9 +234,9 @@ st.markdown("""
         height: 100%;
     }
 
-    /* Nav Links (Now <a> tags) */
+    /* Styled Links instead of divs */
     .nav-link {
-        color: #8b949e; /* The specific opacity/grey requested */
+        color: #8b949e; 
         font-size: 0.8rem;
         font-weight: 700;
         text-transform: uppercase;
@@ -248,10 +247,10 @@ st.markdown("""
         height: 100%;
         transition: color 0.2s;
         letter-spacing: 0.5px;
-        text-decoration: none; /* Remove underline */
+        text-decoration: none !important;
     }
     .nav-link:hover { color: white; }
-    .nav-link span { margin-left: 5px; font-size: 10px; } /* The arrow */
+    .nav-link span { margin-left: 5px; font-size: 10px; } 
 
     /* The Dropdown Box */
     .dropdown-box {
@@ -276,7 +275,7 @@ st.markdown("""
         font-weight: 600;
         display: block;
         transition: background 0.2s;
-        text-decoration: none;
+        text-decoration: none !important;
     }
     .dropdown-item:hover { background-color: #21262d; color: white; }
 
@@ -291,7 +290,6 @@ st.markdown("""
         border: none;
         text-transform: capitalize;
         cursor: pointer;
-        text-decoration: none;
     }
     .btn-started:hover { background-color: #f85149; }
 
@@ -305,7 +303,6 @@ st.markdown("""
         padding: 0 20px;
     }
 
-    /* STREAMLIT WIDGET STYLING */
     h1 { font-family: 'Inter', sans-serif; font-weight: 800; text-transform: uppercase; font-style: italic; }
     
     [data-testid="stForm"], .report-box { 
@@ -313,19 +310,18 @@ st.markdown("""
         border-radius: 24px !important; padding: 40px !important; margin-bottom: 20px;
     }
     
-    /* Red Streamlit Buttons */
     div.stButton > button { 
         background-color: #da3633 !important; color: white !important; font-weight: 800 !important;
         border-radius: 99px !important; border: none !important; padding: 12px 30px !important;
         text-transform: uppercase;
     }
     div.stButton > button:hover { background-color: #f85149 !important; transform: scale(1.02); }
-    
+
 </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 4. MAIN LAYOUT
+# 4. MAIN LAYOUT (ROUTER)
 # ==========================================
 if not st.session_state["authenticated"]:
     # LOGIN SCREEN
@@ -340,53 +336,50 @@ if not st.session_state["authenticated"]:
 else:
     user = st.session_state["user"]
     
-    # 1. GET CURRENT PAGE FROM URL QUERY PARAMS
-    # This allows us to link the HTML header to Python logic
-    query_params = st.query_params
-    current_page = query_params.get("page", "visual") # default to visual
+    # --- GET CURRENT VIEW FROM URL ---
+    # Default is 'visual' if no param exists
+    current_view = st.query_params.get("view", "visual")
 
-    # --- RENDER CUSTOM HEADER (Active Links) ---
-    st.markdown(f"""
+    # --- RENDER CUSTOM HEADER WITH LINKS ---
+    st.markdown("""
     <div class="custom-header">
-        <a href="?page=visual" target="_self" class="header-logo">STOCK<span>POSTMORTEM</span>.AI</a>
+        <a href="?view=visual" class="header-logo">STOCK<span>POSTMORTEM</span>.AI</a>
         <div class="nav-menu">
             <div class="nav-link">
                 ANALYZE <span>&#9662;</span>
                 <div class="dropdown-box">
-                    <a href="?page=visual" target="_self" class="dropdown-item">VISUAL EVIDENCE</a>
-                    <a href="?page=text" target="_self" class="dropdown-item">DETAILED TEXT LOG</a>
+                    <a href="?view=visual" class="dropdown-item" target="_self">VISUAL EVIDENCE</a>
+                    <a href="?view=text" class="dropdown-item" target="_self">DETAILED TEXT LOG</a>
                 </div>
             </div>
-            <a href="?page=vault" target="_self" class="nav-link">DATA VAULT</a>
-            <div class="nav-link">PRICING</div>
+            <a href="?view=vault" class="nav-link" target="_self">DATA VAULT</a>
+            <a href="#" class="nav-link">PRICING</a>
         </div>
-        <a href="?page=visual" target="_self" class="btn-started">Get Started</a>
+        <button class="btn-started">Get Started</button>
     </div>
     <div class="header-spacer"></div>
     """, unsafe_allow_html=True)
 
-    # --- MAIN APP CONTENT ---
+    # --- MAIN CONTENT CONTAINER ---
     with st.container():
         st.markdown('<div class="main-container">', unsafe_allow_html=True)
         
-        # Small Logout Button (Hidden functionality for user)
+        # Logout Utility (Hidden top right)
         col_utils_1, col_utils_2 = st.columns([10, 1])
         with col_utils_2:
             if st.button("Logout", key="logout_btn"): logout()
 
-        # Hero Section (Always visible title, but content changes below)
-        st.markdown("""
-            <div style='text-align:center; margin-bottom:50px;'>
-                <h1 style='font-size:4rem; margin:0; line-height:1.1;'>STOP <span style='color:#f85149'>BLEEDING</span> CAPITAL.</h1>
-                <p style='color:#8b949e; font-size:1.1rem; margin-top:15px;'>AI-Powered Forensic Trading Analysis.</p>
-            </div>
-        """, unsafe_allow_html=True)
-
-        # LOGIC SWITCHER BASED ON PAGE
-        my_rules = get_user_rules(user)
-
-        if current_page == "visual":
-            # --- VISUAL EVIDENCE MODE ---
+        # --- ROUTING LOGIC ---
+        
+        # VIEW 1: VISUAL EVIDENCE (DEFAULT)
+        if current_view == "visual":
+            st.markdown("""
+                <div style='text-align:center; margin-bottom:50px;'>
+                    <h1 style='font-size:4rem; margin:0; line-height:1.1;'>STOP <span style='color:#f85149'>BLEEDING</span> CAPITAL.</h1>
+                    <p style='color:#8b949e; font-size:1.1rem; margin-top:15px;'>Forensic Chart Analysis.</p>
+                </div>
+            """, unsafe_allow_html=True)
+            
             st.markdown("""
             <div style="border: 2px dashed #30363d; border-radius: 24px; padding: 40px; background: #161b22; text-align: center; margin-bottom: 20px;">
                 <h3 style='color:white; margin:0;'>Drop your Chart Screenshot</h3>
@@ -398,6 +391,7 @@ else:
             if up_file:
                 st.image(up_file, use_container_width=True)
                 if st.button("Initiate Forensic Scan"):
+                    my_rules = get_user_rules(user)
                     img_b64 = base64.b64encode(up_file.getvalue()).decode('utf-8')
                     prompt = f"Audit this chart. Rules: {my_rules}. Output JSON."
                     messages = [{"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}]}]
@@ -407,9 +401,15 @@ else:
                         save_to_lab_records(user, report)
                         st.markdown(render_report_html(report), unsafe_allow_html=True)
 
-        elif current_page == "text":
-            # --- TEXT LOG MODE ---
-            st.markdown("<h3 style='color:white; text-align:center; margin-bottom:20px;'>DETAILED TEXT LOG</h3>", unsafe_allow_html=True)
+        # VIEW 2: DETAILED TEXT LOG
+        elif current_view == "text":
+            st.markdown("""
+                <div style='text-align:center; margin-bottom:40px;'>
+                    <h1 style='font-size:3rem; margin:0;'>TEXT <span style='color:#f85149'>AUTOPSY</span></h1>
+                    <p style='color:#8b949e;'>Detailed Trade Logging</p>
+                </div>
+            """, unsafe_allow_html=True)
+            
             with st.form("text_audit"):
                 c1, c2, c3 = st.columns(3)
                 with c1: tick = st.text_input("Ticker", placeholder="$NVDA")
@@ -422,6 +422,7 @@ else:
                 setup = st.text_area("Setup Details")
                 exit_rsn = st.text_area("Exit Reason")
                 if st.form_submit_button("Run Analysis"):
+                    my_rules = get_user_rules(user)
                     prompt = f"Audit Trade. Ticker: {tick}, Pos: {pos}, TF: {tf}, Entry: {ent}, Exit: {ex}, Stop: {stp}, Setup: {setup}, Exit Reason: {exit_rsn}. Rules: {my_rules}. Output JSON."
                     messages = [{"role": "user", "content": prompt}]
                     with st.spinner("Analyzing..."):
@@ -430,13 +431,20 @@ else:
                         save_to_lab_records(user, report)
                         st.markdown(render_report_html(report), unsafe_allow_html=True)
 
-        elif current_page == "vault":
-            # --- DATA VAULT MODE ---
-            st.markdown("<h3 style='color:white; text-align:center; margin-bottom:20px;'>DATA VAULT</h3>", unsafe_allow_html=True)
+        # VIEW 3: DATA VAULT
+        elif current_view == "vault":
+            st.markdown("""
+                <div style='text-align:center; margin-bottom:40px;'>
+                    <h1 style='font-size:3rem; margin:0;'>DATA <span style='color:#f85149'>VAULT</span></h1>
+                    <p style='color:#8b949e;'>Historical Performance Records</p>
+                </div>
+            """, unsafe_allow_html=True)
+            
             if supabase:
                 hist = supabase.table("trades").select("*").eq("user_id", user).order("created_at", desc=True).execute().data
                 if hist: st.dataframe(pd.DataFrame(hist), use_container_width=True)
+                else: st.info("No records found in the vault.")
             else:
-                st.info("Data Vault unavailable.")
-
+                st.info("Data Vault unavailable (Database not connected).")
+        
         st.markdown('</div>', unsafe_allow_html=True) # End main-container
