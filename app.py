@@ -19,7 +19,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Demo Users
+# Login Credentials
 USERS = {
     "trader1": "profit2026",
     "demo": "12345",
@@ -48,7 +48,7 @@ def logout():
 # ==========================================
 if st.session_state["authenticated"]:
     try:
-        # ⚠️ MAKE SURE THESE ARE IN .streamlit/secrets.toml
+        # ENSURE .streamlit/secrets.toml IS CONFIGURED
         HF_TOKEN = st.secrets["HF_TOKEN"]
         SUPABASE_URL = st.secrets["SUPABASE_URL"]
         SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
@@ -64,7 +64,7 @@ def run_scientific_analysis(messages, mode="text"):
     api_url = "https://router.huggingface.co/v1/chat/completions"
     headers = {"Authorization": f"Bearer {HF_TOKEN}", "Content-Type": "application/json"}
     
-    # Select Model
+    # Model Selection
     if mode == "text":
         model_id = "Qwen/Qwen2.5-72B-Instruct" 
     else:
@@ -74,10 +74,10 @@ def run_scientific_analysis(messages, mode="text"):
         "model": model_id,
         "messages": messages,
         "max_tokens": 2048,
-        "temperature": 0.2, # Low temperature = More consistent math/JSON
+        "temperature": 0.2, # Low temp = Less hallucination
     }
 
-    # Retry Logic
+    # Robust Retry Logic
     for attempt in range(3):
         try:
             res = requests.post(api_url, headers=headers, json=payload, timeout=90)
@@ -93,27 +93,28 @@ def run_scientific_analysis(messages, mode="text"):
             time.sleep(2)
 
 # ==========================================
-# 3. TEXT SURGERY & PARSING (THE FIX)
+# 3. SURGICAL PARSING & DETERMINISTIC SCORING
 # ==========================================
 
 def clean_text_surgical(text):
     """
-    1. Flattens newlines.
+    Fixes formatting hallucinations:
+    1. Flattens 'phantom' newlines.
     2. Stitches broken numbers (5,61, 937 -> 5,61,937).
     3. Restores list formatting.
     """
     if not isinstance(text, str): return str(text)
     
-    # Step 1: Replace newlines with spaces
+    # Flatten newlines
     text = text.replace('\n', ' ')
     
-    # Step 2: Fix "Fractured Numbers" (Digit + Comma + Space + Digit)
+    # Fix broken numbers: Digit + Comma + Space + Digit
     text = re.sub(r'(\d),(\s+)(\d)', r'\1,\3', text)
     
-    # Step 3: Remove excessive spaces
+    # Remove excessive spaces
     text = re.sub(r'\s+', ' ', text)
     
-    # Step 4: Add line breaks before numbered lists (e.g. "1. Step" -> "<br>1. Step")
+    # Restore List breaks
     text = re.sub(r'(?<!^)(\d+\.)', r'<br>\1', text)
     
     return text.strip()
@@ -124,7 +125,7 @@ def fix_mashed_tags_surgical(tags_input):
     """
     raw_list = []
     
-    # Normalize input
+    # Normalize input to list
     if isinstance(tags_input, str):
         try: raw_list = json.loads(tags_input)
         except: raw_list = tags_input.split(',')
@@ -136,7 +137,7 @@ def fix_mashed_tags_surgical(tags_input):
     final_tags = []
     for tag in raw_list:
         tag = str(tag).strip()
-        # Look for [lowercase][Uppercase] collision
+        # Regex to find [lowercase][Uppercase] collision
         split_tag = re.sub(r'([a-z])([A-Z])', r'\1,\2', tag)
         
         for sub_tag in split_tag.split(','):
@@ -148,26 +149,23 @@ def fix_mashed_tags_surgical(tags_input):
 
 def parse_scientific_report(text):
     """
-    Hybrid Parser: Tries JSON first, falls back to Regex.
+    PARSES text and CALCULATES score via Python logic.
+    Ignores AI score to prevent '0' hallucinations.
     """
     clean_raw = text.replace("```json", "").replace("```", "").strip()
     
     data = { "score": 0, "tags": [], "tech": "", "psych": "", "risk": "", "fix": "" }
     
-    # ATTEMPT 1: JSON
+    # 1. Extract Data
     try:
         json_data = json.loads(clean_raw)
-        data["score"] = json_data.get("score", 0)
         data["tags"] = json_data.get("tags", [])
         data["tech"] = json_data.get("technical_analysis", "")
         data["psych"] = json_data.get("psychological_profile", "")
         data["risk"] = json_data.get("risk_assessment", "")
         data["fix"] = json_data.get("strategic_roadmap", "")
     except:
-        # ATTEMPT 2: REGEX FALLBACK
-        score_match = re.search(r'"score":\s*(\d+)', clean_raw)
-        if score_match: data['score'] = int(score_match.group(1))
-        
+        # Fallback Regex
         patterns = {
             "tech": r'"technical_analysis":\s*"(.*?)"',
             "psych": r'"psychological_profile":\s*"(.*?)"',
@@ -179,17 +177,38 @@ def parse_scientific_report(text):
             m = re.search(p, clean_raw, re.DOTALL)
             if m: data[k] = m.group(1)
 
-    # APPLY SURGICAL CLEANING
+    # 2. Clean Text
     data["tags"] = fix_mashed_tags_surgical(data["tags"])
     data["tech"] = clean_text_surgical(data["tech"])
     data["psych"] = clean_text_surgical(data["psych"])
     data["risk"] = clean_text_surgical(data["risk"])
     data["fix"] = clean_text_surgical(data["fix"])
     
+    # 3. DETERMINISTIC PYTHON SCORING (The Fix)
+    score = 100
+    
+    # A. Detect Drawdown % (e.g. -28.15%)
+    drawdown_matches = re.findall(r'-(\d+\.?\d*)%', clean_raw)
+    if drawdown_matches:
+        max_loss = max([float(x) for x in drawdown_matches])
+        score -= max_loss # Subtract the loss directly
+    
+    # B. Penalty for Toxic/Panic Keywords
+    joined_text = (str(data["tags"]) + data["tech"] + data["psych"]).lower()
+    
+    if "toxic" in joined_text: score -= 20
+    if "panic" in joined_text: score -= 10
+    if "fomo" in joined_text: score -= 10
+    if "structure" in joined_text and "break" in joined_text: score -= 10
+
+    # C. Clamp Score (0-100)
+    score = max(0, min(100, int(score)))
+    
+    data["score"] = score
     return data
 
 # ==========================================
-# 4. DISPLAY COMPONENTS
+# 4. UI RENDERING
 # ==========================================
 st.markdown("""
 <style>
@@ -231,7 +250,6 @@ def render_report_html(report):
         f'  <div style="background:rgba(46, 160, 67, 0.1); border-left:4px solid #2ea043; padding:15px; color:#fff;">{report["fix"]}</div>',
         f'</div>'
     ]
-    
     return "".join(html_parts)
 
 def save_to_lab_records(user_id, data):
@@ -246,10 +264,11 @@ def save_to_lab_records(user_id, data):
     }
     try:
         supabase.table("trades").insert(payload).execute()
+        # Auto-add rule if score is low
         if data.get('score', 0) < 50:
             clean_fix = data.get('fix', 'Follow Protocol').split('.')[0][:100]
             supabase.table("rules").insert({"user_id": user_id, "rule_text": clean_fix}).execute()
-            st.toast("🧬 Violation Recorded.")
+            st.toast("🧬 Violation Recorded & Rule Added.")
     except Exception as e:
         st.error(f"DB Error: {e}")
 
@@ -288,7 +307,7 @@ else:
 
         mode = st.radio("Input Source", ["Detailed Text Log", "Visual Evidence (Chart/P&L)"], horizontal=True, label_visibility="collapsed")
         
-        # --- VISION ANALYSIS (WITH SCORING RUBRIC) ---
+        # --- VISION ANALYSIS ---
         if "Visual Evidence" in mode:
             st.info("Supported: Candlestick Charts OR P&L Dashboards")
             up_file = st.file_uploader("Upload Evidence", type=["png", "jpg", "jpeg"])
@@ -302,7 +321,7 @@ else:
                     image.save(buf, format="JPEG")
                     img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
                     
-                    # PROMPT with SCORING RUBRIC
+                    # PROMPT: REQUEST JSON
                     prompt = f"""
                     You are Dr. Market, a Chief Investment Officer.
                     Audit this image (Chart or P&L). Rules: {my_rules}.
@@ -312,17 +331,9 @@ else:
                     2. Analyze Psychology (Disposition Effect, Panic).
                     3. Assess Risk.
                     
-                    SCORING RUBRIC (STRICTLY FOLLOW THIS MATH):
-                    - Start with 100 points.
-                    - Deduct 1 point for every 1% of unrealized loss (e.g., -28% loss = -28 points).
-                    - Deduct 20 points if a single "Toxic Asset" (loser > 20%) is found.
-                    - Deduct 10 points if "Panic Selling" or "FOMO" is detected.
-                    - Deduct 15 points if Market Structure is bearish/broken.
-                    - FINAL SCORE CANNOT BE LOWER THAN 0.
-
-                    OUTPUT FORMAT: JSON ONLY (No Markdown, No ```json tags).
+                    OUTPUT FORMAT: JSON ONLY (No Markdown).
                     {{
-                        "score": 0,
+                        "score": 50,
                         "tags": ["High Risk", "Panic Selling"],
                         "technical_analysis": "Text...",
                         "psychological_profile": "Text...",
@@ -366,15 +377,9 @@ else:
                     You are Dr. Market. Audit this trade log. Rules: {my_rules}.
                     Data: {math_block}. Context: {context}.
                     
-                    SCORING RUBRIC:
-                    - Start at 100.
-                    - Loss > 5% without stop loss = -30 points.
-                    - Ignored Stop Loss = -40 points.
-                    - FOMO Entry = -20 points.
-                    
                     OUTPUT FORMAT: JSON ONLY (No Markdown).
                     {{
-                        "score": 0,
+                        "score": 50,
                         "tags": ["Mistake1", "Mistake2"],
                         "technical_analysis": "Text...",
                         "psychological_profile": "Text...",
