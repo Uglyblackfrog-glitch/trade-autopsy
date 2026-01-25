@@ -181,12 +181,12 @@ def render_report_html(report):
     </div>"""
 
 # ==========================================
-# 3. UI RENDERING (PRECISE CSS MATCH)
+# 3. UI RENDERING (FIXED CSS & HEADER)
 # ==========================================
 st.markdown("""
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
-    /* RESET & BASE */
+    /* GLOBAL RESET */
     .stApp { background-color: #0d1117 !important; color: #c9d1d9; font-family: 'Inter', sans-serif; margin: 0; padding: 0;}
     header {visibility: hidden;}
     footer {visibility: hidden;}
@@ -200,32 +200,33 @@ st.markdown("""
         max-width: 100% !important;
     }
 
-    /* --- EXACT HEADER REPLICATION --- */
-    .navbar {
+    /* --- FIXED FULL-WIDTH HEADER --- */
+    .custom-header {
         position: fixed;
         top: 0;
         left: 0;
-        width: 100vw; /* Full Viewport Width */
+        width: 100vw;
         height: 70px;
         background-color: #0d1117;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 0 40px; /* Side spacing */
+        padding: 0 50px;
         box-sizing: border-box;
         z-index: 999999;
+        /* No border, just clean dark BG */
     }
 
-    /* Logo Section */
-    .nav-logo {
-        font-size: 1.5rem;
+    /* Logo */
+    .header-logo {
+        font-size: 1.4rem;
         font-weight: 800;
         color: white;
         letter-spacing: -0.5px;
     }
-    .red-text { color: #f85149; }
+    .header-logo span { color: #f85149; }
 
-    /* Center Menu Links */
+    /* Navigation Menu */
     .nav-menu {
         display: flex;
         gap: 40px;
@@ -233,94 +234,87 @@ st.markdown("""
         height: 100%;
     }
 
-    .nav-item {
-        font-size: 0.85rem;
+    .nav-link {
+        color: #8b949e; /* The specific opacity/grey requested */
+        font-size: 0.8rem;
         font-weight: 700;
-        letter-spacing: 0.5px;
-        color: #8b949e; /* The "opacity" look */
-        cursor: pointer;
         text-transform: uppercase;
-        transition: color 0.2s ease;
+        cursor: pointer;
         position: relative;
         display: flex;
         align-items: center;
-        height: 100%; /* For hover hit area */
+        height: 100%;
+        transition: color 0.2s;
+        letter-spacing: 0.5px;
     }
-    
-    .nav-item:hover { color: white; }
-    
-    /* Dropdown Arrow */
-    .arrow-icon {
-        font-size: 0.7rem;
-        margin-left: 6px;
-        transition: transform 0.2s;
-    }
-    .nav-item:hover .arrow-icon { transform: rotate(180deg); }
+    .nav-link:hover { color: white; }
+    .nav-link span { margin-left: 5px; font-size: 10px; } /* The arrow */
 
-    /* The Hover Dropdown Box (Exact visual match) */
-    .dropdown-content {
+    /* The Dropdown Box */
+    .dropdown-box {
         display: none;
         position: absolute;
-        top: 60px; /* Just below header */
-        left: -20px;
+        top: 60px;
+        left: -10px;
         background-color: #161b22;
-        min-width: 220px;
         border: 1px solid #30363d;
-        border-radius: 8px;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-        padding: 8px 0;
+        border-radius: 6px;
+        min-width: 200px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        padding: 5px 0;
         z-index: 1000000;
     }
-    
-    .nav-item:hover .dropdown-content { display: block; }
-    
-    .dropdown-link {
-        color: #c9d1d9;
+    .nav-link:hover .dropdown-box { display: block; }
+
+    .dropdown-item {
         padding: 12px 20px;
-        text-decoration: none;
-        display: block;
-        font-size: 0.8rem;
+        color: #c9d1d9;
+        font-size: 0.75rem;
         font-weight: 600;
-        border-left: 3px solid transparent;
+        display: block;
+        transition: background 0.2s;
     }
-    .dropdown-link:hover {
-        background-color: #21262d;
-        color: white;
-        border-left: 3px solid #f85149;
-    }
+    .dropdown-item:hover { background-color: #21262d; color: white; }
 
-    /* Right Side Button */
-    .get-started-btn {
-        background-color: #e31e1e; /* Bright Red */
+    /* Get Started Button */
+    .btn-started {
+        background-color: #da3633;
         color: white;
-        font-weight: 700;
-        font-size: 0.9rem;
-        padding: 10px 24px;
+        padding: 8px 20px;
         border-radius: 99px;
+        font-weight: 700;
+        font-size: 0.85rem;
         border: none;
-        cursor: pointer;
-        transition: transform 0.2s;
         text-transform: capitalize;
+        cursor: pointer;
     }
-    .get-started-btn:hover { transform: scale(1.03); background-color: #f85149; }
+    .btn-started:hover { background-color: #f85149; }
 
-    /* Spacer for content */
-    .main-spacer { height: 100px; }
-    
-    /* Content Padding Wrapper */
-    .content-wrapper { padding: 0 5%; max-width: 1400px; margin: 0 auto; }
+    /* SPACER */
+    .header-spacer { height: 120px; }
 
-    /* Standard Elements Styling */
+    /* MAIN CONTENT WIDTH RESTRICTION */
+    .main-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 20px;
+    }
+
+    /* STREAMLIT WIDGET STYLING */
     h1 { font-family: 'Inter', sans-serif; font-weight: 800; text-transform: uppercase; font-style: italic; }
+    
     [data-testid="stForm"], .report-box { 
         background-color: #161b22 !important; border: 1px solid #30363d !important; 
         border-radius: 24px !important; padding: 40px !important; margin-bottom: 20px;
     }
+    
+    /* Red Streamlit Buttons */
     div.stButton > button { 
-        background-color: #e31e1e !important; color: white !important; font-weight: 800 !important;
+        background-color: #da3633 !important; color: white !important; font-weight: 800 !important;
         border-radius: 99px !important; border: none !important; padding: 12px 30px !important;
         text-transform: uppercase;
     }
+    div.stButton > button:hover { background-color: #f85149 !important; transform: scale(1.02); }
     
     /* Tab Styling */
     .stTabs [data-baseweb="tab-list"] { background-color: transparent; gap: 20px; }
@@ -334,7 +328,7 @@ st.markdown("""
 # 4. MAIN LAYOUT
 # ==========================================
 if not st.session_state["authenticated"]:
-    # --- LOGIN SCREEN ---
+    # LOGIN SCREEN
     c1, c2, c3 = st.columns([1, 1, 1])
     with c2:
         st.markdown("<div style='height: 150px;'></div>", unsafe_allow_html=True)
@@ -346,44 +340,41 @@ if not st.session_state["authenticated"]:
 else:
     user = st.session_state["user"]
     
-    # --- HEADER HTML (This renders the visual top bar) ---
+    # --- RENDER CUSTOM HEADER ---
     st.markdown("""
-    <nav class="navbar">
-        <div class="nav-logo">STOCK<span class="red-text">POSTMORTEM</span>.AI</div>
-        
+    <div class="custom-header">
+        <div class="header-logo">STOCK<span>POSTMORTEM</span>.AI</div>
         <div class="nav-menu">
-            <div class="nav-item">
-                ANALYZE <span class="arrow-icon">⌄</span>
-                <div class="dropdown-content">
-                    <div class="dropdown-link">VISUAL EVIDENCE</div>
-                    <div class="dropdown-link">DETAILED TEXT LOG</div>
+            <div class="nav-link">
+                ANALYZE <span>&#9662;</span>
+                <div class="dropdown-box">
+                    <div class="dropdown-item">VISUAL EVIDENCE</div>
+                    <div class="dropdown-item">DETAILED TEXT LOG</div>
                 </div>
             </div>
-            
-            <div class="nav-item">DATA VAULT</div>
-            <div class="nav-item">PRICING</div>
+            <div class="nav-link">DATA VAULT</div>
+            <div class="nav-link">PRICING</div>
         </div>
-        
-        <button class="get-started-btn">Get Started</button>
-    </nav>
-    <div class="main-spacer"></div>
+        <button class="btn-started">Get Started</button>
+    </div>
+    <div class="header-spacer"></div>
     """, unsafe_allow_html=True)
 
-    # --- MAIN CONTENT WRAPPER ---
+    # --- MAIN APP CONTENT ---
+    # Wrap everything in a container to center it like a normal website
     with st.container():
-        # Using a container to apply the side padding for the actual tool content
-        st.markdown('<div class="content-wrapper">', unsafe_allow_html=True)
+        st.markdown('<div class="main-container">', unsafe_allow_html=True)
         
-        # Small Logout Button (Hidden functionality for user)
-        col_L, col_R = st.columns([10, 1])
-        with col_R:
-            if st.button("Log Out"): logout()
+        # Logout Logic (Hidden small button for utility)
+        col_utils_1, col_utils_2 = st.columns([10, 1])
+        with col_utils_2:
+            if st.button("Logout", key="logout_btn"): logout()
 
-        # Hero Text
+        # Hero Section
         st.markdown("""
             <div style='text-align:center; margin-bottom:50px;'>
-                <h1 style='font-size:3.5rem; margin:0;'>STOP <span style='color:#f85149'>BLEEDING</span> CAPITAL.</h1>
-                <p style='color:#8b949e; font-size:1.1rem; max-width:600px; margin:10px auto;'>AI-Powered Forensic Trading Analysis.</p>
+                <h1 style='font-size:4rem; margin:0; line-height:1.1;'>STOP <span style='color:#f85149'>BLEEDING</span> CAPITAL.</h1>
+                <p style='color:#8b949e; font-size:1.1rem; margin-top:15px;'>AI-Powered Forensic Trading Analysis.</p>
             </div>
         """, unsafe_allow_html=True)
 
@@ -442,4 +433,4 @@ else:
             else:
                 st.info("Data Vault unavailable.")
         
-        st.markdown('</div>', unsafe_allow_html=True) # End content-wrapper
+        st.markdown('</div>', unsafe_allow_html=True) # End main-container
