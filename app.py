@@ -5,6 +5,7 @@ import io
 import re
 import pandas as pd
 import time
+import json
 from PIL import Image
 from supabase import create_client, Client
 
@@ -46,6 +47,7 @@ def logout():
 # ==========================================
 if st.session_state["authenticated"]:
     try:
+        # Ensure these are in your .streamlit/secrets.toml
         HF_TOKEN = st.secrets["HF_TOKEN"]
         SUPABASE_URL = st.secrets["SUPABASE_URL"]
         SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
@@ -61,6 +63,7 @@ def run_scientific_analysis(messages, mode="text"):
     api_url = "https://router.huggingface.co/v1/chat/completions"
     headers = {"Authorization": f"Bearer {HF_TOKEN}", "Content-Type": "application/json"}
     
+    # Selecting the model
     if mode == "text":
         model_id = "Qwen/Qwen2.5-72B-Instruct" 
     else:
@@ -70,9 +73,10 @@ def run_scientific_analysis(messages, mode="text"):
         "model": model_id,
         "messages": messages,
         "max_tokens": 2048,
-        "temperature": 0.3, 
+        "temperature": 0.2, # Low temp for strict JSON adherence
     }
 
+    # Retry logic
     for attempt in range(3):
         try:
             res = requests.post(api_url, headers=headers, json=payload, timeout=90)
@@ -88,7 +92,7 @@ def run_scientific_analysis(messages, mode="text"):
             time.sleep(2)
 
 # ==========================================
-# 3. PARSING & DISPLAY LOGIC (SMART FORMATTER)
+# 3. PARSING & DISPLAY LOGIC (JSON MODE)
 # ==========================================
 st.markdown("""
 <style>
@@ -108,67 +112,56 @@ def get_user_rules(user_id):
     except: return []
 
 def parse_scientific_report(text):
-    text = text.replace("**", "").replace("##", "").replace("###", "").strip()
+    """
+    Parses the response. Tries to parse as JSON first (Best Case).
+    Falls back to Regex if the AI messes up the JSON syntax.
+    """
+    # 1. Clean the text to isolate JSON
+    clean_text = text.replace("```json", "").replace("```", "").strip()
     
-    sections = { 
-        "score": 0, 
-        "tags": [], 
-        "tech": "Analysis failed.", 
-        "psych": "Analysis failed.", 
-        "risk": "Analysis failed.", 
-        "fix": "Analysis failed." 
-    }
-    
-    # 1. Extract Score
-    score_match = re.search(r'(?:\[SCORE\]|Score:?)\s*(\d+)', text, re.IGNORECASE)
-    if score_match: sections['score'] = int(score_match.group(1))
-
-    # 2. Extract Tags (Smart Splitter)
-    tags_match = re.search(r'(?:\[TAGS\]|Tags:?)(.*?)(?=\[|\n[A-Z]|$)', text, re.DOTALL | re.IGNORECASE)
-    if tags_match:
-        raw_tags = tags_match.group(1)
-        clean_tags_str = re.sub(r'[\(\)]', '', raw_tags).strip()
+    try:
+        # ATTEMPT 1: Strict JSON Parse
+        data = json.loads(clean_text)
         
-        # Strategy A: Split by comma if present
-        if "," in clean_tags_str:
-            sections['tags'] = [t.strip() for t in clean_tags_str.split(',') if t.strip()]
-        # Strategy B: If mashed "RiskStrategyDrawdown", split by Uppercase letters
-        else:
-            sections['tags'] = re.findall(r'[A-Z][^A-Z]*', clean_tags_str)
-
-    # 3. Extract Sections (Smart Formatting)
-    patterns = {
-        "tech": r"(?:\[TECHNICAL FORENSICS\]|Technical Forensics:)(.*?)(?=\[PSYCH|\[RISK|\[STRAT|\[SCORE|Psychological|Risk Assessment|$)",
-        "psych": r"(?:\[PSYCHOLOGICAL PROFILE\]|Psychological Profile:)(.*?)(?=\[RISK|\[STRAT|\[SCORE|Risk Assessment|Strategic Roadmap|$)",
-        "risk": r"(?:\[RISK ASSESSMENT\]|Risk Assessment:)(.*?)(?=\[STRAT|\[SCORE|Strategic Roadmap|$)",
-        "fix": r"(?:\[STRATEGIC ROADMAP\]|Strategic Roadmap:)(.*?)(?=\[SCORE|\[TAGS|$)"
-    }
-    
-    for key, pattern in patterns.items():
-        match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
-        if match:
-            content = match.group(1).strip()
-            # If it looks like a list (1. 2. or -), preserve breaks. Else, flatten.
-            if "1." in content or "- " in content:
-                # Format lists nicely: Add breaks before numbers/bullets
-                content = re.sub(r'(\d+\.|- )', r'<br>\1', content)
-            else:
-                # Flatten paragraphs so they don't break mid-sentence
-                content = content.replace("\n", " ")
-            
-            sections[key] = content
-            
-    return sections
+        # Normalize keys to ensure lowercase
+        return {
+            "score": data.get("score", 0),
+            "tags": data.get("tags", []),
+            "tech": data.get("technical_analysis", "No data."),
+            "psych": data.get("psychological_profile", "No data."),
+            "risk": data.get("risk_assessment", "No data."),
+            "fix": data.get("strategic_roadmap", "No data.")
+        }
+        
+    except json.JSONDecodeError:
+        # ATTEMPT 2: Fallback Regex (If JSON fails)
+        sections = { "score": 0, "tags": [], "tech": "Error parsing JSON.", "psych": "", "risk": "", "fix": "" }
+        
+        # Regex to grab content between quotes usually found in broken JSON
+        score_match = re.search(r'"score":\s*(\d+)', clean_text)
+        if score_match: sections['score'] = int(score_match.group(1))
+        
+        # Simple text extraction fallback
+        sections['tech'] = "⚠️ The AI output valid text but invalid JSON. Please try again."
+        sections['fix'] = str(clean_text)[:500] # Show raw output for debugging
+        return sections
 
 def render_report_html(report):
     c_score = "#ff4d4d" if report['score'] < 50 else "#00e676"
     
-    # Safe Tag Rendering
+    # Clean tags: Ensure they are strings and not too long
+    valid_tags = [str(t) for t in report['tags'] if isinstance(t, str) and len(t) < 40]
+    
     tags_html = "".join([
         f'<span style="background:#262626; border:1px solid #444; padding:4px 8px; border-radius:4px; font-size:0.8rem; margin-right:5px; display:inline-block; margin-bottom:5px;">{t}</span>' 
-        for t in report['tags'] if len(t) < 30
+        for t in valid_tags
     ])
     
+    # Format paragraphs: Replace newlines with <br> for HTML rendering
+    def format_body(text):
+        if isinstance(text, list): return "<br>".join(text) # Handle if AI returns a list of strings
+        return str(text).replace("\n", "<br>")
+
     html_parts = [
         f'<div class="report-box">',
         f'  <div style="display:flex; justify-content:space-between; border-bottom:1px solid #444;">',
@@ -178,35 +171,39 @@ def render_report_html(report):
         f'  <div style="margin:10px 0;">{tags_html}</div>',
         
         f'  <div class="section-title">📊 TECHNICAL FORENSICS</div>',
-        f'  <div style="color:#d0d7de; line-height:1.6;">{report["tech"]}</div>',
+        f'  <div style="color:#d0d7de; line-height:1.6;">{format_body(report["tech"])}</div>',
         
         f'  <div class="section-title">🧠 PSYCHOLOGICAL PROFILE</div>',
-        f'  <div style="color:#d0d7de; line-height:1.6;">{report["psych"]}</div>',
+        f'  <div style="color:#d0d7de; line-height:1.6;">{format_body(report["psych"])}</div>',
         
         f'  <div class="section-title">⚖️ RISK ASSESSMENT</div>',
-        f'  <div style="color:#d0d7de; line-height:1.6;">{report["risk"]}</div>',
+        f'  <div style="color:#d0d7de; line-height:1.6;">{format_body(report["risk"])}</div>',
         
         f'  <div class="section-title">🚀 STRATEGIC ROADMAP</div>',
-        f'  <div style="background:rgba(46, 160, 67, 0.1); border-left:4px solid #2ea043; padding:15px; color:#fff;">{report["fix"]}</div>',
+        f'  <div style="background:rgba(46, 160, 67, 0.1); border-left:4px solid #2ea043; padding:15px; color:#fff;">{format_body(report["fix"])}</div>',
         f'</div>'
     ]
     
     return "".join(html_parts)
 
 def save_to_lab_records(user_id, data):
+    # Ensure data is JSON serializable
+    clean_tags = data.get('tags', [])
+    if not isinstance(clean_tags, list): clean_tags = []
+    
     payload = {
         "user_id": user_id,
         "score": data.get('score', 0),
-        "mistake_tags": data.get('tags', []),
-        "technical_analysis": data.get('tech', ''),
-        "psych_analysis": data.get('psych', ''),
-        "risk_analysis": data.get('risk', ''),
-        "fix_action": data.get('fix', '')
+        "mistake_tags": clean_tags,
+        "technical_analysis": str(data.get('tech', '')),
+        "psych_analysis": str(data.get('psych', '')),
+        "risk_analysis": str(data.get('risk', '')),
+        "fix_action": str(data.get('fix', ''))
     }
     try:
         supabase.table("trades").insert(payload).execute()
         if data.get('score', 0) < 50:
-            clean_fix = data.get('fix', 'Follow Protocol').split('.')[0][:100]
+            clean_fix = str(data.get('fix', 'Follow Protocol')).split('.')[0][:100]
             supabase.table("rules").insert({"user_id": user_id, "rule_text": clean_fix}).execute()
             st.toast("🧬 Violation Recorded.")
     except Exception as e:
@@ -254,28 +251,27 @@ else:
                     image.save(buf, format="JPEG")
                     img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
                     
+                    # PROMPT: STRICT JSON REQUEST
                     prompt = f"""
                     You are Dr. Market, a Chief Investment Officer.
-                    Your Task: Audit this image (Chart or P&L).
+                    Audit this image (Chart or P&L). Rules: {my_rules}.
                     
-                    USER RULES: {my_rules}
+                    TASK:
+                    1. Analyze Technicals (Drawdown, Toxic Assets, Structure).
+                    2. Analyze Psychology (Disposition Effect, Panic).
+                    3. Assess Risk.
+                    4. Give a Score (0-100). If Loss > 15%, Score < 30.
 
-                    IF P&L DASHBOARD:
-                    1. [TECHNICAL FORENSICS]: Extract data. Calculate drawdown %. Identify "Toxic Asset" (biggest loser). 
-                    2. [PSYCHOLOGICAL PROFILE]: Diagnose behavior (e.g., "Disposition Effect").
-                    3. [SCORE]: If Unrealized Loss > 15%, Score MUST be < 30.
-                    
-                    IF CHART:
-                    1. [TECHNICAL FORENSICS]: Analyze Market Structure, Liquidity Sweeps, and Volume.
-                    2. [SCORE]: Grade the setup quality (0-100).
-
-                    STRICT OUTPUT FORMAT (Use commas for tags!):
-                    [SCORE] 0-100
-                    [TAGS] Tag1, Tag2, Tag3
-                    [TECHNICAL FORENSICS] ...
-                    [PSYCHOLOGICAL PROFILE] ...
-                    [RISK ASSESSMENT] ...
-                    [STRATEGIC ROADMAP] ...
+                    OUTPUT MUST BE PURE VALID JSON ONLY. NO MARKDOWN.
+                    Format:
+                    {{
+                        "score": 25,
+                        "tags": ["High Drawdown", "Toxic Asset", "Panic"],
+                        "technical_analysis": "Full paragraph here...",
+                        "psychological_profile": "Full paragraph here...",
+                        "risk_assessment": "Full paragraph here...",
+                        "strategic_roadmap": "Step 1... Step 2..."
+                    }}
                     """
                     
                     messages = [{
@@ -313,13 +309,17 @@ else:
                     prompt = f"""
                     You are Dr. Market. Audit this trade text log. Rules: {my_rules}.
                     Data: {math_block}. Context: {context}.
-                    STRICT OUTPUT FORMAT:
-                    [SCORE] ...
-                    [TAGS] Tag1, Tag2, Tag3
-                    [TECHNICAL FORENSICS] ...
-                    [PSYCHOLOGICAL PROFILE] ...
-                    [RISK ASSESSMENT] ...
-                    [STRATEGIC ROADMAP] ...
+                    
+                    OUTPUT MUST BE PURE VALID JSON ONLY. NO MARKDOWN.
+                    Format:
+                    {{
+                        "score": 0,
+                        "tags": ["Tag1", "Tag2"],
+                        "technical_analysis": "...",
+                        "psychological_profile": "...",
+                        "risk_assessment": "...",
+                        "strategic_roadmap": "..."
+                    }}
                     """
                     messages = [{"role": "user", "content": prompt}]
                     
