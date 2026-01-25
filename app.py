@@ -53,7 +53,6 @@ if st.session_state["authenticated"]:
         SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
         supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
     except Exception as e:
-        # Graceful fallback if secrets aren't set
         supabase = None
         HF_TOKEN = None
 
@@ -156,7 +155,7 @@ def parse_scientific_report(text):
     return data
 
 # ==========================================
-# 4. THEME & UI (UPDATED WITH STICKY NAVBAR)
+# 4. THEME & UI (SIDEBAR + STICKY HEADER)
 # ==========================================
 st.markdown("""
 <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,600;0,800;1,800&display=swap" rel="stylesheet">
@@ -174,16 +173,60 @@ st.markdown("""
         letter-spacing: -0.05em; color: white; text-transform: uppercase;
     }
     
+    /* --- SIDEBAR STYLING --- */
+    section[data-testid="stSidebar"] {
+        background-color: #161b22 !important; /* Darker grey to match main theme */
+        border-right: 1px solid #30363d;
+    }
+    
+    section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] {
+        gap: 1rem;
+        padding-top: 2rem;
+    }
+
+    /* Sidebar User Profile Card */
+    .sidebar-user-card {
+        background-color: #21262d;
+        border: 1px solid #30363d;
+        border-radius: 12px;
+        padding: 20px;
+        text-align: center;
+        margin-bottom: 20px;
+    }
+    .sidebar-user-avatar {
+        font-size: 3rem; margin-bottom: 10px;
+    }
+    .sidebar-user-name {
+        color: white; font-weight: 800; font-size: 1.1rem;
+    }
+    .sidebar-user-status {
+        color: #3fb950; font-size: 0.8rem; font-weight: 600; text-transform: uppercase;
+        margin-top: 5px;
+    }
+
+    /* Custom Sidebar Button Styling */
+    section[data-testid="stSidebar"] .stButton > button {
+        width: 100%;
+        background-color: #21262d !important;
+        border: 1px solid #da3633 !important;
+        color: #da3633 !important;
+        transition: all 0.3s ease;
+    }
+    section[data-testid="stSidebar"] .stButton > button:hover {
+        background-color: #da3633 !important;
+        color: white !important;
+    }
+    
     /* --- STICKY NAVBAR STYLES --- */
     .custom-nav-container {
         position: fixed;
         top: 0;
         left: 0;
         width: 100%;
-        background-color: #0d1117; /* Matches App BG */
+        background-color: #0d1117; 
         z-index: 999999;
         border-bottom: 1px solid #30363d;
-        height: 80px; /* Fixed height */
+        height: 80px; 
         display: flex;
         align-items: center;
         justify-content: center;
@@ -192,7 +235,7 @@ st.markdown("""
     
     .custom-nav-content {
         width: 100%;
-        max-width: 1200px; /* Aligns with Streamlit content width */
+        max-width: 1200px; 
         display: flex; 
         justify-content: space-between; 
         align-items: center;
@@ -213,7 +256,7 @@ st.markdown("""
 
     /* Push Main Content Down */
     .main-content-spacer {
-        margin-top: 60px; /* Accounts for fixed header */
+        margin-top: 60px; 
     }
 
     /* Cards & Form Containers */
@@ -222,7 +265,7 @@ st.markdown("""
         border-radius: 24px !important; padding: 40px !important; 
     }
     
-    /* Buttons */
+    /* Main Content Buttons */
     div.stButton > button { 
         background-color: #da3633 !important; color: white !important; font-weight: 800 !important;
         border-radius: 99px !important; border: none !important; padding: 12px 30px !important;
@@ -272,7 +315,7 @@ def get_user_rules(user_id):
 # 5. MAIN INTERFACE
 # ==========================================
 if not st.session_state["authenticated"]:
-    # Login Page (No Sticky Header needed here usually, but kept simple)
+    # Login Page
     c1, c2, c3 = st.columns([1, 1.5, 1])
     with c2:
         st.markdown("<div style='text-align:center; margin-top:100px;'><h1 style='font-size:2.5rem;'>STOCK<span style='color:#f85149'>POSTMORTEM</span>.AI</h1><p style='color:#8b949e'>OPERATOR AUTHENTICATION REQUIRED</p></div>", unsafe_allow_html=True)
@@ -282,9 +325,23 @@ if not st.session_state["authenticated"]:
             if st.form_submit_button("Authenticate"): check_login(u, p)
 else:
     user = st.session_state["user"]
+    
+    # --- STYLISH SIDEBAR ---
     with st.sidebar:
-        st.markdown(f"<h3 style='color:white;'>{user}</h3>", unsafe_allow_html=True)
-        if st.button("Terminate Session"): logout()
+        # User Profile "Badge" Look
+        st.markdown(f"""
+        <div class="sidebar-user-card">
+            <div class="sidebar-user-avatar">🧬</div>
+            <div class="sidebar-user-name">{user}</div>
+            <div class="sidebar-user-status">● OPERATIONAL</div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Spacer
+        st.write("") 
+        
+        # LOG OUT Button
+        if st.button("LOG OUT"): logout()
 
     # --- CUSTOM STICKY NAVBAR ---
     st.markdown("""
