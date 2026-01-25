@@ -285,7 +285,7 @@ else:
         </div>
     """, unsafe_allow_html=True)
 
-    # REMOVED PROTOCOLS, RENAMED DIAGNOSTIC AUDIT TO ANALYSE
+    # REMOVED PROTOCOLS TAB, RENAMED DIAGNOSTIC AUDIT TO ANALYSE
     tab_analyse, tab_data = st.tabs(["🔬 ANALYSE", "📊 DATA VAULT"])
 
     with tab_analyse:
