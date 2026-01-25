@@ -242,8 +242,9 @@ st.markdown("""
 def render_report_html(report):
     c_score = "#ff4d4d" if report['score'] < 50 else "#00e676"
     
+    # ADDED SPACE at the end of the span for better copy-paste (Avoids "RiskPanic")
     tags_html = "".join([
-        f'<span style="background:#262626; border:1px solid #444; padding:4px 8px; border-radius:4px; font-size:0.8rem; margin-right:5px; display:inline-block; margin-bottom:5px;">{t}</span>' 
+        f'<span style="background:#262626; border:1px solid #444; padding:4px 8px; border-radius:4px; font-size:0.8rem; margin-right:5px; display:inline-block; margin-bottom:5px;">{t}</span> ' 
         for t in report['tags']
     ])
     
@@ -329,7 +330,7 @@ else:
         if "Visual Evidence" in mode:
             st.info("Supported: Candlestick Charts, P&L Dashboards (PNG, JPG, WEBP)")
             
-            # UPDATED: Added "webp" support here
+            # UPDATED: Added "webp" support
             up_file = st.file_uploader("Upload Evidence", type=["png", "jpg", "jpeg", "webp"])
             
             if up_file:
@@ -341,10 +342,14 @@ else:
                     image.save(buf, format="JPEG")
                     img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
                     
-                    # PROMPT: REQUEST JSON
+                    # PROMPT: REQUEST JSON (UPDATED to prevent hallucinations)
                     prompt = f"""
                     You are Dr. Market, a Chief Investment Officer.
                     Audit this image (Chart or P&L). Rules: {my_rules}.
+                    
+                    CRITICAL INSTRUCTION: 
+                    - Identify the TICKER NAME exactly as shown in the image (e.g., LUPIN, RELIANCE). 
+                    - Do NOT hallucinate "AARTIIND" or other stocks if not present.
                     
                     TASK:
                     1. Analyze Technicals (Drawdown, Toxic Assets, Structure).
@@ -355,7 +360,7 @@ else:
                     {{
                         "score": 100,
                         "tags": ["High Risk", "Panic Selling"],
-                        "technical_analysis": "Text...",
+                        "technical_analysis": "The chart for [TICKER] shows...",
                         "psychological_profile": "Text...",
                         "risk_assessment": "Text...",
                         "strategic_roadmap": "1. Step one. 2. Step two."
