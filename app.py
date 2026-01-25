@@ -19,7 +19,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Login Credentials
+# Login Credentials (Simple Auth)
 USERS = {
     "trader1": "profit2026",
     "demo": "12345",
@@ -99,10 +99,10 @@ def run_scientific_analysis(messages, mode="text"):
 def clean_text_surgical(text):
     if not isinstance(text, str): return str(text)
     text = text.replace('\n', ' ')
-    text = re.sub(r'(\d),(\s+)(\d)', r'\1,\3', text)
-    text = re.sub(r'-\s+(\d)', r'-\1', text)
+    text = re.sub(r'(\d),(\s+)(\d)', r'\1,\3', text) # Fix split numbers
+    text = re.sub(r'-\s+(\d)', r'-\1', text) # Fix split negatives
     text = re.sub(r'\s+', ' ', text)
-    text = re.sub(r'(?<!^)(\d+\.)', r'<br>\1', text)
+    text = re.sub(r'(?<!^)(\d+\.)', r'<br>\1', text) # Restore lists
     return text.strip()
 
 def fix_mashed_tags_surgical(tags_input):
@@ -118,6 +118,7 @@ def fix_mashed_tags_surgical(tags_input):
     final_tags = []
     for tag in raw_list:
         tag = str(tag).strip()
+        # Fix "HighRisk" -> "High, Risk" camelCase collisions
         split_tag = re.sub(r'([a-z])([A-Z])', r'\1,\2', tag)
         for sub_tag in split_tag.split(','):
             clean = sub_tag.strip()
@@ -127,18 +128,17 @@ def fix_mashed_tags_surgical(tags_input):
 
 def parse_scientific_report(text):
     """
-    UPDATED: Logic now respects 'trade_direction' and 'outcome' JSON fields
-    to correctly handle Short Selling scenarios.
+    MASTER PARSER: Handles Win/Loss detection, Directionality, and Reality Checks.
     """
     clean_raw = text.replace("```json", "").replace("```", "").strip()
     
     data = { 
         "score": 0, "tags": [], 
         "tech": "", "psych": "", "risk": "", "fix": "",
-        "outcome": "unknown", "type": "long"
+        "outcome": "unknown", "type": "long", "reality": "Real"
     }
     
-    # 1. Extract Data
+    # 1. Extract JSON Data
     try:
         json_data = json.loads(clean_raw)
         data["tags"] = json_data.get("tags", [])
@@ -148,8 +148,9 @@ def parse_scientific_report(text):
         data["fix"] = json_data.get("strategic_roadmap", "")
         data["outcome"] = json_data.get("outcome", "unknown").lower()
         data["type"] = json_data.get("trade_direction", "long").lower()
+        data["reality"] = json_data.get("reality_check", "Real")
     except:
-        # Fallback (Legacy)
+        # Fallback Regex Parsing (Legacy support)
         patterns = {
             "tech": r'"technical_analysis":\s*"(.*?)"',
             "psych": r'"psychological_profile":\s*"(.*?)"',
@@ -169,18 +170,17 @@ def parse_scientific_report(text):
     data["fix"] = clean_text_surgical(data["fix"])
     
     # ====================================================
-    # 3. SCORING ENGINE (SHORT-SELLING AWARE)
+    # 3. SCORING LOGIC (PHYSICS AWARE)
     # ====================================================
     score = 100
     joined_text = (str(data["tags"]) + data["tech"] + data["psych"] + data["risk"]).lower()
     
-    # --- LOGIC PATCH: Determine Win/Loss ---
-    # We prioritize the explicit JSON field "outcome" from the AI
+    # A. Determine Win/Loss Status (Trusting the AI's "outcome" field first)
     is_winning_trade = False
     
-    if data["outcome"] == "win":
+    if "win" in data["outcome"]:
         is_winning_trade = True
-    elif data["outcome"] == "loss":
+    elif "loss" in data["outcome"]:
         is_winning_trade = False
     else:
         # Fallback: Keyword search
@@ -188,7 +188,7 @@ def parse_scientific_report(text):
         if any(w in joined_text for w in win_keywords):
             is_winning_trade = True
     
-    # --- PENALTY LOGIC ---
+    # B. Apply Penalties
     if not is_winning_trade:
         # Only deduct for drawdown if it's a LOSS
         drawdown_matches = re.findall(r'-(\d+\.?\d*)%', clean_raw)
@@ -196,26 +196,28 @@ def parse_scientific_report(text):
             max_loss = max([float(x) for x in drawdown_matches])
             score -= max_loss 
             
-        # Standard Penalties
+        # Standard Penalties (Contextual)
         if "panic" in joined_text: score -= 15
         if "high risk" in joined_text: score -= 15
         if "fomo" in joined_text: score -= 10
-        if "structure" in joined_text and "break" in joined_text: score -= 10
+        # Only penalize "structure break" if it's a LONG position
+        if "structure" in joined_text and "break" in joined_text and data["type"] == "long": 
+            score -= 10
     else:
         # If Winning, minor penalties only
         if "lucky" in joined_text: score -= 10
         if "risky entry" in joined_text: score -= 5
 
-    # --- SAFETY CAPS ---
+    # C. Safety Caps & Floors
     if is_winning_trade:
-        # Protect the score for winners (Even if short selling involves red candles)
+        # WINNER PROTECTION: Score cannot be below 85 for a confirmed win
         score = max(score, 85)
     else:
-        # Cap the score for losers
+        # LOSER CAPS
         if "panic" in joined_text or "high risk" in joined_text:
-            score = min(score, 45)
+            score = min(score, 45) # F Grade
         elif "drawdown" in joined_text or "loss" in joined_text:
-            score = min(score, 65)
+            score = min(score, 65) # D Grade
 
     data["score"] = max(0, min(100, int(score)))
     return data
@@ -242,15 +244,21 @@ def render_report_html(report):
         for t in report['tags']
     ])
     
-    # Add Direction Badge
+    # Direction Badge Logic
     direction_badge = ""
-    if report.get("type") == "short":
-        direction_badge = '<span style="background:#8b0000; color:#fff; padding:2px 6px; border-radius:3px; font-size:0.7rem; margin-left:10px;">SHORT POS</span>'
-    elif report.get("type") == "long":
-        direction_badge = '<span style="background:#006400; color:#fff; padding:2px 6px; border-radius:3px; font-size:0.7rem; margin-left:10px;">LONG POS</span>'
+    if "short" in report.get("type", ""):
+        direction_badge = '<span style="background:#8b0000; color:#fff; padding:2px 6px; border-radius:3px; font-size:0.7rem; margin-left:10px; font-family:monospace;">SHORT POS</span>'
+    elif "long" in report.get("type", ""):
+        direction_badge = '<span style="background:#006400; color:#fff; padding:2px 6px; border-radius:3px; font-size:0.7rem; margin-left:10px; font-family:monospace;">LONG POS</span>'
+
+    # Reality Warning Logic
+    reality_warning = ""
+    if "simulated" in str(report.get("reality", "")).lower() or "fictional" in str(report.get("reality", "")).lower():
+        reality_warning = '<div style="background:#3d1818; color:#ff8b8b; padding:10px; border-radius:5px; margin-bottom:15px; font-size:0.9rem;">⚠️ <b>SIMULATION DETECTED:</b> This asset appears to be fictional or simulated. Market data may not match real-world feeds.</div>'
 
     html_parts = [
         f'<div class="report-box">',
+        f'{reality_warning}',
         f'  <div style="display:flex; justify-content:space-between; border-bottom:1px solid #444;">',
         f'      <div><h2 style="color:#fff; margin:0; display:inline-block;">DIAGNOSTIC REPORT</h2>{direction_badge}</div>',
         f'      <div class="score-circle" style="color:{c_score};">{report["score"]}</div>',
@@ -284,12 +292,13 @@ def save_to_lab_records(user_id, data):
     }
     try:
         supabase.table("trades").insert(payload).execute()
+        # Auto-add rule if score is low
         if data.get('score', 0) < 50:
             clean_fix = data.get('fix', 'Follow Protocol').split('.')[0][:100]
             supabase.table("rules").insert({"user_id": user_id, "rule_text": clean_fix}).execute()
             st.toast("🧬 Violation Recorded & Rule Added.")
     except Exception as e:
-        # Silent fail or log
+        # Silent fail to avoid crashing if DB isn't perfect
         pass
 
 def get_user_rules(user_id):
@@ -342,22 +351,25 @@ else:
                     image.save(buf, format="JPEG")
                     img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
                     
-                    # === UPDATED PROMPT: INCLUDES SHORT-SELLING & REALITY CHECK LOGIC ===
+                    # === UPDATED PROMPT: INCLUDES SHORT PHYSICS & REALITY CHECK ===
                     prompt = f"""
                     You are Dr. Market, a Chief Investment Officer.
                     Audit this image (Chart or P&L). Rules: {my_rules}.
                     
-                    CRITICAL FORENSIC PROTOCOL:
-                    1. DETECT DIRECTION: Look for UI clues like "Open Short", "Sell Position", "Put" vs "Buy", "Long".
-                    2. DETECT P/L COLOR: Green text usually = Profit. Red text usually = Loss.
-                    3. APPLY LOGIC:
-                       - If LONG: Green Candles = Good, Red Candles = Bad.
-                       - If SHORT: Red Candles = Good (Profit), Green Candles = Bad (Loss).
-                    4. REALITY CHECK: Is the ticker name (e.g. OmniVerse, Solaris) a real tradable asset or a simulated/fictional one? Please note this.
+                    CRITICAL PHYSICS OF THIS TRADE:
+                    1. DETECT DIRECTION FIRST: Look for "Open Short", "Sell", "Put".
+                    2. APPLY THE "INVERSION RULE":
+                       - IF LONG: Price UP = Good. Price DOWN = Bad.
+                       - IF SHORT: Price DOWN = PROFIT (Jackpot). Price UP = LOSS (Danger).
+                    
+                    ⚠️ FATAL ERROR WARNING: Do NOT tell a Short Seller that a "Support Break" is a risk. 
+                    For a Short Seller, a Support Break is a STRATEGIC WIN.
+                    
+                    3. REALITY CHECK: Is the ticker name (e.g. OmniVerse, Solaris) a real tradable asset or a simulated/fictional one? Please note this.
                     
                     TASK:
-                    - If PROFITABLE (Win): Score HIGH (85-100). Label as "Strategic Exit".
-                    - If LOSS: Score LOW. Analyze Mistakes.
+                    - If the chart matches the direction (e.g., Short + Big Drop): SCORE 100. Label "Strategic Execution".
+                    - If the chart opposes the direction (e.g., Short + Rally): SCORE LOW. Label "Squeeze Risk".
                     
                     OUTPUT FORMAT: JSON ONLY (No Markdown).
                     {{
@@ -390,10 +402,6 @@ else:
                             final_html = render_report_html(report)
                             st.markdown(final_html, unsafe_allow_html=True)
                             
-                            # Show Reality Check Warning if simulated
-                            if "simulated" in str(report.get("tech", "")).lower() or "simulated" in str(raw).lower():
-                                st.warning("⚠️ NOTE: The system detected this might be a Simulated/Fictional asset.")
-                                
                         except Exception as e: st.error(str(e))
 
         # --- TEXT LOG ANALYSIS ---
@@ -415,13 +423,15 @@ else:
                     
                     OUTPUT FORMAT: JSON ONLY (No Markdown).
                     {{
+                        "trade_direction": "Long", 
                         "outcome": "Win" or "Loss",
                         "score": 100,
                         "tags": ["Mistake1", "Mistake2"],
                         "technical_analysis": "Text...",
                         "psychological_profile": "Text...",
                         "risk_assessment": "Text...",
-                        "strategic_roadmap": "Text..."
+                        "strategic_roadmap": "Text...",
+                        "reality_check": "Real"
                     }}
                     """
                     messages = [{"role": "user", "content": prompt}]
