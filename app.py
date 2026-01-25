@@ -223,6 +223,7 @@ st.markdown("""
         font-weight: 800;
         color: white;
         letter-spacing: -0.5px;
+        text-decoration: none;
     }
     .header-logo span { color: #f85149; }
 
@@ -234,6 +235,7 @@ st.markdown("""
         height: 100%;
     }
 
+    /* Nav Links (Now <a> tags) */
     .nav-link {
         color: #8b949e; /* The specific opacity/grey requested */
         font-size: 0.8rem;
@@ -246,6 +248,7 @@ st.markdown("""
         height: 100%;
         transition: color 0.2s;
         letter-spacing: 0.5px;
+        text-decoration: none; /* Remove underline */
     }
     .nav-link:hover { color: white; }
     .nav-link span { margin-left: 5px; font-size: 10px; } /* The arrow */
@@ -273,6 +276,7 @@ st.markdown("""
         font-weight: 600;
         display: block;
         transition: background 0.2s;
+        text-decoration: none;
     }
     .dropdown-item:hover { background-color: #21262d; color: white; }
 
@@ -287,6 +291,7 @@ st.markdown("""
         border: none;
         text-transform: capitalize;
         cursor: pointer;
+        text-decoration: none;
     }
     .btn-started:hover { background-color: #f85149; }
 
@@ -316,11 +321,6 @@ st.markdown("""
     }
     div.stButton > button:hover { background-color: #f85149 !important; transform: scale(1.02); }
     
-    /* Tab Styling */
-    .stTabs [data-baseweb="tab-list"] { background-color: transparent; gap: 20px; }
-    .stTabs [data-baseweb="tab"] { color: #8b949e; font-weight: 600; background-color: transparent !important; border: none !important;}
-    .stTabs [aria-selected="true"] { color: white !important; border-bottom: 2px solid #f85149 !important; }
-
 </style>
 """, unsafe_allow_html=True)
 
@@ -340,37 +340,41 @@ if not st.session_state["authenticated"]:
 else:
     user = st.session_state["user"]
     
-    # --- RENDER CUSTOM HEADER ---
-    st.markdown("""
+    # 1. GET CURRENT PAGE FROM URL QUERY PARAMS
+    # This allows us to link the HTML header to Python logic
+    query_params = st.query_params
+    current_page = query_params.get("page", "visual") # default to visual
+
+    # --- RENDER CUSTOM HEADER (Active Links) ---
+    st.markdown(f"""
     <div class="custom-header">
-        <div class="header-logo">STOCK<span>POSTMORTEM</span>.AI</div>
+        <a href="?page=visual" target="_self" class="header-logo">STOCK<span>POSTMORTEM</span>.AI</a>
         <div class="nav-menu">
             <div class="nav-link">
                 ANALYZE <span>&#9662;</span>
                 <div class="dropdown-box">
-                    <div class="dropdown-item">VISUAL EVIDENCE</div>
-                    <div class="dropdown-item">DETAILED TEXT LOG</div>
+                    <a href="?page=visual" target="_self" class="dropdown-item">VISUAL EVIDENCE</a>
+                    <a href="?page=text" target="_self" class="dropdown-item">DETAILED TEXT LOG</a>
                 </div>
             </div>
-            <div class="nav-link">DATA VAULT</div>
+            <a href="?page=vault" target="_self" class="nav-link">DATA VAULT</a>
             <div class="nav-link">PRICING</div>
         </div>
-        <button class="btn-started">Get Started</button>
+        <a href="?page=visual" target="_self" class="btn-started">Get Started</a>
     </div>
     <div class="header-spacer"></div>
     """, unsafe_allow_html=True)
 
     # --- MAIN APP CONTENT ---
-    # Wrap everything in a container to center it like a normal website
     with st.container():
         st.markdown('<div class="main-container">', unsafe_allow_html=True)
         
-        # Logout Logic (Hidden small button for utility)
+        # Small Logout Button (Hidden functionality for user)
         col_utils_1, col_utils_2 = st.columns([10, 1])
         with col_utils_2:
             if st.button("Logout", key="logout_btn"): logout()
 
-        # Hero Section
+        # Hero Section (Always visible title, but content changes below)
         st.markdown("""
             <div style='text-align:center; margin-bottom:50px;'>
                 <h1 style='font-size:4rem; margin:0; line-height:1.1;'>STOP <span style='color:#f85149'>BLEEDING</span> CAPITAL.</h1>
@@ -378,59 +382,61 @@ else:
             </div>
         """, unsafe_allow_html=True)
 
-        # Tabs
-        tab_analyse, tab_data = st.tabs(["🔬 ANALYSE", "📊 DATA VAULT"])
+        # LOGIC SWITCHER BASED ON PAGE
+        my_rules = get_user_rules(user)
 
-        with tab_analyse:
-            my_rules = get_user_rules(user)
-            mode = st.radio("Source", ["Visual Evidence", "Detailed Text Log"], horizontal=True, label_visibility="collapsed")
+        if current_page == "visual":
+            # --- VISUAL EVIDENCE MODE ---
+            st.markdown("""
+            <div style="border: 2px dashed #30363d; border-radius: 24px; padding: 40px; background: #161b22; text-align: center; margin-bottom: 20px;">
+                <h3 style='color:white; margin:0;'>Drop your Chart Screenshot</h3>
+                <p style='color:#8b949e; font-size:0.9rem;'>Supports PNG, JPG</p>
+            </div>
+            """, unsafe_allow_html=True)
             
-            if "Visual" in mode:
-                st.markdown("""
-                <div style="border: 2px dashed #30363d; border-radius: 24px; padding: 40px; background: #161b22; text-align: center; margin-bottom: 20px;">
-                    <h3 style='color:white; margin:0;'>Drop your Chart Screenshot</h3>
-                    <p style='color:#8b949e; font-size:0.9rem;'>Supports PNG, JPG</p>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                up_file = st.file_uploader("Upload", type=["png", "jpg", "jpeg"], label_visibility="collapsed")
-                if up_file:
-                    st.image(up_file, use_container_width=True)
-                    if st.button("Initiate Forensic Scan"):
-                        img_b64 = base64.b64encode(up_file.getvalue()).decode('utf-8')
-                        prompt = f"Audit this chart. Rules: {my_rules}. Output JSON."
-                        messages = [{"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}]}]
-                        with st.spinner("Scanning..."):
-                            raw = run_scientific_analysis(messages, mode="vision")
-                            report = parse_scientific_report(raw)
-                            save_to_lab_records(user, report)
-                            st.markdown(render_report_html(report), unsafe_allow_html=True)
-            else:
-                with st.form("text_audit"):
-                    c1, c2, c3 = st.columns(3)
-                    with c1: tick = st.text_input("Ticker", placeholder="$NVDA")
-                    with c2: pos = st.selectbox("Position", ["Long (Buy)", "Short (Sell)"])
-                    with c3: tf = st.selectbox("Timeframe", ["Scalp", "Day Trade", "Swing"])
-                    c4, c5, c6 = st.columns(3)
-                    with c4: ent = st.number_input("Entry", min_value=0.0)
-                    with c5: ex = st.number_input("Exit", min_value=0.0)
-                    with c6: stp = st.number_input("Stop", min_value=0.0)
-                    setup = st.text_area("Setup Details")
-                    exit_rsn = st.text_area("Exit Reason")
-                    if st.form_submit_button("Run Analysis"):
-                        prompt = f"Audit Trade. Ticker: {tick}, Pos: {pos}, TF: {tf}, Entry: {ent}, Exit: {ex}, Stop: {stp}, Setup: {setup}, Exit Reason: {exit_rsn}. Rules: {my_rules}. Output JSON."
-                        messages = [{"role": "user", "content": prompt}]
-                        with st.spinner("Analyzing..."):
-                            raw = run_scientific_analysis(messages, mode="text")
-                            report = parse_scientific_report(raw)
-                            save_to_lab_records(user, report)
-                            st.markdown(render_report_html(report), unsafe_allow_html=True)
+            up_file = st.file_uploader("Upload", type=["png", "jpg", "jpeg"], label_visibility="collapsed")
+            if up_file:
+                st.image(up_file, use_container_width=True)
+                if st.button("Initiate Forensic Scan"):
+                    img_b64 = base64.b64encode(up_file.getvalue()).decode('utf-8')
+                    prompt = f"Audit this chart. Rules: {my_rules}. Output JSON."
+                    messages = [{"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}]}]
+                    with st.spinner("Scanning..."):
+                        raw = run_scientific_analysis(messages, mode="vision")
+                        report = parse_scientific_report(raw)
+                        save_to_lab_records(user, report)
+                        st.markdown(render_report_html(report), unsafe_allow_html=True)
 
-        with tab_data:
+        elif current_page == "text":
+            # --- TEXT LOG MODE ---
+            st.markdown("<h3 style='color:white; text-align:center; margin-bottom:20px;'>DETAILED TEXT LOG</h3>", unsafe_allow_html=True)
+            with st.form("text_audit"):
+                c1, c2, c3 = st.columns(3)
+                with c1: tick = st.text_input("Ticker", placeholder="$NVDA")
+                with c2: pos = st.selectbox("Position", ["Long (Buy)", "Short (Sell)"])
+                with c3: tf = st.selectbox("Timeframe", ["Scalp", "Day Trade", "Swing"])
+                c4, c5, c6 = st.columns(3)
+                with c4: ent = st.number_input("Entry", min_value=0.0)
+                with c5: ex = st.number_input("Exit", min_value=0.0)
+                with c6: stp = st.number_input("Stop", min_value=0.0)
+                setup = st.text_area("Setup Details")
+                exit_rsn = st.text_area("Exit Reason")
+                if st.form_submit_button("Run Analysis"):
+                    prompt = f"Audit Trade. Ticker: {tick}, Pos: {pos}, TF: {tf}, Entry: {ent}, Exit: {ex}, Stop: {stp}, Setup: {setup}, Exit Reason: {exit_rsn}. Rules: {my_rules}. Output JSON."
+                    messages = [{"role": "user", "content": prompt}]
+                    with st.spinner("Analyzing..."):
+                        raw = run_scientific_analysis(messages, mode="text")
+                        report = parse_scientific_report(raw)
+                        save_to_lab_records(user, report)
+                        st.markdown(render_report_html(report), unsafe_allow_html=True)
+
+        elif current_page == "vault":
+            # --- DATA VAULT MODE ---
+            st.markdown("<h3 style='color:white; text-align:center; margin-bottom:20px;'>DATA VAULT</h3>", unsafe_allow_html=True)
             if supabase:
                 hist = supabase.table("trades").select("*").eq("user_id", user).order("created_at", desc=True).execute().data
                 if hist: st.dataframe(pd.DataFrame(hist), use_container_width=True)
             else:
                 st.info("Data Vault unavailable.")
-        
+
         st.markdown('</div>', unsafe_allow_html=True) # End main-container
