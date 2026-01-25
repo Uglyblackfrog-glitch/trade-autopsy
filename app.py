@@ -181,7 +181,7 @@ def render_report_html(report):
     </div>"""
 
 # ==========================================
-# 3. UI RENDERING (MATCHING IMAGE_550F6A)
+# 3. UI RENDERING & STYLING (UPDATED)
 # ==========================================
 st.markdown("""
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
@@ -284,37 +284,43 @@ st.markdown("""
     .btn-started:hover { background-color: #f85149; }
 
     .header-spacer { height: 120px; }
-    .main-container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+    .main-container { max-width: 1000px; margin: 0 auto; padding: 0 20px; }
 
-    /* --- CUSTOM UPLOAD BOX STYLING TO MATCH IMAGE --- */
-    /* This targets the container Streamlit creates for the uploader */
+    /* --- THE BEAUTIFUL UPLOAD BOX STYLES --- */
+    
+    /* 1. The Container */
     [data-testid="stFileUploader"] {
         border: 2px dashed #30363d;
         border-radius: 20px;
-        padding: 30px;
-        background-color: #11151c; /* Slightly darker inner box */
+        padding: 40px 20px;
+        background-color: #0e1218; 
         text-align: center;
+        transition: border-color 0.3s ease;
+    }
+    [data-testid="stFileUploader"]:hover {
+        border-color: #586069;
     }
     
-    /* Target the button inside the uploader to be WHITE like the image */
+    /* 2. The 'Browse Files' Button - MADE WHITE */
     [data-testid="stBaseButton-secondary"] {
         background-color: white !important;
         color: black !important;
         border: none !important;
         border-radius: 8px !important;
         font-weight: 700 !important;
-        padding: 10px 24px !important;
+        padding: 10px 30px !important;
         text-transform: capitalize !important;
-        margin-top: 10px;
+        margin-top: 15px;
+        transition: all 0.2s;
     }
     [data-testid="stBaseButton-secondary"]:hover {
-        background-color: #e6e6e6 !important;
         transform: scale(1.02);
+        box-shadow: 0 4px 15px rgba(255,255,255,0.2);
     }
     
-    /* Hide the default 'Drag and drop file here' small text if possible to reduce clutter */
-    [data-testid="stFileUploader"] section > div:first-child {
-        color: #8b949e;
+    /* 3. Hide default tiny text to declutter */
+    [data-testid="stFileUploader"] section > div:first-child span {
+        display: none;
     }
 
     [data-testid="stForm"], .report-box { 
@@ -322,13 +328,11 @@ st.markdown("""
         border-radius: 24px !important; padding: 40px !important; margin-bottom: 20px;
     }
 
-    /* Analysis Button */
     div.stButton > button { 
         background-color: #da3633 !important; color: white !important; font-weight: 800 !important;
         border-radius: 99px !important; border: none !important; padding: 12px 30px !important;
         text-transform: uppercase;
     }
-
 </style>
 """, unsafe_allow_html=True)
 
@@ -380,32 +384,35 @@ else:
 
         # VIEW 1: VISUAL (MATCHING THE SCREENSHOT EXACTLY)
         if current_view == "visual":
-            # 1. Main Headline - INCREASED 1.5X AND ALIGNED
+            # 1. Main Headline - EXACT MATCH
             st.markdown("""
-                <div style='text-align:center; padding-top: 20px; padding-bottom: 50px;'>
-                    <h1 style='font-size: 7.5rem; font-weight: 900; font-style: italic; text-transform: uppercase; margin: 0; line-height: 0.9; letter-spacing: -3px;'>
+                <div style='text-align:center; padding-top: 40px; padding-bottom: 50px;'>
+                    <h1 style='font-size: 5rem; font-weight: 900; font-style: italic; text-transform: uppercase; margin: 0; line-height: 0.9; letter-spacing: -2px;'>
                         STOP <span style='color:#da3633'>BLEEDING</span> CAPITAL.
                     </h1>
-                    <p style='color:#8b949e; font-size: 1.3rem; max-width: 800px; margin: 75px auto 0 auto; line-height: 1.6; font-weight: 400;'>
+                    <p style='color:#8b949e; font-size: 1.1rem; max-width: 700px; margin: 30px auto 0 auto; line-height: 1.6;'>
                         Upload your losing trade screenshots. Our AI identifies psychological traps,
                         technical failures, and provides a surgical path to recovery.
                     </p>
                 </div>
             """, unsafe_allow_html=True)
             
-            # 2. Upload Box (Visual Mockup Wrapper)
-            # This HTML creates the icon and text *above* the actual uploader to mimic the image
+            # 2. VISUAL HEADER FOR UPLOAD BOX
+            # This renders the Icon and Text *inside* the area visually, right before the button
             st.markdown("""
-            <div style="text-align: center; margin-bottom: -90px; position: relative; z-index: 10; pointer-events: none;">
+            <div style="text-align: center; margin-bottom: -110px; position: relative; z-index: 10; pointer-events: none;">
                 <div style="display: flex; justify-content: center; margin-bottom: 15px;">
-                     <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#da3633" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="background: rgba(218, 54, 51, 0.1); padding: 10px; border-radius: 50%;"><path d="M21.2 15c.7-1.2 1-2.5 1-3.9 0-4.4-3.6-8-8-8-3.2 0-6 1.9-7.2 4.8C3.4 8.2 1 11 1 14.5c0 3.6 2.9 6.5 6.5 6.5h13"></path><polyline points="17 19 12 15 7 19"></polyline><line x1="12" y1="15" x2="12" y2="25"></line></svg>
+                     <div style="background: rgba(218, 54, 51, 0.1); padding: 15px; border-radius: 50%;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#da3633" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.2 15c.7-1.2 1-2.5 1-3.9 0-4.4-3.6-8-8-8-3.2 0-6 1.9-7.2 4.8C3.4 8.2 1 11 1 14.5c0 3.6 2.9 6.5 6.5 6.5h13"></path><polyline points="17 19 12 15 7 19"></polyline><line x1="12" y1="15" x2="12" y2="25"></line></svg>
+                     </div>
                 </div>
-                <h3 style='color:white; margin:0; font-size: 1.2rem; font-weight: 700;'>Drop your P&L or Chart screenshot here</h3>
-                <p style='color:#555b66; font-size:0.8rem; margin-top: 5px; margin-bottom: 20px;'>Supports PNG, JPG (Max 10MB). Your data is encrypted and deleted after analysis.</p>
+                <h3 style='color:white; margin:0; font-size: 1.2rem; font-weight: 700; margin-bottom:5px;'>Drop your P&L or Chart screenshot here</h3>
+                <p style='color:#6e7681; font-size:0.85rem; margin-top: 0px;'>Supports PNG, JPG (Max 10MB). Your data is encrypted.</p>
             </div>
-            <div style="height: 60px;"></div> """, unsafe_allow_html=True)
+            <div style="height: 80px;"></div> 
+            """, unsafe_allow_html=True)
             
-            # The actual uploader (CSS styled to have dashed border and white button)
+            # 3. ACTUAL UPLOADER (Styled via CSS to look like the container)
             up_file = st.file_uploader("Upload", type=["png", "jpg", "jpeg"], label_visibility="collapsed")
             
             if up_file:
