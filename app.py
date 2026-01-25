@@ -88,7 +88,7 @@ def run_scientific_analysis(messages, mode="text"):
             time.sleep(2)
 
 # ==========================================
-# 3. PARSING & DISPLAY LOGIC (FINAL POLISH)
+# 3. PARSING & DISPLAY LOGIC (FLATTENED TEXT FIX)
 # ==========================================
 st.markdown("""
 <style>
@@ -108,8 +108,8 @@ def get_user_rules(user_id):
     except: return []
 
 def parse_scientific_report(text):
-    # Remove clutter that confuses the parser
-    text = text.replace("**", "").replace("##", "").replace("(Detailed paragraph)", "").replace("(Deep psychoanalysis)", "").strip()
+    # Remove all markdown clutter
+    text = text.replace("**", "").replace("##", "").replace("###", "").strip()
     
     sections = { 
         "score": 0, 
@@ -128,11 +128,12 @@ def parse_scientific_report(text):
     tags_match = re.search(r'(?:\[TAGS\]|Tags:?)(.*?)(?=\[|\n[A-Z]|$)', text, re.DOTALL | re.IGNORECASE)
     if tags_match:
         raw_tags = tags_match.group(1)
-        # Remove parentheses and split by commas
         clean_tags_str = re.sub(r'[\(\)]', '', raw_tags) 
-        sections['tags'] = [t.strip() for t in clean_tags_str.split(',') if t.strip() and len(t) < 30]
+        # Split by comma OR newline to handle "bunched" tags
+        sections['tags'] = [t.strip() for t in re.split(r'[,\n]', clean_tags_str) if t.strip() and len(t) < 40]
 
-    # 3. Extract Sections - STRICT PATTERNS
+    # 3. Extract Sections - REPLACING NEWLINES WITH SPACES
+    # This ensures "The \n chart" becomes "The chart"
     patterns = {
         "tech": r"(?:\[TECHNICAL FORENSICS\]|Technical Forensics:)(.*?)(?=\[PSYCH|\[RISK|\[STRAT|\[SCORE|Psychological|Risk Assessment|$)",
         "psych": r"(?:\[PSYCHOLOGICAL PROFILE\]|Psychological Profile:)(.*?)(?=\[RISK|\[STRAT|\[SCORE|Risk Assessment|Strategic Roadmap|$)",
@@ -143,13 +144,13 @@ def parse_scientific_report(text):
     for key, pattern in patterns.items():
         match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
         if match:
-            clean_content = match.group(1).strip().replace("\n", "<br>")
+            # THIS LINE FIXES THE "WEIRD LINE BREAKS"
+            clean_content = match.group(1).strip().replace("\n", " ").replace("  ", " ")
             sections[key] = clean_content
             
     return sections
 
 def render_report_html(report):
-    # "List-Join" method to prevent indentation errors
     c_score = "#ff4d4d" if report['score'] < 50 else "#00e676"
     
     tags_html = "".join([
@@ -242,7 +243,7 @@ else:
                     image.save(buf, format="JPEG")
                     img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
                     
-                    # STRICT PROMPT TO PREVENT "PARROTING"
+                    # PROMPT with explicit instructions to use commas for tags
                     prompt = f"""
                     You are Dr. Market, a Chief Investment Officer.
                     Your Task: Audit this image (Chart or P&L).
@@ -251,16 +252,16 @@ else:
 
                     IF P&L DASHBOARD:
                     1. [TECHNICAL FORENSICS]: Extract the data. Calculate the drawdown %. Identify the "Toxic Asset" (biggest loser). 
-                    2. [PSYCHOLOGICAL PROFILE]: Diagnose the behavior (e.g., "Disposition Effect" if holding losers, "Gambling" if portfolio is red).
+                    2. [PSYCHOLOGICAL PROFILE]: Diagnose the behavior (e.g., "Disposition Effect" if holding losers).
                     3. [SCORE]: If Unrealized Loss > 15%, Score MUST be < 30.
                     
                     IF CHART:
                     1. [TECHNICAL FORENSICS]: Analyze Market Structure, Liquidity Sweeps, and Volume.
                     2. [SCORE]: Grade the setup quality (0-100).
 
-                    STRICT OUTPUT FORMAT (Clean text only, NO extra instructions in output):
+                    STRICT OUTPUT FORMAT (Tags MUST be comma separated):
                     [SCORE] 0-100
-                    [TAGS] Tag1, Tag2, Tag3
+                    [TAGS] Risk, Strategy, Drawdown
                     [TECHNICAL FORENSICS] ...
                     [PSYCHOLOGICAL PROFILE] ...
                     [RISK ASSESSMENT] ...
@@ -302,7 +303,7 @@ else:
                     prompt = f"""
                     You are Dr. Market. Audit this trade text log. Rules: {my_rules}.
                     Data: {math_block}. Context: {context}.
-                    STRICT OUTPUT FORMAT (No Markdown headers):
+                    STRICT OUTPUT FORMAT:
                     [SCORE] ...
                     [TAGS] Tag1, Tag2, Tag3
                     [TECHNICAL FORENSICS] ...
