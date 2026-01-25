@@ -19,7 +19,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Login Credentials (Simple Auth)
+# Login Credentials
 USERS = {
     "trader1": "profit2026",
     "demo": "12345",
@@ -155,7 +155,7 @@ def parse_scientific_report(text):
     return data
 
 # ==========================================
-# 4. THEME & UI (SIDEBAR + STICKY HEADER)
+# 4. THEME & UI (FIXED SIDEBAR TOGGLE + STICKY HEADER)
 # ==========================================
 st.markdown("""
 <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,600;0,800;1,800&display=swap" rel="stylesheet">
@@ -163,8 +163,26 @@ st.markdown("""
     /* Reset & Background */
     .stApp { background-color: #0d1117 !important; color: #c9d1d9; font-family: 'Inter', sans-serif; }
     
-    /* Hide Streamlit Default Header/Footer */
-    header {visibility: hidden;}
+    /* CRITICAL FIX: sidebar toggle logic
+       1. Make standard header transparent (so we see our custom nav).
+       2. Disable pointer events on the header container so clicks pass through to our custom nav.
+       3. Re-enable pointer events ONLY for the sidebar toggle button (arrow) and menu.
+    */
+    header[data-testid="stHeader"] {
+        background: transparent !important;
+        pointer-events: none; 
+        z-index: 999999999 !important; /* Ensure it sits on top */
+    }
+    
+    [data-testid="stSidebarCollapsedControl"], [data-testid="stToolbar"] {
+        pointer-events: auto !important; /* Make buttons clickable */
+        color: white !important;
+        background-color: #161b22 !important; /* Dark bg for the button itself */
+        border: 1px solid #30363d;
+        border-radius: 8px;
+        margin-top: 20px; /* Align slightly down */
+    }
+
     footer {visibility: hidden;}
     
     /* Typography */
@@ -175,8 +193,9 @@ st.markdown("""
     
     /* --- SIDEBAR STYLING --- */
     section[data-testid="stSidebar"] {
-        background-color: #161b22 !important; /* Darker grey to match main theme */
+        background-color: #161b22 !important; 
         border-right: 1px solid #30363d;
+        z-index: 9999999999 !important; /* Highest priority */
     }
     
     section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] {
@@ -193,15 +212,10 @@ st.markdown("""
         text-align: center;
         margin-bottom: 20px;
     }
-    .sidebar-user-avatar {
-        font-size: 3rem; margin-bottom: 10px;
-    }
-    .sidebar-user-name {
-        color: white; font-weight: 800; font-size: 1.1rem;
-    }
+    .sidebar-user-avatar { font-size: 3rem; margin-bottom: 10px; }
+    .sidebar-user-name { color: white; font-weight: 800; font-size: 1.1rem; }
     .sidebar-user-status {
-        color: #3fb950; font-size: 0.8rem; font-weight: 600; text-transform: uppercase;
-        margin-top: 5px;
+        color: #3fb950; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; margin-top: 5px;
     }
 
     /* Custom Sidebar Button Styling */
@@ -224,7 +238,7 @@ st.markdown("""
         left: 0;
         width: 100%;
         background-color: #0d1117; 
-        z-index: 999999;
+        z-index: 999990; /* High, but below Streamlit sidebar toggle */
         border-bottom: 1px solid #30363d;
         height: 80px; 
         display: flex;
@@ -240,6 +254,8 @@ st.markdown("""
         justify-content: space-between; 
         align-items: center;
         padding: 0 20px;
+        /* Add padding to left to avoid overlap with sidebar arrow if window is narrow */
+        padding-left: 60px; 
     }
 
     .nav-logo { font-size: 1.5rem; font-weight: 800; font-style: italic; color: white; }
@@ -255,9 +271,7 @@ st.markdown("""
     }
 
     /* Push Main Content Down */
-    .main-content-spacer {
-        margin-top: 60px; 
-    }
+    .main-content-spacer { margin-top: 60px; }
 
     /* Cards & Form Containers */
     [data-testid="stForm"], .report-box { 
@@ -337,7 +351,6 @@ else:
         </div>
         """, unsafe_allow_html=True)
         
-        # Spacer
         st.write("") 
         
         # LOG OUT Button
