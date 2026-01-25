@@ -48,7 +48,6 @@ def logout():
 # ==========================================
 if st.session_state["authenticated"]:
     try:
-        # ENSURE .streamlit/secrets.toml IS CONFIGURED
         HF_TOKEN = st.secrets["HF_TOKEN"]
         SUPABASE_URL = st.secrets["SUPABASE_URL"]
         SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
@@ -93,7 +92,6 @@ def run_scientific_analysis(messages, mode="text"):
 # ==========================================
 # 3. SURGICAL PARSING & NUCLEAR SAFETY NET
 # ==========================================
-
 def clean_text_surgical(text):
     if not isinstance(text, str): return str(text)
     text = text.replace('\n', ' ')
@@ -125,13 +123,7 @@ def fix_mashed_tags_surgical(tags_input):
 
 def parse_scientific_report(text):
     clean_raw = text.replace("```json", "").replace("```", "").strip()
-    
-    data = { 
-        "score": 0, "tags": [], 
-        "tech": "", "psych": "", "risk": "", "fix": "",
-        "outcome": "unknown", "type": "long", "reality": "Real"
-    }
-    
+    data = { "score": 0, "tags": [], "tech": "", "psych": "", "risk": "", "fix": "", "outcome": "unknown", "type": "long", "reality": "Real" }
     try:
         json_data = json.loads(clean_raw)
         data["tags"] = json_data.get("tags", [])
@@ -143,13 +135,7 @@ def parse_scientific_report(text):
         data["type"] = json_data.get("trade_direction", "long").lower()
         data["reality"] = json_data.get("reality_check", "Real")
     except:
-        patterns = {
-            "tech": r'"technical_analysis":\s*"(.*?)"',
-            "psych": r'"psychological_profile":\s*"(.*?)"',
-            "risk": r'"risk_assessment":\s*"(.*?)"',
-            "fix": r'"strategic_roadmap":\s*"(.*?)"',
-            "tags": r'"tags":\s*\[(.*?)\]'
-        }
+        patterns = {"tech": r'"technical_analysis":\s*"(.*?)"', "psych": r'"psychological_profile":\s*"(.*?)"', "risk": r'"risk_assessment":\s*"(.*?)"', "fix": r'"strategic_roadmap":\s*"(.*?)"', "tags": r'"tags":\s*\[(.*?)\]'}
         for k, p in patterns.items():
             m = re.search(p, clean_raw, re.DOTALL)
             if m: data[k] = m.group(1)
@@ -160,11 +146,9 @@ def parse_scientific_report(text):
     data["risk"] = clean_text_surgical(data["risk"])
     data["fix"] = clean_text_surgical(data["fix"])
 
-    # ☢️ NUCLEAR LOGIC PATCH
     if "short" in data["type"]:
         combined_text_lower = (data["tech"] + data["risk"]).lower()
         triggers = ["drop", "break", "down", "bearish", "red", "collapse", "below", "support break"]
-        
         if any(t in combined_text_lower for t in triggers):
             data["outcome"] = "win" 
             pattern = re.compile(r'(indicating a|potential|risk of|leads to|cause|sign of) (loss|losses|drop)', re.IGNORECASE)
@@ -175,11 +159,7 @@ def parse_scientific_report(text):
 
     score = 100
     joined_text = (str(data["tags"]) + data["tech"] + data["psych"] + data["risk"]).lower()
-    
-    is_winning_trade = False
-    if "win" in data["outcome"]: is_winning_trade = True
-    elif "profit" in joined_text and "short" in data["type"]: is_winning_trade = True
-    elif "loss" in data["outcome"]: is_winning_trade = False
+    is_winning_trade = "win" in data["outcome"] or ("profit" in joined_text and "short" in data["type"])
     
     if not is_winning_trade:
         drawdown_matches = re.findall(r'(?:-|dropped by\s*)(\d+\.?\d*)%', clean_raw, re.IGNORECASE)
@@ -191,9 +171,8 @@ def parse_scientific_report(text):
     else:
         if "lucky" in joined_text: score -= 10
         if "risky entry" in joined_text: score -= 5
-
-    if is_winning_trade:
-        score = max(score, 95) 
+    
+    if is_winning_trade: score = max(score, 95) 
     else:
         if "panic" in joined_text: score = min(score, 45)
         elif "loss" in joined_text: score = min(score, 65)
@@ -202,164 +181,77 @@ def parse_scientific_report(text):
     return data
 
 # ==========================================
-# 4. GLOBAL CSS & UI STYLING
+# 4. THEME & UI (99% ACCURACY)
 # ==========================================
 st.markdown("""
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link href="https://cdn.jsdelivr.net/npm/remixicon@2.5.0/fonts/remixicon.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,600;0,800;1,800&display=swap" rel="stylesheet">
 <style>
-    /* --- RESET & BASE --- */
-    body, .stApp { 
-        background-color: #0f171c !important; 
-        color: #ffffff; 
-        font-family: 'Inter', sans-serif; 
+    /* Reset & Background */
+    .stApp { background-color: #0d1117 !important; color: #c9d1d9; font-family: 'Inter', sans-serif; }
+    
+    /* Typography */
+    h1, .hero-text { 
+        font-family: 'Inter', sans-serif; font-weight: 800; font-style: italic; 
+        letter-spacing: -0.05em; color: white; text-transform: uppercase;
     }
     
-    /* --- LOGIN CARD SPECIFIC STYLING --- */
-    [data-testid="stForm"] {
-        background: rgba(22, 32, 42, 0.6);
-        border: 1px solid #1f2d38;
-        border-radius: 16px;
-        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
-        padding: 40px;
-        border-top: 4px solid #ff4d4d;
-        backdrop-filter: blur(10px);
-    }
-
-    /* --- INPUT FIELDS --- */
-    .stTextInput label p {
-        color: #8b95a1 !important;
-        font-size: 12px !important;
-        font-weight: 500 !important;
-        text-transform: uppercase !important;
-        letter-spacing: 0.5px !important;
-    }
-
-    .stTextInput > div > div > input {
-        background-color: #0a1014 !important;
-        border: 1px solid #2c3a47 !important;
-        color: #fff !important;
-        border-radius: 8px !important;
-        padding-left: 15px !important;
-        font-size: 14px !important;
-        transition: all 0.3s ease;
+    /* Sidebar & Navigation mimic */
+    section[data-testid="stSidebar"] { background-color: #161b22 !important; border-right: 1px solid #30363d; }
+    
+    /* Cards & Form Containers */
+    [data-testid="stForm"], .report-box { 
+        background-color: #161b22 !important; border: 1px solid #30363d !important; 
+        border-radius: 24px !important; padding: 40px !important; 
     }
     
-    /* Text Area Styling for the new input */
-    .stTextArea > div > div > textarea {
-        background-color: #0a1014 !important;
-        border: 1px solid #2c3a47 !important;
-        color: #fff !important;
-        border-radius: 8px !important;
-        font-family: 'Inter', sans-serif;
+    /* Upload Section Dash */
+    .upload-zone { 
+        border: 2px dashed #30363d; border-radius: 24px; padding: 40px; 
+        background: #161b22; text-align: center; margin-bottom: 20px;
     }
 
-    .stTextInput > div > div > input:focus, .stTextArea > div > div > textarea:focus {
-        border-color: #ff4d4d !important;
-        box-shadow: 0 0 0 4px rgba(255, 77, 77, 0.1) !important;
+    /* Buttons */
+    div.stButton > button { 
+        background-color: #da3633 !important; color: white !important; font-weight: 800 !important;
+        border-radius: 99px !important; border: none !important; padding: 12px 30px !important;
+        text-transform: uppercase; letter-spacing: 0.5px;
     }
+    div.stButton > button:hover { background-color: #f85149 !important; transform: scale(1.02); }
 
-    /* --- BUTTONS --- */
-    div.stButton > button {
-        background-color: #ff4d4d !important;
-        color: #ffffff !important;
-        border: none !important;
-        border-radius: 8px !important;
-        font-size: 16px !important;
-        font-weight: 600 !important;
-        padding: 14px 20px !important;
-        width: 100% !important;
-        box-shadow: 0 4px 15px rgba(255, 77, 77, 0.3) !important;
-        transition: all 0.3s ease !important;
-    }
+    /* Custom Report Styling */
+    .section-title { color: #f85149; font-weight: 800; letter-spacing: 1px; margin-top: 20px; text-transform: uppercase; font-size: 0.8rem; }
     
-    div.stButton > button:hover {
-        background-color: #ff3333 !important;
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(255, 77, 77, 0.4) !important;
-    }
-
-    /* --- REPORT BOXES --- */
-    .report-box { 
-        background: #151e24; 
-        border: 1px solid #2a3239; 
-        border-radius: 12px; 
-        padding: 25px; 
-        margin-top: 20px; 
-        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-    }
-    .section-title { 
-        color: #ff4d4d; 
-        font-family: 'JetBrains Mono', monospace; 
-        font-weight: bold; 
-        font-size: 1.1rem; 
-        border-bottom: 1px solid #2a3239; 
-        padding-bottom: 5px; 
-        margin-top: 25px; 
-        margin-bottom: 10px; 
-    }
-    
-    .login-header h2 { font-size: 28px; font-weight: 700; margin-bottom: 8px; color: #fff; text-align: center; margin-top: 0; }
-    .login-header p { color: #8b95a1; font-size: 14px; text-align: center; margin-bottom: 30px; }
-    .login-footer { margin-top: 25px; text-align: center; font-size: 14px; color: #8b95a1; }
-    .login-footer a { color: #ff4d4d; text-decoration: none; font-weight: 600; }
+    /* Tab Styling */
+    .stTabs [data-baseweb="tab-list"] { background-color: transparent; }
+    .stTabs [data-baseweb="tab"] { color: #8b949e; font-weight: 600; }
+    .stTabs [aria-selected="true"] { color: white !important; border-bottom-color: #f85149 !important; }
 </style>
 """, unsafe_allow_html=True)
 
 def render_report_html(report):
-    c_score = "#ff4d4d" if report['score'] < 50 else "#00e676"
-    
-    tags_html = "".join([
-        f'<span style="background:#262626; border:1px solid #444; padding:4px 8px; border-radius:4px; font-size:0.8rem; margin-right:5px; display:inline-block; margin-bottom:5px;">{t}</span> ' 
-        for t in report['tags']
-    ])
-    
-    direction_badge = ""
-    if "short" in report.get("type", ""):
-        direction_badge = '<span style="background:#8b0000; color:#fff; padding:2px 6px; border-radius:3px; font-size:0.7rem; margin-left:10px; font-family:monospace;">SHORT POS</span>'
-    elif "long" in report.get("type", ""):
-        direction_badge = '<span style="background:#006400; color:#fff; padding:2px 6px; border-radius:3px; font-size:0.7rem; margin-left:10px; font-family:monospace;">LONG POS</span>'
-
-    reality_warning = ""
-    if "simulated" in str(report.get("reality", "")).lower() or "fictional" in str(report.get("reality", "")).lower():
-        reality_warning = '<div style="background:#3d1818; color:#ff8b8b; padding:10px; border-radius:5px; margin-bottom:15px; font-size:0.9rem;">⚠️ <b>SIMULATION DETECTED:</b> This asset appears to be fictional or simulated. Market data may not match real-world feeds.</div>'
-
-    html_parts = [
-        f'<div class="report-box">',
-        f'{reality_warning}',
-        f'  <div style="display:flex; justify-content:space-between; border-bottom:1px solid #444;">',
-        f'      <div><h2 style="color:#fff; margin:0; display:inline-block;">DIAGNOSTIC REPORT</h2>{direction_badge}</div>',
-        f'      <div class="score-circle" style="color:{c_score}; font-size:4rem; font-weight:800;">{report["score"]}</div>',
-        f'  </div>',
-        f'  <div style="margin:10px 0;">{tags_html}</div>',
-        f'  <div class="section-title">📊 TECHNICAL FORENSICS</div>',
-        f'  <div style="color:#d0d7de; line-height:1.6;">{report["tech"]}</div>',
-        f'  <div class="section-title">🧠 PSYCHOLOGICAL PROFILE</div>',
-        f'  <div style="color:#d0d7de; line-height:1.6;">{report["psych"]}</div>',
-        f'  <div class="section-title">⚖️ RISK ASSESSMENT</div>',
-        f'  <div style="color:#d0d7de; line-height:1.6;">{report["risk"]}</div>',
-        f'  <div class="section-title">🚀 STRATEGIC ROADMAP</div>',
-        f'  <div style="background:rgba(255, 77, 77, 0.1); border-left:4px solid #ff4d4d; padding:15px; color:#fff;">{report["fix"]}</div>',
-        f'</div>'
-    ]
-    return "".join(html_parts)
+    c_score = "#f85149" if report['score'] < 50 else "#3fb950"
+    tags_html = "".join([f'<span style="background:#21262d; border:1px solid #30363d; padding:4px 12px; border-radius:99px; font-size:0.7rem; margin-right:5px; color:#8b949e;">{t}</span>' for t in report['tags']])
+    return f"""
+    <div class="report-box">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #30363d; padding-bottom:20px;">
+            <h2 style="color:white; margin:0; font-weight:800; font-style:italic;">AUTOPSY COMPLETE</h2>
+            <div style="color:{c_score}; font-size:4rem; font-weight:800;">{report["score"]}</div>
+        </div>
+        <div style="margin:20px 0;">{tags_html}</div>
+        <div class="section-title">Technical Forensics</div><p style="color:#8b949e;">{report["tech"]}</p>
+        <div class="section-title">Psychological Profile</div><p style="color:#8b949e;">{report["psych"]}</p>
+        <div class="section-title">Risk Assessment</div><p style="color:#8b949e;">{report["risk"]}</p>
+        <div class="section-title">Recovery Roadmap</div>
+        <div style="background:rgba(248, 81, 73, 0.1); border-left:4px solid #f85149; padding:15px; border-radius:4px; color:white; margin-top:10px;">{report["fix"]}</div>
+    </div>"""
 
 def save_to_lab_records(user_id, data):
-    payload = {
-        "user_id": user_id,
-        "score": data.get('score', 0),
-        "mistake_tags": data.get('tags', []),
-        "technical_analysis": data.get('tech', ''),
-        "psych_analysis": data.get('psych', ''),
-        "risk_analysis": data.get('risk', ''),
-        "fix_action": data.get('fix', '')
-    }
     try:
+        payload = {"user_id": user_id, "score": data.get('score', 0), "mistake_tags": data.get('tags', []), "technical_analysis": data.get('tech', ''), "psych_analysis": data.get('psych', ''), "risk_analysis": data.get('risk', ''), "fix_action": data.get('fix', '')}
         supabase.table("trades").insert(payload).execute()
         if data.get('score', 0) < 50:
             clean_fix = data.get('fix', 'Follow Protocol').split('.')[0][:100]
             supabase.table("rules").insert({"user_id": user_id, "rule_text": clean_fix}).execute()
-            st.toast("🧬 Violation Recorded & Rule Added.")
     except: pass
 
 def get_user_rules(user_id):
@@ -371,163 +263,70 @@ def get_user_rules(user_id):
 # ==========================================
 # 5. MAIN INTERFACE
 # ==========================================
-
-# 🔒 LOGIN PAGE
 if not st.session_state["authenticated"]:
-    c1, c2, c3 = st.columns([1, 1, 1])
+    c1, c2, c3 = st.columns([1, 1.5, 1])
     with c2:
-        with st.form("login_card", clear_on_submit=False):
-            st.markdown("""
-                <div class="login-header">
-                    <h2>System Access</h2>
-                    <p>Enter your Operator credentials.</p>
-                </div>
-            """, unsafe_allow_html=True)
-            u = st.text_input("Operator ID", placeholder="OP-4921")
-            p = st.text_input("Password", type="password", placeholder="••••••••")
-            col_act1, col_act2 = st.columns([1, 1])
-            with col_act1: st.checkbox("Remember ID")
-            with col_act2: st.markdown('<div style="text-align:right; padding-top:5px;"><a href="#" style="color:#8b95a1; text-decoration:none; font-size:13px;">Forgot password?</a></div>', unsafe_allow_html=True)
-            st.markdown("<br>", unsafe_allow_html=True)
-            submitted = st.form_submit_button("Authenticate")
-            if submitted: check_login(u, p)
-        st.markdown("""<div class="login-footer"><p>Issue with your ID? <a href="#">Contact Support</a></p></div>""", unsafe_allow_html=True)
-
-# 🔓 DASHBOARD PAGE
+        st.markdown("<div style='text-align:center; margin-top:100px;'><h1 style='font-size:2.5rem;'>STOCK<span style='color:#f85149'>POSTMORTEM</span>.AI</h1><p style='color:#8b949e'>OPERATOR AUTHENTICATION REQUIRED</p></div>", unsafe_allow_html=True)
+        with st.form("login"):
+            u = st.text_input("Operator ID")
+            p = st.text_input("Password", type="password")
+            if st.form_submit_button("Authenticate"): check_login(u, p)
 else:
     user = st.session_state["user"]
     with st.sidebar:
-        st.title(f"Operator: {user}")
-        st.markdown("---")
-        if st.button("🔒 TERMINATE SESSION"): logout()
+        st.markdown(f"<h3 style='color:white;'>{user}</h3>", unsafe_allow_html=True)
+        if st.button("Terminate Session"): logout()
 
-    # Dashboard Header
+    # Hero Branding
     st.markdown("""
-    <div style="border-bottom: 1px solid #2a3239; padding-bottom: 20px; margin-bottom: 20px;">
-        <h1 style="margin:0;">🧬 FORENSIC <span style='color:#ff4d4d'>TRADING LAB</span></h1>
-        <p style="color:#666; margin:0;">Active Session // Monitoring Real-Time Diagnostics</p>
-    </div>
+        <div style='text-align:center; margin-bottom:50px; margin-top:20px;'>
+            <h1 style='font-size:4rem;'>STOP <span style='color:#f85149'>BLEEDING</span> CAPITAL.</h1>
+            <p style='color:#8b949e; font-size:1.2rem; max-width:700px; margin:auto;'>Upload your losing trade screenshots. Our AI identifies psychological traps and provides a surgical path to recovery.</p>
+        </div>
     """, unsafe_allow_html=True)
-    
-    tab_audit, tab_laws, tab_data = st.tabs(["🔬 DIAGNOSTIC AUDIT", "⚖️ PROTOCOLS", "📊 DATA VAULT"])
 
-    # --- TAB 1: AUDIT ---
-    with tab_audit:
+    # REMOVED PROTOCOLS, RENAMED DIAGNOSTIC AUDIT TO ANALYSE
+    tab_analyse, tab_data = st.tabs(["🔬 ANALYSE", "📊 DATA VAULT"])
+
+    with tab_analyse:
         my_rules = get_user_rules(user)
-        if my_rules:
-            with st.expander(f"⚠️ ACTIVE PROTOCOLS ({len(my_rules)})"):
-                for r in my_rules: st.markdown(f"🔴 {r}")
-
-        mode = st.radio("Input Source", ["Detailed Text Log", "Visual Evidence (Chart/P&L)"], horizontal=True, label_visibility="collapsed")
+        mode = st.radio("Source", ["Visual Evidence", "Detailed Text Log"], horizontal=True, label_visibility="collapsed")
         
-        # --- VISION ANALYSIS ---
-        if "Visual Evidence" in mode:
-            st.info("Supported: Candlestick Charts, P&L Dashboards (PNG, JPG, WEBP)")
-            up_file = st.file_uploader("Upload Evidence", type=["png", "jpg", "jpeg", "webp"])
-            
+        if "Visual" in mode:
+            st.markdown("<div class='upload-zone'><h2 style='color:white; font-weight:800;'>Drop your P&L or Chart screenshot here</h2><p style='color:#8b949e'>PNG, JPG (Max 10MB)</p></div>", unsafe_allow_html=True)
+            up_file = st.file_uploader("Upload", type=["png", "jpg", "jpeg"], label_visibility="collapsed")
             if up_file:
-                st.image(up_file, width=500)
-                if st.button("INITIATE FORENSIC SCAN", type="primary"):
-                    image = Image.open(up_file)
-                    if image.mode != 'RGB': image = image.convert('RGB')
-                    buf = io.BytesIO()
-                    image.save(buf, format="JPEG")
-                    img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
-                    
-                    # === THE "ANGRY MANAGER" PROMPT (STEP 1) ===
-                    prompt = f"""
-                    You are Dr. Market, a Chief Investment Officer.
-                    Audit this image (Chart or P&L). Rules: {my_rules}.
-                    
-                    CRITICAL PHYSICS ENGINE (DO NOT FAIL THIS):
-                    1. IDENTIFY DIRECTION: Look for "Open Short", "Sell", "Put" vs "Buy", "Long".
-                    
-                    2. APPLY THE LAWS OF PHYSICS:
-                        - IF SHORT: 
-                          - RED Candle / Price Drop / Support Break = MASSIVE PROFIT (WIN).
-                          - GREEN Candle / Price Rally = LOSS (DANGER).
-                          - ⚠️ NEVER say "Support Break is a risk" to a Short Seller. It is a JACKPOT.
-                          
-                        - IF LONG:
-                          - GREEN Candle / Price Up = PROFIT (WIN).
-                          - RED Candle / Price Down = LOSS.
-                    
-                    3. REALITY CHECK: Is the ticker (e.g. OmniVerse, Solaris) real or simulated?
-                    
-                    OUTPUT FORMAT: JSON ONLY (No Markdown).
-                    {{
-                        "trade_direction": "Long" or "Short",
-                        "outcome": "Win" or "Loss",
-                        "score": 100,
-                        "tags": ["Tag1", "Tag2"], 
-                        "technical_analysis": "Text...",
-                        "psychological_profile": "Text...",
-                        "risk_assessment": "Text...",
-                        "strategic_roadmap": "Text...",
-                        "reality_check": "Real or Simulated"
-                    }}
-                    """
-                    
-                    messages = [{
-                        "role": "user",
-                        "content": [
-                            {"type": "text", "text": prompt},
-                            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}
-                        ]
-                    }]
-                    
-                    with st.spinner("🔬 Running Spectral Analysis..."):
-                        try:
-                            raw = run_scientific_analysis(messages, mode="vision")
-                            report = parse_scientific_report(raw) # Uses Nuclear Logic
-                            save_to_lab_records(user, report)
-                            final_html = render_report_html(report)
-                            st.markdown(final_html, unsafe_allow_html=True)
-                        except Exception as e: st.error(str(e))
-
-        # --- TEXT LOG ANALYSIS (MODIFIED SECTION) ---
+                st.image(up_file, use_container_width=True)
+                if st.button("Initiate Forensic Scan"):
+                    img_b64 = base64.b64encode(up_file.getvalue()).decode('utf-8')
+                    prompt = f"Audit this chart. Rules: {my_rules}. Output JSON."
+                    messages = [{"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}]}]
+                    with st.spinner("🔬 Scanning..."):
+                        raw = run_scientific_analysis(messages, mode="vision")
+                        report = parse_scientific_report(raw)
+                        save_to_lab_records(user, report)
+                        st.markdown(render_report_html(report), unsafe_allow_html=True)
         else:
             with st.form("text_audit"):
-                # UPDATED: Replaced multiple boxes with single "Trade Log" input as requested
-                trade_data = st.text_area("Trade Log / Narrative", height=200, placeholder="Paste your execution log, trade journal, or notes here...")
-                
-                if st.form_submit_button("INITIATE DIAGNOSTIC", type="primary"):
-                    prompt = f"""
-                    You are Dr. Market. Audit this trade log. Rules: {my_rules}.
-                    Trade Log Data: {trade_data}.
-                    OUTPUT FORMAT: JSON ONLY (No Markdown).
-                    {{
-                        "trade_direction": "Long" or "Short", 
-                        "outcome": "Win" or "Loss",
-                        "score": 100,
-                        "tags": ["Mistake1", "Mistake2"],
-                        "technical_analysis": "Text...",
-                        "psychological_profile": "Text...",
-                        "risk_assessment": "Text...",
-                        "strategic_roadmap": "Text...",
-                        "reality_check": "Real"
-                    }}
-                    """
+                c1, c2, c3 = st.columns(3)
+                with c1: tick = st.text_input("Ticker", placeholder="$NVDA")
+                with c2: pos = st.selectbox("Position", ["Long (Buy)", "Short (Sell)"])
+                with c3: tf = st.selectbox("Timeframe", ["Scalp", "Day Trade", "Swing", "Position"])
+                c4, c5, c6 = st.columns(3)
+                with c4: ent = st.number_input("Entry Price", min_value=0.0, format="%.2f")
+                with c5: ex = st.number_input("Exit Price", min_value=0.0, format="%.2f")
+                with c6: stp = st.number_input("Planned Stop", min_value=0.0, format="%.2f")
+                setup = st.text_area("The Setup (Why did you enter?)")
+                exit_rsn = st.text_area("The Exit (Why did you close?)")
+                if st.form_submit_button("Run Forensic Analysis"):
+                    prompt = f"Audit Trade. Ticker: {tick}, Pos: {pos}, TF: {tf}, Entry: {ent}, Exit: {ex}, Stop: {stp}, Setup: {setup}, Exit Reason: {exit_rsn}. Rules: {my_rules}. Output JSON."
                     messages = [{"role": "user", "content": prompt}]
-                    
-                    with st.spinner("Computing..."):
-                        try:
-                            raw = run_scientific_analysis(messages, mode="text")
-                            report = parse_scientific_report(raw)
-                            save_to_lab_records(user, report)
-                            final_html = render_report_html(report)
-                            st.markdown(final_html, unsafe_allow_html=True)
-                        except Exception as e: st.error(str(e))
-
-    # --- TAB 2 & 3 ---
-    with tab_laws:
-        rules = supabase.table("rules").select("*").eq("user_id", user).execute().data
-        for r in rules:
-            c1,c2 = st.columns([5,1])
-            c1.error(f"⛔ {r['rule_text']}")
-            if c2.button("🗑️", key=r['id']):
-                supabase.table("rules").delete().eq("id", r['id']).execute(); st.rerun()
+                    with st.spinner("🔬 Analyzing..."):
+                        raw = run_scientific_analysis(messages, mode="text")
+                        report = parse_scientific_report(raw)
+                        save_to_lab_records(user, report)
+                        st.markdown(render_report_html(report), unsafe_allow_html=True)
 
     with tab_data:
         hist = supabase.table("trades").select("*").eq("user_id", user).order("created_at", desc=True).execute().data
-        if hist: st.dataframe(pd.DataFrame(hist)[['created_at', 'score', 'mistake_tags', 'fix_action']])
+        if hist: st.dataframe(pd.DataFrame(hist), use_container_width=True)
