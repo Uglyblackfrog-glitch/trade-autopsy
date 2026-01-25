@@ -181,10 +181,10 @@ def render_report_html(report):
     </div>"""
 
 # ==========================================
-# 3. UI RENDERING (FIXED COLORS)
+# 3. UI RENDERING (MATCHING IMAGE_550F6A)
 # ==========================================
 st.markdown("""
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
 <style>
     /* GLOBAL RESET */
     .stApp { background-color: #0d1117 !important; color: #c9d1d9; font-family: 'Inter', sans-serif; margin: 0; padding: 0;}
@@ -215,7 +215,6 @@ st.markdown("""
         z-index: 999999;
     }
 
-    /* Logo */
     .header-logo {
         font-size: 1.4rem;
         font-weight: 800;
@@ -225,17 +224,11 @@ st.markdown("""
     }
     .header-logo span { color: #f85149; }
 
-    /* Navigation Menu */
-    .nav-menu {
-        display: flex;
-        gap: 40px;
-        align-items: center;
-        height: 100%;
-    }
+    .nav-menu { display: flex; gap: 40px; align-items: center; height: 100%; }
 
-    /* --- STRICTLY OVERRIDING LINK COLORS --- */
+    /* LINKS - GREY ONLY */
     a.nav-link, div.nav-link {
-        color: #8b949e !important; /* The grey color you want */
+        color: #8b949e !important;
         font-size: 0.8rem;
         font-weight: 700;
         text-transform: uppercase;
@@ -249,13 +242,8 @@ st.markdown("""
         text-decoration: none !important;
     }
     a.nav-link:hover, div.nav-link:hover { color: white !important; }
-    
-    a.nav-link:visited { color: #8b949e !important; } /* Prevent visited purple */
-    a.nav-link:active { color: white !important; }
-    
     .nav-link span { margin-left: 5px; font-size: 10px; } 
 
-    /* The Dropdown Box */
     .dropdown-box {
         display: none;
         position: absolute;
@@ -271,7 +259,6 @@ st.markdown("""
     }
     .nav-link:hover .dropdown-box { display: block; }
 
-    /* Dropdown Items - Force Grey */
     a.dropdown-item {
         padding: 12px 20px;
         color: #c9d1d9 !important;
@@ -283,7 +270,6 @@ st.markdown("""
     }
     a.dropdown-item:hover { background-color: #21262d; color: white !important; }
 
-    /* Get Started Button */
     .btn-started {
         background-color: #da3633;
         color: white;
@@ -297,29 +283,51 @@ st.markdown("""
     }
     .btn-started:hover { background-color: #f85149; }
 
-    /* SPACER */
     .header-spacer { height: 120px; }
+    .main-container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
 
-    /* MAIN CONTENT WIDTH RESTRICTION */
-    .main-container {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 0 20px;
+    /* --- CUSTOM UPLOAD BOX STYLING TO MATCH IMAGE --- */
+    /* This targets the container Streamlit creates for the uploader */
+    [data-testid="stFileUploader"] {
+        border: 2px dashed #30363d;
+        border-radius: 20px;
+        padding: 30px;
+        background-color: #11151c; /* Slightly darker inner box */
+        text-align: center;
+    }
+    
+    /* Target the button inside the uploader to be WHITE like the image */
+    [data-testid="stBaseButton-secondary"] {
+        background-color: white !important;
+        color: black !important;
+        border: none !important;
+        border-radius: 8px !important;
+        font-weight: 700 !important;
+        padding: 10px 24px !important;
+        text-transform: capitalize !important;
+        margin-top: 10px;
+    }
+    [data-testid="stBaseButton-secondary"]:hover {
+        background-color: #e6e6e6 !important;
+        transform: scale(1.02);
+    }
+    
+    /* Hide the default 'Drag and drop file here' small text if possible to reduce clutter */
+    [data-testid="stFileUploader"] section > div:first-child {
+        color: #8b949e;
     }
 
-    h1 { font-family: 'Inter', sans-serif; font-weight: 800; text-transform: uppercase; font-style: italic; }
-    
     [data-testid="stForm"], .report-box { 
         background-color: #161b22 !important; border: 1px solid #30363d !important; 
         border-radius: 24px !important; padding: 40px !important; margin-bottom: 20px;
     }
-    
+
+    /* Analysis Button */
     div.stButton > button { 
         background-color: #da3633 !important; color: white !important; font-weight: 800 !important;
         border-radius: 99px !important; border: none !important; padding: 12px 30px !important;
         text-transform: uppercase;
     }
-    div.stButton > button:hover { background-color: #f85149 !important; transform: scale(1.02); }
 
 </style>
 """, unsafe_allow_html=True)
@@ -339,8 +347,6 @@ if not st.session_state["authenticated"]:
             if st.form_submit_button("Authenticate"): check_login(u, p)
 else:
     user = st.session_state["user"]
-    
-    # --- GET VIEW FROM URL ---
     current_view = st.query_params.get("view", "visual")
 
     # --- HEADER ---
@@ -372,23 +378,36 @@ else:
         with col_utils_2:
             if st.button("Logout", key="logout_btn"): logout()
 
-        # VIEW 1: VISUAL
+        # VIEW 1: VISUAL (MATCHING THE SCREENSHOT EXACTLY)
         if current_view == "visual":
+            # 1. Main Headline
             st.markdown("""
-                <div style='text-align:center; margin-bottom:50px;'>
-                    <h1 style='font-size:4rem; margin:0; line-height:1.1;'>STOP <span style='color:#f85149'>BLEEDING</span> CAPITAL.</h1>
-                    <p style='color:#8b949e; font-size:1.1rem; margin-top:15px;'>Forensic Chart Analysis.</p>
+                <div style='text-align:center; padding-top: 20px; padding-bottom: 50px;'>
+                    <h1 style='font-size: 5rem; font-weight: 900; font-style: italic; text-transform: uppercase; margin: 0; line-height: 1; letter-spacing: -2px;'>
+                        STOP <span style='color:#da3633'>BLEEDING</span> CAPITAL.
+                    </h1>
+                    <p style='color:#8b949e; font-size: 1.1rem; max-width: 750px; margin: 30px auto 0 auto; line-height: 1.6;'>
+                        Upload your losing trade screenshots. Our AI identifies psychological traps,
+                        technical failures, and provides a surgical path to recovery.
+                    </p>
                 </div>
             """, unsafe_allow_html=True)
             
+            # 2. Upload Box (Visual Mockup Wrapper)
+            # This HTML creates the icon and text *above* the actual uploader to mimic the image
             st.markdown("""
-            <div style="border: 2px dashed #30363d; border-radius: 24px; padding: 40px; background: #161b22; text-align: center; margin-bottom: 20px;">
-                <h3 style='color:white; margin:0;'>Drop your Chart Screenshot</h3>
-                <p style='color:#8b949e; font-size:0.9rem;'>Supports PNG, JPG</p>
+            <div style="text-align: center; margin-bottom: -90px; position: relative; z-index: 10; pointer-events: none;">
+                <div style="display: flex; justify-content: center; margin-bottom: 15px;">
+                     <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#da3633" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="background: rgba(218, 54, 51, 0.1); padding: 10px; border-radius: 50%;"><path d="M21.2 15c.7-1.2 1-2.5 1-3.9 0-4.4-3.6-8-8-8-3.2 0-6 1.9-7.2 4.8C3.4 8.2 1 11 1 14.5c0 3.6 2.9 6.5 6.5 6.5h13"></path><polyline points="17 19 12 15 7 19"></polyline><line x1="12" y1="15" x2="12" y2="25"></line></svg>
+                </div>
+                <h3 style='color:white; margin:0; font-size: 1.2rem; font-weight: 700;'>Drop your P&L or Chart screenshot here</h3>
+                <p style='color:#555b66; font-size:0.8rem; margin-top: 5px; margin-bottom: 20px;'>Supports PNG, JPG (Max 10MB). Your data is encrypted and deleted after analysis.</p>
             </div>
-            """, unsafe_allow_html=True)
+            <div style="height: 60px;"></div> """, unsafe_allow_html=True)
             
+            # The actual uploader (CSS styled to have dashed border and white button)
             up_file = st.file_uploader("Upload", type=["png", "jpg", "jpeg"], label_visibility="collapsed")
+            
             if up_file:
                 st.image(up_file, use_container_width=True)
                 if st.button("Initiate Forensic Scan"):
