@@ -53,10 +53,9 @@ if st.session_state["authenticated"]:
         SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
         supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
     except Exception as e:
-        # Graceful fallback if secrets aren't set, just for UI demo
+        # Graceful fallback if secrets aren't set
         supabase = None
         HF_TOKEN = None
-        # st.error(f"⚠️ System Error: {e}") 
 
 # ==========================================
 # 2. INTELLIGENCE ENGINE
@@ -150,7 +149,6 @@ def parse_scientific_report(text):
     data["risk"] = clean_text_surgical(data["risk"])
     data["fix"] = clean_text_surgical(data["fix"])
 
-    # Score calculation logic...
     score = 100
     if "loss" in clean_raw.lower(): score = 45
     
@@ -158,7 +156,7 @@ def parse_scientific_report(text):
     return data
 
 # ==========================================
-# 4. THEME & UI (UPDATED WITH NAVBAR)
+# 4. THEME & UI (UPDATED WITH STICKY NAVBAR)
 # ==========================================
 st.markdown("""
 <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,600;0,800;1,800&display=swap" rel="stylesheet">
@@ -166,25 +164,56 @@ st.markdown("""
     /* Reset & Background */
     .stApp { background-color: #0d1117 !important; color: #c9d1d9; font-family: 'Inter', sans-serif; }
     
+    /* Hide Streamlit Default Header/Footer */
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+    
     /* Typography */
     h1, .hero-text { 
         font-family: 'Inter', sans-serif; font-weight: 800; font-style: italic; 
         letter-spacing: -0.05em; color: white; text-transform: uppercase;
     }
     
-    /* Navbar Styles */
-    .custom-nav {
-        display: flex; justify-content: space-between; align-items: center;
-        padding: 20px 0; border-bottom: 1px solid #30363d; margin-bottom: 40px;
+    /* --- STICKY NAVBAR STYLES --- */
+    .custom-nav-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        background-color: #0d1117; /* Matches App BG */
+        z-index: 999999;
+        border-bottom: 1px solid #30363d;
+        height: 80px; /* Fixed height */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.5);
     }
+    
+    .custom-nav-content {
+        width: 100%;
+        max-width: 1200px; /* Aligns with Streamlit content width */
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center;
+        padding: 0 20px;
+    }
+
     .nav-logo { font-size: 1.5rem; font-weight: 800; font-style: italic; color: white; }
     .nav-links { display: flex; gap: 30px; align-items: center; font-size: 0.9rem; font-weight: 600; }
-    .nav-item { color: #8b949e; cursor: pointer; text-decoration: none; }
+    .nav-item { color: #8b949e; cursor: pointer; text-decoration: none; transition: color 0.2s; }
+    .nav-item:hover { color: white; }
     .nav-item.active { color: white; }
+    
     .nav-btn { 
         background-color: #da3633; color: white; padding: 8px 20px; 
         border-radius: 99px; font-weight: 700; font-size: 0.9rem; 
-        text-transform: uppercase; border: none;
+        text-transform: uppercase; border: none; cursor: pointer;
+    }
+
+    /* Push Main Content Down */
+    .main-content-spacer {
+        margin-top: 60px; /* Accounts for fixed header */
     }
 
     /* Cards & Form Containers */
@@ -243,6 +272,7 @@ def get_user_rules(user_id):
 # 5. MAIN INTERFACE
 # ==========================================
 if not st.session_state["authenticated"]:
+    # Login Page (No Sticky Header needed here usually, but kept simple)
     c1, c2, c3 = st.columns([1, 1.5, 1])
     with c2:
         st.markdown("<div style='text-align:center; margin-top:100px;'><h1 style='font-size:2.5rem;'>STOCK<span style='color:#f85149'>POSTMORTEM</span>.AI</h1><p style='color:#8b949e'>OPERATOR AUTHENTICATION REQUIRED</p></div>", unsafe_allow_html=True)
@@ -256,33 +286,35 @@ else:
         st.markdown(f"<h3 style='color:white;'>{user}</h3>", unsafe_allow_html=True)
         if st.button("Terminate Session"): logout()
 
-    # --- NEW CUSTOM HEADER (MATCHING SCREENSHOT) ---
+    # --- CUSTOM STICKY NAVBAR ---
     st.markdown("""
-        <div class="custom-nav">
-            <div class="nav-logo">STOCK<span style="color:#f85149">POSTMORTEM</span>.AI</div>
-            <div class="nav-links">
-                <div class="nav-item active">ANALYZE ⌄</div>
-                <div class="nav-item">DATA VAULT</div>
-                <div class="nav-item">PRICING</div>
-                <button class="nav-btn">Get Started</button>
+        <div class="custom-nav-container">
+            <div class="custom-nav-content">
+                <div class="nav-logo">STOCK<span style="color:#f85149">POSTMORTEM</span>.AI</div>
+                <div class="nav-links">
+                    <div class="nav-item active">ANALYZE ⌄</div>
+                    <div class="nav-item">DATA VAULT</div>
+                    <div class="nav-item">PRICING</div>
+                    <button class="nav-btn">Get Started</button>
+                </div>
             </div>
         </div>
+        <div class="main-content-spacer"></div>
     """, unsafe_allow_html=True)
 
     # Hero Branding
     st.markdown("""
-        <div style='text-align:center; margin-bottom:50px;'>
+        <div style='text-align:center; margin-bottom:50px; padding-top:20px;'>
             <h1 style='font-size:4rem;'>STOP <span style='color:#f85149'>BLEEDING</span> CAPITAL.</h1>
             <p style='color:#8b949e; font-size:1.2rem; max-width:700px; margin:auto;'>Upload your losing trade screenshots. Our AI identifies psychological traps and provides a surgical path to recovery.</p>
         </div>
     """, unsafe_allow_html=True)
 
-    # TABS: Protocol Removed, Audit renamed to Analyse
+    # TABS
     tab_analyse, tab_data = st.tabs(["🔬 ANALYSE", "📊 DATA VAULT"])
 
     with tab_analyse:
         my_rules = get_user_rules(user)
-        # Dropdown logic visual match
         mode = st.radio("Source", ["Visual Evidence", "Detailed Text Log"], horizontal=True, label_visibility="collapsed")
         
         if "Visual" in mode:
