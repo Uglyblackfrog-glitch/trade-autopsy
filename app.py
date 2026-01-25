@@ -88,7 +88,7 @@ def run_scientific_analysis(messages, mode="text"):
             time.sleep(2)
 
 # ==========================================
-# 3. PARSING & DISPLAY LOGIC
+# 3. PARSING & DISPLAY LOGIC (FIXED)
 # ==========================================
 st.markdown("""
 <style>
@@ -102,13 +102,11 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- THIS WAS MISSING IN THE PREVIOUS VERSION ---
 def get_user_rules(user_id):
     try:
         res = supabase.table("rules").select("*").eq("user_id", user_id).execute()
         return [r['rule_text'] for r in res.data]
     except: return []
-# ------------------------------------------------
 
 def parse_scientific_report(text):
     text = text.replace("```json", "").replace("```", "").strip()
@@ -122,14 +120,17 @@ def parse_scientific_report(text):
         "fix": "Analysis failed." 
     }
     
+    # 1. Extract Score
     score_match = re.search(r'(?:\[SCORE\]|Score:?)\s*(\d+)', text, re.IGNORECASE)
     if score_match: sections['score'] = int(score_match.group(1))
 
+    # 2. Extract Tags
     tags_match = re.search(r'(?:\[TAGS\]|Tags:?)(.*?)(?=\[|\n[A-Z]|$)', text, re.DOTALL | re.IGNORECASE)
     if tags_match:
         raw = tags_match.group(1).replace('[', '').replace(']', '').split(',')
         sections['tags'] = [t.strip() for t in raw if t.strip()]
 
+    # 3. Extract Sections
     patterns = {
         "tech": r"(?:\[TECHNICAL FORENSICS\]|Technical:?)(.*?)(?=\[PSYCH|\[RISK|\[STRAT|\[SCORE|\[TAGS|$)",
         "psych": r"(?:\[PSYCHOLOGICAL PROFILE\]|Psychology:?)(.*?)(?=\[RISK|\[STRAT|\[SCORE|\[TAGS|$)",
@@ -145,31 +146,27 @@ def parse_scientific_report(text):
             
     return sections
 
+# --- THE FIX: NO INDENTATION IN HTML STRING ---
 def render_report_html(report):
     c_score = "#ff4d4d" if report['score'] < 50 else "#00e676"
     tags_html = ' '.join([f'<span class="tag-pill">{t}</span>' for t in report['tags']])
     
-    html = f"""
-    <div class="report-box">
-        <div style="display:flex; justify-content:space-between; border-bottom:1px solid #444;">
-            <h2 style="color:#fff; margin:0;">DIAGNOSTIC REPORT</h2>
-            <div class="score-circle" style="color:{c_score};">{report['score']}</div>
-        </div>
-        <div style="margin:10px 0;">{tags_html}</div>
-        
-        <div class="section-title">📊 TECHNICAL FORENSICS</div>
-        <div style="color:#d0d7de; line-height:1.6;">{report['tech']}</div>
-        
-        <div class="section-title">🧠 PSYCHOLOGICAL PROFILE</div>
-        <div style="color:#d0d7de; line-height:1.6;">{report['psych']}</div>
-        
-        <div class="section-title">⚖️ RISK ASSESSMENT</div>
-        <div style="color:#d0d7de; line-height:1.6;">{report['risk']}</div>
-        
-        <div class="section-title">🚀 STRATEGIC ROADMAP</div>
-        <div style="background:rgba(46, 160, 67, 0.1); border-left:4px solid #2ea043; padding:15px; color:#fff;">{report['fix']}</div>
-    </div>
-    """
+    # NOTE: The triple quotes are flushed to the left. Do not indent them.
+    html = f"""<div class="report-box">
+<div style="display:flex; justify-content:space-between; border-bottom:1px solid #444;">
+<h2 style="color:#fff; margin:0;">DIAGNOSTIC REPORT</h2>
+<div class="score-circle" style="color:{c_score};">{report['score']}</div>
+</div>
+<div style="margin:10px 0;">{tags_html}</div>
+<div class="section-title">📊 TECHNICAL FORENSICS</div>
+<div style="color:#d0d7de; line-height:1.6;">{report['tech']}</div>
+<div class="section-title">🧠 PSYCHOLOGICAL PROFILE</div>
+<div style="color:#d0d7de; line-height:1.6;">{report['psych']}</div>
+<div class="section-title">⚖️ RISK ASSESSMENT</div>
+<div style="color:#d0d7de; line-height:1.6;">{report['risk']}</div>
+<div class="section-title">🚀 STRATEGIC ROADMAP</div>
+<div style="background:rgba(46, 160, 67, 0.1); border-left:4px solid #2ea043; padding:15px; color:#fff;">{report['fix']}</div>
+</div>"""
     return html
 
 def save_to_lab_records(user_id, data):
