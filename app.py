@@ -19,29 +19,45 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Mock Authentication for the "Final UI" view
+# Login Credentials (Simple Auth)
+USERS = {
+    "trader1": "profit2026",
+    "demo": "12345",
+    "admin": "admin"
+}
+
 if "authenticated" not in st.session_state:
-    st.session_state["authenticated"] = True
-    st.session_state["user"] = "trader1" # Default user for demo
+    st.session_state["authenticated"] = False
+    st.session_state["user"] = None
 
-# ==========================================
-# 1. API CONNECTIONS (Preserved)
-# ==========================================
-try:
-    # Handle secrets safely - if not found, app won't crash but will warn
-    HF_TOKEN = st.secrets.get("HF_TOKEN", "")
-    SUPABASE_URL = st.secrets.get("SUPABASE_URL", "")
-    SUPABASE_KEY = st.secrets.get("SUPABASE_KEY", "")
-    if SUPABASE_URL and SUPABASE_KEY:
-        supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+def check_login(username, password):
+    if username in USERS and USERS[username] == password:
+        st.session_state["authenticated"] = True
+        st.session_state["user"] = username
+        st.rerun()
     else:
-        supabase = None
-except Exception as e:
-    st.error(f"⚠️ System Error: {e}")
-    st.stop()
+        st.error("⚠️ ACCESS DENIED: Invalid Credentials")
+
+def logout():
+    st.session_state["authenticated"] = False
+    st.session_state["user"] = None
+    st.rerun()
 
 # ==========================================
-# 2. INTELLIGENCE ENGINE (Preserved)
+# 1. API CONNECTIONS
+# ==========================================
+if st.session_state["authenticated"]:
+    try:
+        HF_TOKEN = st.secrets["HF_TOKEN"]
+        SUPABASE_URL = st.secrets["SUPABASE_URL"]
+        SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
+        supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    except Exception as e:
+        # st.error(f"⚠️ System Error: {e}") # Suppress visible errors in UI for clean look
+        pass
+
+# ==========================================
+# 2. INTELLIGENCE ENGINE (LOGIC KEPT)
 # ==========================================
 def run_scientific_analysis(messages, mode="text"):
     api_url = "https://router.huggingface.co/v1/chat/completions"
@@ -74,7 +90,7 @@ def run_scientific_analysis(messages, mode="text"):
             time.sleep(2)
 
 # ==========================================
-# 3. SURGICAL PARSING (Preserved)
+# 3. SURGICAL PARSING (LOGIC KEPT)
 # ==========================================
 def clean_text_surgical(text):
     if not isinstance(text, str): return str(text)
@@ -119,8 +135,10 @@ def parse_scientific_report(text):
         data["type"] = json_data.get("trade_direction", "long").lower()
         data["reality"] = json_data.get("reality_check", "Real")
     except:
-        # Fallback regex parsing
-        return data # Simplified for brevity, assumes JSON works mostly
+        patterns = {"tech": r'"technical_analysis":\s*"(.*?)"', "psych": r'"psychological_profile":\s*"(.*?)"', "risk": r'"risk_assessment":\s*"(.*?)"', "fix": r'"strategic_roadmap":\s*"(.*?)"', "tags": r'"tags":\s*\[(.*?)\]'}
+        for k, p in patterns.items():
+            m = re.search(p, clean_raw, re.DOTALL)
+            if m: data[k] = m.group(1)
 
     data["tags"] = fix_mashed_tags_surgical(data["tags"])
     data["tech"] = clean_text_surgical(data["tech"])
@@ -128,7 +146,17 @@ def parse_scientific_report(text):
     data["risk"] = clean_text_surgical(data["risk"])
     data["fix"] = clean_text_surgical(data["fix"])
 
-    # Score Calculation Logic (Preserved)
+    if "short" in data["type"]:
+        combined_text_lower = (data["tech"] + data["risk"]).lower()
+        triggers = ["drop", "break", "down", "bearish", "red", "collapse", "below", "support break"]
+        if any(t in combined_text_lower for t in triggers):
+            data["outcome"] = "win" 
+            pattern = re.compile(r'(indicating a|potential|risk of|leads to|cause|sign of) (loss|losses|drop)', re.IGNORECASE)
+            data["tech"] = pattern.sub("CONFIRMED PROFIT EXPANSION", data["tech"])
+            data["risk"] = pattern.sub("CONFIRMED PROFIT EXPANSION", data["risk"])
+            data["psych"] = pattern.sub("CONFIRMED PROFIT EXPANSION", data["psych"])
+            data["tech"] = data["tech"].replace("critical point for a Short Seller", "strategic jackpot for a Short Seller")
+
     score = 100
     joined_text = (str(data["tags"]) + data["tech"] + data["psych"] + data["risk"]).lower()
     is_winning_trade = "win" in data["outcome"] or ("profit" in joined_text and "short" in data["type"])
@@ -138,333 +166,268 @@ def parse_scientific_report(text):
         if drawdown_matches: score -= max([float(x) for x in drawdown_matches])
         if "panic" in joined_text: score -= 15
         if "high risk" in joined_text: score -= 15
+        if "fomo" in joined_text: score -= 10
+        if "squeeze" in joined_text and "risk" in joined_text: score -= 20
     else:
-        score = max(score, 95) 
+        if "lucky" in joined_text: score -= 10
+        if "risky entry" in joined_text: score -= 5
+    
+    if is_winning_trade: score = max(score, 95) 
+    else:
+        if "panic" in joined_text: score = min(score, 45)
+        elif "loss" in joined_text: score = min(score, 65)
 
     data["score"] = max(0, min(100, int(score)))
     return data
 
 def save_to_lab_records(user_id, data):
-    if not supabase: return
     try:
         payload = {"user_id": user_id, "score": data.get('score', 0), "mistake_tags": data.get('tags', []), "technical_analysis": data.get('tech', ''), "psych_analysis": data.get('psych', ''), "risk_analysis": data.get('risk', ''), "fix_action": data.get('fix', '')}
         supabase.table("trades").insert(payload).execute()
+        if data.get('score', 0) < 50:
+            clean_fix = data.get('fix', 'Follow Protocol').split('.')[0][:100]
+            supabase.table("rules").insert({"user_id": user_id, "rule_text": clean_fix}).execute()
     except: pass
 
 def get_user_rules(user_id):
-    if not supabase: return []
     try:
         res = supabase.table("rules").select("*").eq("user_id", user_id).execute()
         return [r['rule_text'] for r in res.data]
     except: return []
 
 # ==========================================
-# 4. UI STYLING (THE TRANSFORMATION)
+# 4. THE UI (EXACT REPLICATION)
 # ==========================================
-# This injects the exact CSS needed to match your HTML
+
+# 4A. GLOBAL CSS TO OVERRIDE STREAMLIT AND MATCH HTML
 st.markdown("""
+<script src="https://cdn.tailwindcss.com"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
     /* 1. Global Reset & Colors */
     .stApp {
         background-color: #0d1117 !important;
         font-family: 'Inter', sans-serif !important;
+        color: #d1d5db !important; /* text-gray-300 */
     }
     
-    /* Hide default Streamlit elements */
-    header {visibility: hidden;}
+    /* 2. Hide Standard Streamlit Elements */
+    #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
+    header {visibility: hidden;}
     .block-container {
         padding-top: 0rem !important;
-        padding-bottom: 5rem !important;
+        padding-bottom: 0rem !important;
+        padding-left: 0rem !important;
+        padding-right: 0rem !important;
         max-width: 100% !important;
     }
-
-    /* 2. Custom Navbar Styling */
-    .nav-container {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 1.5rem 2rem;
-        max-width: 80rem;
-        margin: 0 auto;
-        border-bottom: 0px solid #30363d;
-    }
-    .logo-text { color: white; font-weight: 800; font-size: 1.25rem; letter-spacing: -0.05em; }
-    .logo-accent { color: #ef4444; } /* Red-500 */
-    .nav-links { display: flex; gap: 2rem; color: #9ca3af; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; }
-    .cta-button { background-color: #dc2626; color: white; padding: 0.5rem 1.25rem; border-radius: 9999px; font-weight: 700; font-size: 0.875rem; border: none; }
     
-    /* 3. Hero Section Styling */
-    .hero-section {
-        text-align: center;
-        margin-top: 4rem;
-        margin-bottom: 2rem;
-        padding: 0 1rem;
-    }
-    .hero-title {
-        font-size: 3.5rem;
-        font-weight: 800;
-        color: white;
-        font-style: italic;
-        line-height: 1;
-        margin-bottom: 1.5rem;
-    }
-    @media (min-width: 768px) { .hero-title { font-size: 4.5rem; } }
-    .hero-subtitle {
-        color: #9ca3af;
-        font-size: 1.125rem;
-        max-width: 42rem;
-        margin: 0 auto;
-        line-height: 1.6;
-    }
-
-    /* 4. The Upload Box (Mimicking the dashed border) */
-    .upload-wrapper {
-        background-color: #161b22;
-        border: 2px dashed #30363d;
-        border-radius: 1.5rem;
-        padding: 3rem;
-        max-width: 48rem;
-        margin: 3rem auto;
-        text-align: center;
-    }
-    
-    /* Force Streamlit Uploader to fit inside the theme */
-    div[data-testid="stFileUploader"] {
-        width: 100%;
-    }
-    div[data-testid="stFileUploader"] section {
-        background-color: transparent !important;
+    /* 3. Button Override */
+    div.stButton > button {
+        background-color: #dc2626 !important; /* red-600 */
+        color: white !important;
         border: none !important;
-        padding: 0 !important;
+        border-radius: 9999px !important; /* rounded-full */
+        font-weight: 700 !important;
+        padding: 0.5rem 1.25rem !important;
+        transition: all 0.2s !important;
     }
-    /* Hide the 'Drag and drop' text from Streamlit and replace with our own via HTML */
-    div[data-testid="stFileUploader"] section > div {
-        color: transparent !important;
+    div.stButton > button:hover {
+        background-color: #b91c1c !important; /* red-700 */
     }
-    div[data-testid="stFileUploader"] section button {
+
+    /* 4. File Uploader Styling to Match "Dashed Box" */
+    [data-testid='stFileUploader'] {
+        width: 100% !important;
+    }
+    [data-testid='stFileUploader'] section {
+        background-color: transparent !important;
+        border: none !important; /* We use the wrapper for the border */
+    }
+    /* Hide the upload icon inside streamlit widget to use our own */
+    [data-testid='stFileUploader'] section > div > div > span {
+        display: none !important; 
+    }
+    [data-testid='stFileUploader'] small {
+        display: none !important;
+    }
+    [data-testid='stFileUploader'] button {
         background-color: white !important;
         color: black !important;
-        border: none !important;
-        border-radius: 0.5rem !important;
-        padding: 0.75rem 2rem !important;
         font-weight: 700 !important;
-        text-transform: none !important;
-        margin-top: 10px;
+        border-radius: 8px !important;
     }
-    div[data-testid="stFileUploader"] section button:hover {
-        background-color: #e5e7eb !important;
-    }
-    
-    /* 5. Feature Grid (Bottom Cards) */
-    .grid-container {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 1.5rem;
-        max-width: 64rem;
-        margin: 4rem auto;
-        padding: 0 1rem;
-    }
-    @media (min-width: 768px) { .grid-container { grid-template-columns: repeat(3, 1fr); } }
-    
-    .feature-card {
-        background-color: #161b22;
-        border: 1px solid #30363d;
-        border-radius: 0.75rem;
-        padding: 2rem;
-        text-align: left;
-    }
-    .card-title { color: white; font-weight: 700; margin-bottom: 0.75rem; font-size: 1.125rem; }
-    .card-text { color: #6b7280; font-size: 0.875rem; line-height: 1.6; }
 
-    /* 6. Tabs & Form Overrides */
-    .stTabs [data-baseweb="tab-list"] {
-        justify-content: center;
-        background-color: transparent;
-        margin-bottom: 2rem;
+    /* 5. Custom Classes injected via Markdown */
+    .hero-title {
+        font-style: italic;
+        letter-spacing: -0.02em;
     }
-    .stTabs [data-baseweb="tab"] {
-        color: #9ca3af;
-        border: none;
-        font-weight: 600;
-        font-size: 0.8rem;
-        padding: 0.5rem 1rem;
-    }
-    .stTabs [aria-selected="true"] {
-        color: white !important;
-        border-bottom: 2px solid #ef4444 !important;
-        background: transparent !important;
-    }
-    
-    /* Input Fields */
-    input, textarea, select {
-        background-color: #0d1117 !important;
-        border: 1px solid #30363d !important;
-        color: white !important;
-        border-radius: 0.5rem !important;
-    }
-    
-    /* Report Styling */
-    .report-container {
-        background: #161b22;
-        border: 1px solid #30363d;
-        border-radius: 24px;
-        padding: 40px;
-        margin-top: 20px;
-        max-width: 64rem;
-        margin-left: auto;
-        margin-right: auto;
+    .upload-dashed {
+        border: 2px dashed #30363d;
+        background-color: #161b22;
+        border-radius: 1.5rem; /* rounded-3xl */
     }
 </style>
 """, unsafe_allow_html=True)
 
-# ==========================================
-# 5. HEADER & NAVBAR (STATIC HTML)
-# ==========================================
-st.markdown("""
-<div class="nav-container">
-    <div class="flex items-center gap-1">
-        <span class="logo-text">STOCK<span class="logo-accent">POSTMORTEM</span>.AI</span>
-    </div>
-    <div class="nav-links">
-        <span>Analyze</span>
-        <span>Data Vault</span>
-        <span>Pricing</span>
-    </div>
-    <button class="cta-button">
-        GET STARTED
-    </button>
-</div>
-""", unsafe_allow_html=True)
-
-# ==========================================
-# 6. HERO SECTION
-# ==========================================
-st.markdown("""
-<div class="hero-section">
-    <h1 class="hero-title">
-        STOP <span style="color:#ef4444">BLEEDING</span> CAPITAL.
-    </h1>
-    <p class="hero-subtitle">
-        Upload your losing trade screenshots. Our AI identifies psychological traps, technical failures, and provides a surgical path to recovery.
-    </p>
-</div>
-""", unsafe_allow_html=True)
-
-# ==========================================
-# 7. MAIN INTERACTION AREA
-# ==========================================
-
-# Using Tabs to switch between Visual and Text inputs, keeping visual as default
-tab_visual, tab_text = st.tabs(["VISUAL EVIDENCE", "DETAILED TEXT LOG"])
-
-with tab_visual:
-    # We construct the UI to look like the "dashed box"
-    # Note: We use st.columns to center the upload box width
-    c1, c2, c3 = st.columns([1, 2, 1])
-    
+# 4B. AUTHENTICATION VIEW
+if not st.session_state["authenticated"]:
+    # Simple login UI that fits the theme
+    st.markdown("<br><br><br>", unsafe_allow_html=True)
+    c1, c2, c3 = st.columns([1, 1, 1])
     with c2:
-        # The visual container for the uploader
         st.markdown("""
-        <div class="upload-wrapper">
-            <div style="background: rgba(239, 68, 68, 0.1); width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem auto;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-            </div>
-            <h2 style="color: white; font-weight: 700; font-size: 1.5rem; margin-bottom: 0.5rem;">Drop your P&L or Chart screenshot here</h2>
-            <p style="color: #6b7280; font-size: 0.875rem; margin-bottom: 2rem;">Supports PNG, JPG (Max 10MB). Your data is encrypted.</p>
+        <div style="text-align: center; margin-bottom: 2rem;">
+            <span style="font-size: 1.5rem; font-weight: 800; color: white;">STOCK<span style="color: #ef4444;">POSTMORTEM</span>.AI</span>
+            <p style="color: #6b7280; font-size: 0.8rem; margin-top: 0.5rem;">OPERATOR AUTHENTICATION</p>
         </div>
         """, unsafe_allow_html=True)
+        with st.form("login_form"):
+            u = st.text_input("ID", placeholder="trader1")
+            p = st.text_input("KEY", type="password", placeholder="•••••••")
+            sub = st.form_submit_button("ENTER VAULT")
+            if sub: check_login(u, p)
+
+# 4C. MAIN INTERFACE (EXACT HTML REPLICATION)
+else:
+    user = st.session_state["user"]
+    
+    # --- NAVIGATION BAR ---
+    st.markdown(f"""
+    <nav class="flex items-center justify-between px-8 py-6 max-w-7xl mx-auto relative">
+        <div class="flex items-center gap-1">
+            <span class="text-white font-extrabold text-xl tracking-tighter">STOCK<span class="text-red-500">POSTMORTEM</span>.AI</span>
+        </div>
         
-        # The Actual Functional Uploader (positioned by CSS to appear inside the box logic visually, though actually stacked below the text)
-        # To make it feel like it's inside, we rely on the CSS `div[data-testid="stFileUploader"]` styling above.
+        <div class="hidden md:flex items-center gap-8 text-xs font-semibold uppercase tracking-widest text-gray-400">
+            <div class="relative group">
+                <button class="hover:text-white transition flex items-center gap-1 uppercase outline-none">
+                    Analyze ({user})
+                    <svg class="w-3 h-3 text-gray-500 group-hover:text-white transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+            </div>
+            <a href="#" class="hover:text-white transition">Data Vault</a>
+            <a href="#" class="hover:text-white transition">Pricing</a>
+        </div>
+
+        <button class="bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded-full text-sm font-bold transition">
+            Get Started
+        </button>
+    </nav>
+    """, unsafe_allow_html=True)
+
+    # --- HERO SECTION ---
+    st.markdown("""
+    <main class="flex flex-col items-center justify-center text-center px-4 mt-16">
+        <h1 class="text-5xl md:text-7xl font-extrabold text-white hero-title mb-6">
+            STOP BLEEDING CAPITAL.
+        </h1>
+        <p class="max-w-2xl text-gray-400 text-lg leading-relaxed">
+            Upload your losing trade screenshots. Our AI identifies psychological traps,<br class="hidden md:block"> 
+            technical failures, and provides a surgical path to recovery.
+        </p>
+    </main>
+    """, unsafe_allow_html=True)
+
+    # --- UPLOAD SECTION (The "Dashed Box") ---
+    # We use a container and columns to center the functional file uploader inside the "Visual" design
+    
+    st.markdown("<div style='height: 30px;'></div>", unsafe_allow_html=True) # Spacer
+    
+    # Center the upload box
+    col_l, col_m, col_r = st.columns([1, 2, 1]) 
+    
+    with col_m:
+        # We create the "Box" visually using HTML, but embed the file uploader inside
+        container = st.container()
+        
+        # Start of Box Styling
+        st.markdown("""
+        <div class="mt-4 w-full bg-[#161b22] rounded-3xl p-8 upload-dashed flex flex-col items-center border-[#30363d] relative">
+            <div class="bg-red-500/10 p-4 rounded-full mb-6 mx-auto w-fit">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+            </div>
+            <h2 class="text-2xl font-bold text-white mb-2 text-center">Drop your P&L or Chart screenshot here</h2>
+            <p class="text-gray-500 text-sm mb-4 text-center">Supports PNG, JPG (Max 10MB).</p>
+        """, unsafe_allow_html=True)
+
+        # THE FUNCTIONAL WIDGET
         up_file = st.file_uploader("Upload", type=["png", "jpg", "jpeg"], label_visibility="collapsed")
         
+        # End of Box Styling
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        # LOGIC TRIGGER ON UPLOAD
         if up_file:
-            # Show the image preview inside a styled card
-            st.markdown(f'<div style="background:#161b22; border:1px solid #30363d; padding:10px; border-radius:12px; margin-top:20px;">', unsafe_allow_html=True)
-            st.image(up_file, use_container_width=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            # The Action Button
-            if st.button("RUN FORENSIC ANALYSIS", use_container_width=True, type="primary"):
-                user_rules = get_user_rules(st.session_state["user"])
+            st.markdown("<div class='text-center mt-4 text-white font-bold animate-pulse'>SCANNING EVIDENCE...</div>", unsafe_allow_html=True)
+            try:
                 img_b64 = base64.b64encode(up_file.getvalue()).decode('utf-8')
-                
-                # Construct Prompt
-                prompt = f"Audit this chart. Identify the mistake. Cross reference with my past rules: {user_rules}. Output strict JSON format."
+                my_rules = get_user_rules(user)
+                prompt = f"Audit this chart. Rules: {my_rules}. Output JSON."
                 messages = [{"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}]}]
                 
-                with st.spinner("🔬 Analying Patterns..."):
-                    raw_response = run_scientific_analysis(messages, mode="vision")
-                    report = parse_scientific_report(raw_response)
-                    save_to_lab_records(st.session_state["user"], report)
-                    
-                    # Render Report
-                    tags_html = "".join([f'<span style="background:#21262d; border:1px solid #30363d; padding:4px 12px; border-radius:99px; font-size:0.7rem; margin-right:5px; color:#9ca3af;">{t}</span>' for t in report['tags']])
-                    score_color = "#ef4444" if report['score'] < 50 else "#22c55e"
-                    
-                    st.markdown(f"""
-                    <div class="report-container">
-                        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #30363d; padding-bottom:20px; margin-bottom:20px;">
-                            <h2 style="color:white; margin:0; font-weight:800; font-style:italic;">AUTOPSY COMPLETE</h2>
-                            <div style="color:{score_color}; font-size:4rem; font-weight:800;">{report["score"]}</div>
+                # Run Logic
+                raw = run_scientific_analysis(messages, mode="vision")
+                report = parse_scientific_report(raw)
+                save_to_lab_records(user, report)
+                
+                # RENDER RESULT (In simple HTML styled box below)
+                c_score = "#ef4444" if report['score'] < 50 else "#22c55e"
+                st.markdown(f"""
+                <div class="mt-8 bg-[#161b22] border border-[#30363d] rounded-2xl p-8 text-left">
+                    <div class="flex justify-between items-center border-b border-[#30363d] pb-4 mb-4">
+                        <h2 class="text-white font-extrabold italic text-xl">AUTOPSY COMPLETE</h2>
+                        <span class="text-5xl font-extrabold" style="color: {c_score}">{report['score']}</span>
+                    </div>
+                    <div class="space-y-4">
+                        <div>
+                             <h4 class="text-red-500 font-bold text-xs uppercase tracking-widest mb-1">Technical Forensics</h4>
+                             <p class="text-gray-400 text-sm">{report['tech']}</p>
                         </div>
-                        <div style="margin-bottom:20px;">{tags_html}</div>
-                        
-                        <h4 style="color:#ef4444; font-weight:700; font-size:0.8rem; text-transform:uppercase; margin-top:20px;">Technical Forensics</h4>
-                        <p style="color:#9ca3af;">{report["tech"]}</p>
-                        
-                        <h4 style="color:#ef4444; font-weight:700; font-size:0.8rem; text-transform:uppercase; margin-top:20px;">Psychological Profile</h4>
-                        <p style="color:#9ca3af;">{report["psych"]}</p>
-                        
-                        <h4 style="color:#ef4444; font-weight:700; font-size:0.8rem; text-transform:uppercase; margin-top:20px;">Recovery Roadmap</h4>
-                        <div style="background:rgba(239, 68, 68, 0.1); border-left:4px solid #ef4444; padding:15px; border-radius:4px; color:white; margin-top:10px;">
-                            {report["fix"]}
+                        <div>
+                             <h4 class="text-red-500 font-bold text-xs uppercase tracking-widest mb-1">Psychological Profile</h4>
+                             <p class="text-gray-400 text-sm">{report['psych']}</p>
+                        </div>
+                         <div>
+                             <h4 class="text-red-500 font-bold text-xs uppercase tracking-widest mb-1">Recovery Plan</h4>
+                             <div class="bg-red-500/10 border-l-4 border-red-500 p-3 text-white text-sm">{report['fix']}</div>
                         </div>
                     </div>
-                    """, unsafe_allow_html=True)
+                </div>
+                """, unsafe_allow_html=True)
+            except Exception as e:
+                st.error("Error analyzing image. Try again.")
 
-with tab_text:
-    # Keeping the form logic but wrapping it in the dark card style
-    c_main, c_buff = st.columns([2, 1])
-    with c_main:
-        with st.form("text_audit"):
-            st.markdown("<h3 style='color:white;'>Manual Entry Log</h3>", unsafe_allow_html=True)
-            c1, c2, c3 = st.columns(3)
-            with c1: tick = st.text_input("Ticker", placeholder="$NVDA")
-            with c2: pos = st.selectbox("Position", ["Long (Buy)", "Short (Sell)"])
-            with c3: tf = st.selectbox("Timeframe", ["Scalp", "Day Trade", "Swing"])
-            
-            c4, c5 = st.columns(2)
-            with c4: setup = st.text_area("The Setup (Why?)", height=100)
-            with c5: exit_rsn = st.text_area("The Exit (Reason?)", height=100)
-            
-            submit = st.form_submit_button("Run Analysis")
-            if submit:
-                # Logic from previous script
-                messages = [{"role": "user", "content": f"Audit Trade {tick} {pos}. Setup: {setup}. Exit: {exit_rsn}. Output strict JSON."}]
-                with st.spinner("Processing..."):
-                    raw = run_scientific_analysis(messages, mode="text")
-                    # (Visualization logic would go here, same as above)
-                    st.info("Analysis Complete (Check Data Vault for details)")
+    # --- FEATURE GRID (STATIC HTML) ---
+    st.markdown("""
+    <div class="flex justify-center w-full px-4">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-16 w-full max-w-5xl mb-20">
+            <div class="bg-[#161b22] p-8 rounded-xl border border-gray-800 text-left">
+                <h3 class="text-white font-bold mb-3 text-lg">Pattern Recognition</h3>
+                <p class="text-gray-500 text-sm leading-relaxed">
+                    Did you buy the top? We identify if you're falling for FOMO or revenge trading.
+                </p>
+            </div>
 
-# ==========================================
-# 8. FOOTER / FEATURES (STATIC HTML)
-# ==========================================
-st.markdown("""
-<div class="grid-container">
-    <div class="feature-card">
-        <h3 class="card-title">Pattern Recognition</h3>
-        <p class="card-text">Did you buy the top? We identify if you're falling for FOMO or revenge trading.</p>
+            <div class="bg-[#161b22] p-8 rounded-xl border border-gray-800 text-left">
+                <h3 class="text-white font-bold mb-3 text-lg">Risk Autopsy</h3>
+                <p class="text-gray-500 text-sm leading-relaxed">
+                    Calculates if your stop-loss was too tight or if your position sizing was reckless.
+                </p>
+            </div>
+
+            <div class="bg-[#161b22] p-8 rounded-xl border border-gray-800 text-left">
+                <h3 class="text-white font-bold mb-3 text-lg">Recovery Plan</h3>
+                <p class="text-gray-500 text-sm leading-relaxed">
+                    Step-by-step technical adjustments to ensure the next trade is a winner.
+                </p>
+            </div>
+        </div>
     </div>
-    <div class="feature-card">
-        <h3 class="card-title">Risk Autopsy</h3>
-        <p class="card-text">Calculates if your stop-loss was too tight or if your position sizing was reckless.</p>
-    </div>
-    <div class="feature-card">
-        <h3 class="card-title">Recovery Plan</h3>
-        <p class="card-text">Step-by-step technical adjustments to ensure the next trade is a winner.</p>
-    </div>
-</div>
-""", unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
