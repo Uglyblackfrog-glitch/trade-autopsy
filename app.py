@@ -380,13 +380,13 @@ else:
 
         # VIEW 1: VISUAL (MATCHING THE SCREENSHOT EXACTLY)
         if current_view == "visual":
-            # 1. Main Headline
+            # 1. Main Headline - INCREASED 1.5X AND ALIGNED
             st.markdown("""
                 <div style='text-align:center; padding-top: 20px; padding-bottom: 50px;'>
-                    <h1 style='font-size: 5rem; font-weight: 900; font-style: italic; text-transform: uppercase; margin: 0; line-height: 1; letter-spacing: -2px;'>
+                    <h1 style='font-size: 7.5rem; font-weight: 900; font-style: italic; text-transform: uppercase; margin: 0; line-height: 0.9; letter-spacing: -3px;'>
                         STOP <span style='color:#da3633'>BLEEDING</span> CAPITAL.
                     </h1>
-                    <p style='color:#8b949e; font-size: 1.1rem; max-width: 750px; margin: 30px auto 0 auto; line-height: 1.6;'>
+                    <p style='color:#8b949e; font-size: 1.3rem; max-width: 800px; margin: 75px auto 0 auto; line-height: 1.6; font-weight: 400;'>
                         Upload your losing trade screenshots. Our AI identifies psychological traps,
                         technical failures, and provides a surgical path to recovery.
                     </p>
