@@ -16,7 +16,7 @@ st.set_page_config(
     page_title="StockPostmortem.ai", 
     page_icon="🩸", 
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed" # Default collapsed
 )
 
 # --- USER CREDENTIALS ---
@@ -77,9 +77,21 @@ st.markdown("""
         font-family: 'Inter', sans-serif !important; 
         color: #e2e8f0; 
     }
+
+    /* --- HIDE SIDEBAR COMPLETELY --- */
+    [data-testid="stSidebar"] { display: none; }
+    [data-testid="collapsedControl"] { display: none; }
     
-    h1, h2, h3 { font-family: 'Inter', sans-serif; letter-spacing: -0.5px; }
-    
+    /* --- HEADER STYLES --- */
+    .top-nav {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px 0;
+        margin-bottom: 30px;
+        border-bottom: 1px solid #333;
+    }
+
     /* --- GLASSMORPHISM MODULES --- */
     .glass-panel {
         background: rgba(20, 20, 20, 0.6);
@@ -143,27 +155,6 @@ st.markdown("""
         border-radius: 20px;
         box-shadow: 0 0 50px rgba(255, 50, 50, 0.1);
         text-align: center;
-    }
-
-    /* --- CUSTOM TABS --- */
-    .stTabs [data-baseweb="tab-list"] {
-        background-color: transparent;
-        border-bottom: 1px solid #333;
-        gap: 20px;
-    }
-    
-    .stTabs [data-baseweb="tab"] {
-        background-color: transparent;
-        border: none;
-        color: #666;
-        font-weight: 600;
-        font-size: 14px;
-        padding-bottom: 10px;
-    }
-    
-    .stTabs [aria-selected="true"] {
-        color: #ff4d4d !important;
-        border-bottom: 2px solid #ff4d4d !important;
     }
 
     /* --- UTILITY CLASSES --- */
@@ -292,31 +283,32 @@ if not st.session_state["authenticated"]:
 else:
     current_user = st.session_state["user"]
     
-    # SIDEBAR
-    with st.sidebar:
+    # --- CUSTOM HEADER (Replaces Sidebar) ---
+    col_logo, col_spacer, col_profile = st.columns([2, 5, 1], gap="small")
+    
+    with col_logo:
         st.markdown(f"""
-        <div style="padding: 10px; border-bottom: 1px solid #333; margin-bottom: 20px;">
-            <h3 style="color: #fff; margin:0;">STK<span style="color:#ff4d4d">POST</span>.AI</h3>
-            <p style="color: #666; font-size: 12px; margin:0;">v2.6.0 PRO</p>
+        <div style="display:flex; align-items:center; height: 100%;">
+            <span style="font-size: 1.8rem; margin-right: 10px;">🩸</span>
+            <div>
+                <div style="font-weight: 900; font-size: 1.2rem; line-height: 1.1;">STOCK<span style="color:#ff4d4d">POSTMORTEM</span></div>
+                <div style="font-size: 0.7rem; color: #666; letter-spacing: 1px;">FORENSICS UNIT</div>
+            </div>
         </div>
         """, unsafe_allow_html=True)
-        
-        st.markdown(f"**OPERATOR:** `{current_user.upper()}`")
-        
-        if st.button("LOCK TERMINAL", use_container_width=True): logout()
-        
-        st.markdown("---")
-        st.info("System Status: **ONLINE**")
 
-    # HEADER
-    st.markdown("""
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <h2 style="margin:0;">Executive Dashboard</h2>
-        <div style="font-family: 'JetBrains Mono'; color: #666; font-size: 0.8rem;">MARKET_STATE: OPEN</div>
-    </div>
-    """, unsafe_allow_html=True)
+    with col_profile:
+        # Profile Popover Button
+        with st.popover(f"👤 {current_user}", use_container_width=True):
+            st.markdown(f"**Operator:** {current_user}")
+            st.caption("Access Level: PRO")
+            st.markdown("---")
+            if st.button("🔴 DISCONNECT", type="primary", use_container_width=True):
+                logout()
 
-    # UPDATED TABS: Removed "Constitution"
+    st.markdown("---")
+
+    # TABS
     main_tab1, main_tab2 = st.tabs(["🔎 FORENSIC AUDIT", "📊 PERFORMANCE METRICS"])
 
     # --- TAB 1: AUDIT (INPUT) ---
@@ -349,7 +341,6 @@ else:
 
         else:
             with st.form("audit_form"):
-                # Wider layout since guardrails are gone
                 col_a, col_b, col_c = st.columns(3)
                 with col_a: ticker = st.text_input("Ticker", "SPY")
                 with col_b: setup_type = st.selectbox("Setup", ["Trend", "Reversal", "Breakout"])
@@ -424,7 +415,7 @@ else:
                 except Exception as e:
                     st.error(f"Analysis Failed: {e}")
 
-    # --- TAB 2: DASHBOARD (Formerly Tab 3) ---
+    # --- TAB 2: DASHBOARD ---
     with main_tab2:
         if supabase:
             hist = supabase.table("trades").select("*").eq("user_id", current_user).order("created_at", desc=True).execute()
