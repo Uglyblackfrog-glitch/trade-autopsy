@@ -12,7 +12,12 @@ from datetime import datetime
 # ==========================================
 # 0. AUTHENTICATION & CONFIG
 # ==========================================
-st.set_page_config(page_title="StockPostmortem.ai", page_icon="🩸", layout="wide")
+st.set_page_config(
+    page_title="StockPostmortem.ai", 
+    page_icon="🩸", 
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
 # --- USER CREDENTIALS ---
 USERS = {
@@ -31,7 +36,7 @@ def check_login(username, password):
         st.session_state["user"] = username
         st.rerun()
     else:
-        st.error("Incorrect username or password")
+        st.error("Access Denied: Invalid Credentials")
 
 def logout():
     st.session_state["authenticated"] = False
@@ -43,74 +48,167 @@ def logout():
 # ==========================================
 if st.session_state["authenticated"]:
     try:
-        HF_TOKEN = st.secrets["HF_TOKEN"]
-        SUPABASE_URL = st.secrets["SUPABASE_URL"]
-        SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
-        supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-        API_URL = "https://router.huggingface.co/v1/chat/completions"
+        # Ensure you have these in your .streamlit/secrets.toml
+        HF_TOKEN = st.secrets.get("HF_TOKEN", "")
+        SUPABASE_URL = st.secrets.get("SUPABASE_URL", "")
+        SUPABASE_KEY = st.secrets.get("SUPABASE_KEY", "")
+        
+        if not all([HF_TOKEN, SUPABASE_URL, SUPABASE_KEY]):
+            st.warning("⚠️ Secrets missing. Running in UI-only mode.")
+            supabase = None
+        else:
+            supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+            API_URL = "https://router.huggingface.co/v1/chat/completions"
+            
     except Exception as e:
         st.error(f"⚠️ Configuration Error: {e}")
         st.stop()
 
 # ==========================================
-# 2. CSS STYLING (PREMIUM DASHBOARD THEME)
+# 2. ULTRA-MODERN CSS THEME (THE "SEXY" PART)
 # ==========================================
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
+    /* --- GLOBAL FONTS & RESET --- */
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@300;400;600;800&display=swap');
     
     body, .stApp { 
-        background-color: #050505 !important; 
+        background-color: #000000 !important; 
+        background-image: radial-gradient(circle at 50% 0%, #1a0b0b 0%, #000000 70%);
         font-family: 'Inter', sans-serif !important; 
         color: #e2e8f0; 
     }
     
-    /* LOGIN BOX */
-    .login-box { max-width: 400px; margin: 100px auto; padding: 2rem; border: 1px solid #333; border-radius: 12px; background: #0d1117; }
+    h1, h2, h3 { font-family: 'Inter', sans-serif; letter-spacing: -0.5px; }
+    .stMarkdown, .stText { font-family: 'Inter', sans-serif; }
     
-    /* DASHBOARD METRIC CARDS */
+    /* --- GLASSMORPHISM MODULES --- */
+    .glass-panel {
+        background: rgba(20, 20, 20, 0.6);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 16px;
+        padding: 24px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    }
+    
+    /* --- KPI CARDS --- */
+    .kpi-container {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 15px;
+        margin-bottom: 25px;
+    }
+    
     .kpi-card {
-        background: #111;
+        background: linear-gradient(145deg, #111, #0a0a0a);
         border: 1px solid #222;
         padding: 20px;
-        border-radius: 10px;
+        border-radius: 12px;
         text-align: center;
-        transition: all 0.2s ease-in-out;
+        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        position: relative;
+        overflow: hidden;
     }
-    .kpi-card:hover { border-color: #ff4d4d; transform: translateY(-2px); }
-    .kpi-val { font-size: 2.2rem; font-weight: 800; color: white; line-height: 1.2; }
-    .kpi-label { color: #666; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
     
-    /* SECTION HEADERS */
-    .section-header {
+    .kpi-card:hover {
+        border-color: #ff3333;
+        transform: translateY(-5px);
+        box-shadow: 0 10px 30px -10px rgba(255, 51, 51, 0.3);
+    }
+    
+    .kpi-val { 
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 2.5rem; 
+        font-weight: 700; 
+        color: #fff; 
+        margin-bottom: 5px;
+    }
+    
+    .kpi-label { 
+        color: #888; 
+        font-size: 0.75rem; 
+        text-transform: uppercase; 
+        letter-spacing: 1.5px; 
+        font-weight: 600; 
+    }
+
+    /* --- LOGIN BOX --- */
+    .login-container {
+        max-width: 400px;
+        margin: 15vh auto;
+        padding: 40px;
+        background: rgba(10, 10, 10, 0.9);
+        border: 1px solid #333;
+        border-radius: 20px;
+        box-shadow: 0 0 50px rgba(255, 50, 50, 0.1);
+        text-align: center;
+    }
+
+    /* --- CUSTOM TABS --- */
+    .stTabs [data-baseweb="tab-list"] {
+        background-color: transparent;
+        border-bottom: 1px solid #333;
+        gap: 20px;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        background-color: transparent;
+        border: none;
+        color: #666;
+        font-weight: 600;
+        font-size: 14px;
+        padding-bottom: 10px;
+    }
+    
+    .stTabs [aria-selected="true"] {
+        color: #ff4d4d !important;
+        border-bottom: 2px solid #ff4d4d !important;
+    }
+
+    /* --- UTILITY CLASSES --- */
+    .section-title {
         font-size: 1.1rem;
         font-weight: 700;
         color: #fff;
-        margin-top: 30px;
         margin-bottom: 15px;
-        border-left: 3px solid #ff4d4d;
-        padding-left: 10px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
     }
     
-    /* REPORT CONTAINER */
-    .report-container { background: #0d1117; border: 1px solid #30363d; border-radius: 12px; padding: 2rem; margin-top: 20px; }
-    .analysis-card { background: rgba(255,255,255,0.03); border-radius: 8px; padding: 15px; margin-bottom: 10px; border-left: 4px solid #555; }
-    
-    /* TABS */
-    .stTabs [data-baseweb="tab-list"] { gap: 10px; border-bottom: 1px solid #333; }
-    .stTabs [data-baseweb="tab"] { border: none; color: #666; font-weight: 600; }
-    .stTabs [aria-selected="true"] { color: #ff4d4d !important; border-bottom: 2px solid #ff4d4d !important; }
+    .section-title::before {
+        content: '';
+        display: block;
+        width: 4px;
+        height: 18px;
+        background: #ff4d4d;
+        border-radius: 2px;
+    }
 
-    /* RULES PANEL */
-    .rule-item {
-        background: rgba(255, 77, 77, 0.05);
-        border: 1px solid rgba(255, 77, 77, 0.2);
-        padding: 10px 15px;
-        border-radius: 6px;
-        margin-bottom: 8px;
-        color: #ffcccc;
-        font-size: 0.9rem;
+    .status-bad { color: #ff4d4d; font-weight: bold; }
+    .status-good { color: #00e676; font-weight: bold; }
+
+    /* --- ANALYSIS REPORT --- */
+    .report-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px;
+        margin-top: 15px;
     }
+    
+    .report-item {
+        background: rgba(255,255,255,0.02);
+        border-left: 3px solid #555;
+        padding: 15px;
+        border-radius: 0 8px 8px 0;
+    }
+
+    /* Hide Streamlit Branding */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -118,6 +216,7 @@ st.markdown("""
 # 3. HELPER FUNCTIONS
 # ==========================================
 def get_user_rules(user_id):
+    if not supabase: return []
     try:
         response = supabase.table("rules").select("*").eq("user_id", user_id).execute()
         return [r['rule_text'] for r in response.data]
@@ -131,17 +230,14 @@ def parse_report(text):
     sections = { "score": 0, "tags": [], "tech": "N/A", "psych": "N/A", "risk": "N/A", "fix": "N/A" }
     text = clean_text(text)
     
-    # Extract Score
     score_match = re.search(r'\[SCORE\]\s*(\d+)', text)
     if score_match: sections['score'] = int(score_match.group(1))
     
-    # Extract Tags
     tags_match = re.search(r'\[TAGS\](.*?)(?=\[|$)', text, re.DOTALL)
     if tags_match:
         raw = tags_match.group(1).replace('[', '').replace(']', '').split(',')
         sections['tags'] = [t.strip() for t in raw if t.strip()]
     
-    # Extract Sections
     patterns = {
         "tech": r"\[TECH\](.*?)(?=\[PSYCH\]|\[RISK\]|\[FIX\]|\[SCORE\]|\[TAGS\]|$)",
         "psych": r"\[PSYCH\](.*?)(?=\[RISK\]|\[FIX\]|\[SCORE\]|\[TAGS\]|$)",
@@ -154,9 +250,10 @@ def parse_report(text):
     return sections
 
 def save_analysis(user_id, data, ticker_symbol="UNK"):
+    if not supabase: return
     payload = {
         "user_id": user_id,
-        "ticker": ticker_symbol, # Added Ticker
+        "ticker": ticker_symbol,
         "score": data.get('score', 0),
         "mistake_tags": data.get('tags', []),
         "technical_analysis": data.get('tech', ''),
@@ -168,142 +265,148 @@ def save_analysis(user_id, data, ticker_symbol="UNK"):
     
     if data.get('score', 0) < 50:
         supabase.table("rules").insert({"user_id": user_id, "rule_text": data.get('fix')}).execute()
-        st.toast("📉 Critical Failure. New Rule added to Guardrails.")
+        st.toast("📉 New Guardrail Rule Added", icon="🔒")
 
 def generate_insights(df):
-    """Auto-generates behavioral insights from dataframe"""
     insights = []
+    if df.empty: return ["Awaiting data to generate neural patterns."]
     
-    if df.empty: return ["No data available for insights."]
-    
-    # 1. Trend Insight
     recent_scores = df.head(3)['score'].mean()
     if recent_scores < 50:
-        insights.append("⚠️ **Performance Dip:** Your last 3 trades average a Quality Score below 50. Consider reducing size.")
+        insights.append("⚠️ **Tilt Detected:** Last 3 trades avg < 50. Suggest 24h trading halt.")
     elif recent_scores > 80:
-        insights.append("🔥 **In the Zone:** High decision quality detected in recent trades.")
+        insights.append("🔥 **Flow State:** High decision quality detected. Increase risk tolerance slightly.")
 
-    # 2. Mistake Correlation
     all_tags = [tag for sublist in df['mistake_tags'] for tag in sublist]
     if "FOMO" in all_tags and "Revenge" in all_tags:
-        insights.append("🧠 **Pattern Alert:** You show signs of both FOMO and Revenge trading. This indicates a lack of patience with market structure.")
-
-    # 3. Time Insight (Mock logic since we don't have time-of-day in DB yet)
-    insights.append("💡 **System Note:** Most critical errors correlate with 'Stop Violation' tags.")
+        insights.append("🧠 **Toxic Loop:** 'FOMO' leading to 'Revenge' detected 3x this month.")
     
     return insights
 
 # ==========================================
 # 4. MAIN APP LOGIC
 # ==========================================
+
+# --- LOGIN VIEW ---
 if not st.session_state["authenticated"]:
-    # LOGIN SCREEN
+    st.markdown("""
+    <div class="login-container">
+        <div style="font-size: 3rem;">🩸</div>
+        <h1 style="margin-top: 10px; margin-bottom: 0;">StockPostmortem</h1>
+        <p style="color: #666; font-size: 0.9rem; margin-bottom: 30px;">Algorithmic Behavioral Forensics</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
     c1, c2, c3 = st.columns([1,1,1])
     with c2:
-        st.markdown("<br><br><br>", unsafe_allow_html=True)
-        st.markdown("<div class='login-box'>", unsafe_allow_html=True)
-        st.title("🩸 StockPostmortem")
-        st.caption("Secure Access Terminal")
         with st.form("login_form"):
-            username = st.text_input("Username")
-            password = st.text_input("Password", type="password")
-            if st.form_submit_button("UNLOCK DASHBOARD", type="primary", use_container_width=True):
+            username = st.text_input("Operator ID")
+            password = st.text_input("Access Key", type="password")
+            if st.form_submit_button("INITIALIZE TERMINAL", type="primary", use_container_width=True):
                 check_login(username, password)
-        st.markdown("</div>", unsafe_allow_html=True)
 
+# --- DASHBOARD VIEW ---
 else:
-    # DASHBOARD
     current_user = st.session_state["user"]
+    
+    # SIDEBAR
     with st.sidebar:
-        st.header(f"👤 {current_user}")
-        if st.button("LOGOUT", use_container_width=True): logout()
+        st.markdown(f"""
+        <div style="padding: 10px; border-bottom: 1px solid #333; margin-bottom: 20px;">
+            <h3 style="color: #fff; margin:0;">STK<span style="color:#ff4d4d">POST</span>.AI</h3>
+            <p style="color: #666; font-size: 12px; margin:0;">v2.5.0 PRO</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown(f"**OPERATOR:** `{current_user.upper()}`")
+        
+        if st.button("LOCK TERMINAL", use_container_width=True): logout()
+        
         st.markdown("---")
-        st.caption("v2.1.0-PRO")
+        st.info("System Status: **ONLINE**")
 
+    # HEADER
     st.markdown("""
-    <div style="text-align:center; padding-top: 10px; margin-bottom: 30px;">
-        <div style="font-size: 1.5rem; font-weight: 800; color: white;">STOCK<span style="color:#ff4d4d">POSTMORTEM</span>.AI</div>
-        <div style="color: #666; font-size: 0.9rem;">BEHAVIORAL FORENSICS & RISK ANALYTICS</div>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2 style="margin:0;">Executive Dashboard</h2>
+        <div style="font-family: 'JetBrains Mono'; color: #666; font-size: 0.8rem;">MARKET_STATE: OPEN</div>
     </div>
     """, unsafe_allow_html=True)
 
-    main_tab1, main_tab2, main_tab3 = st.tabs(["🔍 NEW AUTOPSY", "⚖️ CONSTITUTION", "📊 EXECUTIVE DASHBOARD"])
+    main_tab1, main_tab2, main_tab3 = st.tabs(["🔎 FORENSIC AUDIT", "📜 CONSTITUTION", "📊 PERFORMANCE METRICS"])
 
-    # --- TAB 1: ANALYSIS ---
+    # --- TAB 1: AUDIT (INPUT) ---
     with main_tab1:
-        my_rules = get_user_rules(current_user)
-        if my_rules:
-            with st.expander("🚨 ACTIVE RULES (AI IS WATCHING)", expanded=False):
-                for rule in my_rules: st.markdown(f"❌ **{rule}**")
-
-        c_mode = st.radio("Input Mode", ["Text Report", "Chart Vision"], horizontal=True, label_visibility="collapsed")
+        c1, c2 = st.columns([2, 1])
         
-        prompt = ""
-        img_b64 = None
-        ticker_val = "IMG" # Default if image
-        ready_to_run = False
+        with c1:
+            st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
+            st.markdown('<div class="section-title">Case Data Input</div>', unsafe_allow_html=True)
+            
+            c_mode = st.radio("Input Vector", ["Text Parameters", "Chart Vision"], horizontal=True, label_visibility="collapsed")
+            
+            prompt = ""
+            img_b64 = None
+            ticker_val = "IMG"
+            ready_to_run = False
+            my_rules = get_user_rules(current_user)
 
-        # MODE A: VISION
-        if c_mode == "Chart Vision":
-            uploaded_file = st.file_uploader("Upload Chart", type=["png", "jpg"])
-            if uploaded_file:
-                st.image(uploaded_file, width=400)
-                if st.button("RUN VISION AUDIT", type="primary"):
-                    image = Image.open(uploaded_file)
-                    buf = io.BytesIO()
-                    image.save(buf, format="PNG")
-                    img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
-                    prompt = f"""
-                    SYSTEM: Algorithmic Trading Auditor. 
-                    CONTEXT: Rules: {my_rules}
-                    TASK: Pixel-by-pixel chart analysis.
-                    OUTPUT: [SCORE], [TAGS], [TECH], [PSYCH], [RISK], [FIX].
-                    """
-                    ready_to_run = True
+            if c_mode == "Chart Vision":
+                uploaded_file = st.file_uploader("Upload Chart Screenshot", type=["png", "jpg"])
+                if uploaded_file:
+                    st.image(uploaded_file, width=400)
+                    if st.button("RUN OPTICAL ANALYSIS", type="primary"):
+                        image = Image.open(uploaded_file)
+                        buf = io.BytesIO()
+                        image.save(buf, format="PNG")
+                        img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+                        prompt = f"""
+                        SYSTEM: Hedge Fund Risk Manager.
+                        CONTEXT: Active Rules: {my_rules}
+                        TASK: Analyze chart for technical/psychological errors.
+                        OUTPUT: [SCORE], [TAGS], [TECH], [PSYCH], [RISK], [FIX].
+                        """
+                        ready_to_run = True
 
-        # MODE B: TEXT
-        else:
-            with st.form("text_form"):
-                # ROW 1
-                c1, c2, c3, c4 = st.columns(4)
-                with c1: ticker = st.text_input("Ticker", "SPY")
-                with c2: position = st.selectbox("Position", ["Long", "Short"])
-                with c3: timeframe = st.selectbox("Timeframe", ["Scalp (1m-5m)", "Day (15m-1h)", "Swing (4h+)"])
-                with c4: setup_type = st.selectbox("Setup", ["Trend Follow", "Reversal", "Breakout"])
+            else:
+                with st.form("audit_form"):
+                    col_a, col_b, col_c = st.columns(3)
+                    with col_a: ticker = st.text_input("Ticker", "SPY")
+                    with col_b: setup_type = st.selectbox("Setup", ["Trend", "Reversal", "Breakout"])
+                    with col_c: emotion = st.selectbox("State", ["Neutral", "FOMO", "Revenge", "Tilt"])
+                    
+                    col_d, col_e, col_f = st.columns(3)
+                    with col_d: entry = st.number_input("Entry", 0.0)
+                    with col_e: exit_price = st.number_input("Exit", 0.0)
+                    with col_f: stop = st.number_input("Stop", 0.0)
+                    
+                    notes = st.text_area("Execution Notes", height=80, placeholder="e.g. hesitated on entry, widened stop...")
+                    
+                    if st.form_submit_button("EXECUTE AUDIT", type="primary", use_container_width=True):
+                        ticker_val = ticker
+                        prompt = f"""
+                        SYSTEM: Trading Coach.
+                        DATA: {ticker} | {setup_type} | {emotion} | Note: {notes}
+                        ENTRY: {entry} | EXIT: {exit_price} | STOP: {stop}
+                        RULES: {my_rules}
+                        OUTPUT: [SCORE], [TAGS], [TECH], [PSYCH], [RISK], [FIX].
+                        """
+                        ready_to_run = True
+            st.markdown('</div>', unsafe_allow_html=True)
 
-                # ROW 2
-                c1, c2, c3 = st.columns(3)
-                with c1: entry = st.number_input("Entry", value=0.0)
-                with c2: exit_price = st.number_input("Exit", value=0.0)
-                with c3: stop = st.number_input("Stop Loss", value=0.0)
+        with c2:
+            st.markdown('<div class="glass-panel" style="border: 1px solid rgba(255, 77, 77, 0.3);">', unsafe_allow_html=True)
+            st.markdown('<div class="section-title" style="color:#ff4d4d">Active Guardrails</div>', unsafe_allow_html=True)
+            if my_rules:
+                for rule in my_rules:
+                    st.markdown(f"<div style='font-size:0.85rem; margin-bottom:8px; display:flex; gap:8px;'><span>🚫</span> {rule}</div>", unsafe_allow_html=True)
+            else:
+                st.caption("No active restrictions.")
+            st.markdown('</div>', unsafe_allow_html=True)
 
-                # ROW 3
-                emotion = st.selectbox("Mental State", ["Neutral", "FOMO", "Revenge", "Fear", "Tilt"])
-                notes = st.text_area("Context Notes", placeholder="e.g. Broke VWAP, volume was low...")
-
-                if st.form_submit_button("AUDIT TRADE", type="primary", use_container_width=True):
-                    ticker_val = ticker
-                    # ... [Math Logic same as before] ...
-                    try:
-                        risk = abs(entry - stop)
-                        loss = abs(entry - exit_price)
-                        r_multiple = -1 * (loss / risk) if risk > 0 else 0
-                        stop_violation = (position == "Long" and exit_price < stop) or (position == "Short" and exit_price > stop)
-                        math_block = f"R_Multiple: {r_multiple:.2f}R | Stop_Violation: {stop_violation}"
-                    except:
-                        math_block = "Insufficient Data"
-
-                    prompt = f"""
-                    SYSTEM: Deterministic Trade Audit Engine.
-                    INPUT: {ticker} | {setup_type} | {emotion} | {notes}
-                    METRICS: {math_block}
-                    CONTEXT RULES: {my_rules}
-                    OUTPUT: [SCORE], [TAGS], [TECH], [PSYCH], [RISK], [FIX].
-                    """
-                    ready_to_run = True
-
-        if ready_to_run:
-            with st.spinner("Processing Logic..."):
+        # RESULTS AREA
+        if ready_to_run and supabase:
+            with st.spinner("🧠 AI Forensic Analysis in progress..."):
                 try:
                     messages = [{"role": "user", "content": [{"type": "text", "text": prompt}]}]
                     if img_b64: messages[0]["content"].append({"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}})
@@ -314,123 +417,149 @@ else:
 
                     if res.status_code == 200:
                         report = parse_report(res.json()["choices"][0]["message"]["content"])
-                        save_analysis(current_user, report, ticker_val) # Pass Ticker
+                        save_analysis(current_user, report, ticker_val)
                         
-                        score_color = "#ef4444" if report['score'] < 50 else "#10b981"
+                        score_color = "#ff4d4d" if report['score'] < 50 else "#00e676"
+                        
                         st.markdown(f"""
-                        <div class="report-container">
-                            <div style="font-size:1.2rem; font-weight:bold; color:#888;">AUDIT RESULT</div>
-                            <div style="font-size:3.5rem; font-weight:900; color:{score_color};">{report['score']}</div>
-                            <div class="analysis-card" style="border-left-color: #3b82f6;"><b>TECH:</b> {report['tech']}</div>
-                            <div class="analysis-card" style="border-left-color: #f59e0b;"><b>PSYCH:</b> {report['psych']}</div>
-                            <div class="analysis-card" style="border-left-color: #10b981;"><b>FIX:</b> {report['fix']}</div>
+                        <div class="glass-panel" style="border-top: 4px solid {score_color}">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <div>
+                                    <div style="color:#888; letter-spacing:2px; font-size:0.8rem;">AUDIT SCORE</div>
+                                    <div style="font-size:4rem; font-weight:800; line-height:1; color:{score_color}">{report['score']}</div>
+                                </div>
+                                <div style="text-align:right;">
+                                    <div style="background:rgba(255,255,255,0.1); padding:5px 10px; border-radius:4px; display:inline-block; margin-bottom:5px;">{ticker_val}</div>
+                                </div>
+                            </div>
+                            <div class="report-grid">
+                                <div class="report-item" style="border-left-color: #3b82f6;">
+                                    <div style="color:#3b82f6; font-weight:bold; font-size:0.8rem;">TECHNICAL</div>
+                                    {report['tech']}
+                                </div>
+                                <div class="report-item" style="border-left-color: #f59e0b;">
+                                    <div style="color:#f59e0b; font-weight:bold; font-size:0.8rem;">PSYCHOLOGY</div>
+                                    {report['psych']}
+                                </div>
+                                <div class="report-item" style="border-left-color: #ef4444;">
+                                    <div style="color:#ef4444; font-weight:bold; font-size:0.8rem;">RISK</div>
+                                    {report['risk']}
+                                </div>
+                                <div class="report-item" style="border-left-color: #10b981;">
+                                    <div style="color:#10b981; font-weight:bold; font-size:0.8rem;">CORRECTIVE ACTION</div>
+                                    {report['fix']}
+                                </div>
+                            </div>
                         </div>
                         """, unsafe_allow_html=True)
-                except Exception as e: st.error(f"Error: {e}")
+                except Exception as e:
+                    st.error(f"Analysis Failed: {e}")
 
     # --- TAB 2: RULES ---
     with main_tab2:
-        st.subheader("📜 The Law")
-        rules_data = supabase.table("rules").select("*").eq("user_id", current_user).execute()
-        if rules_data.data:
-            for r in rules_data.data:
-                c1, c2 = st.columns([5, 1])
-                c1.markdown(f"<div class='rule-item'>⛔ {r['rule_text']}</div>", unsafe_allow_html=True)
-                if c2.button("Del", key=r['id']):
-                    supabase.table("rules").delete().eq("id", r['id']).execute()
-                    st.rerun()
-        else:
-            st.info("No rules yet.")
-
-    # --- TAB 3: EXECUTIVE DASHBOARD ---
-    with main_tab3:
-        # 1. FETCH DATA
-        hist = supabase.table("trades").select("*").eq("user_id", current_user).order("created_at", desc=True).execute()
+        st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">The Constitution</div>', unsafe_allow_html=True)
+        st.caption("These rules are auto-generated when your Quality Score drops below 50.")
         
-        if hist.data:
-            df = pd.DataFrame(hist.data)
-            df['created_at'] = pd.to_datetime(df['created_at'])
-            
-            # --- SECTION 1: TOP SUMMARY (EXECUTIVE OVERVIEW) ---
-            avg_score = df['score'].mean()
-            total_trades = len(df)
-            
-            # Discipline Score (Mock Calculation: % of scores > 50)
-            discipline_rate = (len(df[df['score'] > 50]) / total_trades) * 100
-            
-            # Most Frequent Mistake
-            all_tags = [tag for sublist in df['mistake_tags'] for tag in sublist]
-            top_mistake = pd.Series(all_tags).mode()[0] if all_tags else "None"
-
-            c1, c2, c3, c4 = st.columns(4)
-            c1.markdown(f"<div class='kpi-card'><div class='kpi-val'>{int(avg_score)}</div><div class='kpi-label'>Avg Quality</div></div>", unsafe_allow_html=True)
-            c2.markdown(f"<div class='kpi-card'><div class='kpi-val'>{total_trades}</div><div class='kpi-label'>Total Trades</div></div>", unsafe_allow_html=True)
-            c3.markdown(f"<div class='kpi-card' style='border-color:#ff4d4d'><div class='kpi-val' style='color:#ff4d4d; font-size:1.8rem'>{top_mistake}</div><div class='kpi-label'>Primary Leak</div></div>", unsafe_allow_html=True)
-            c4.markdown(f"<div class='kpi-card'><div class='kpi-val'>{int(discipline_rate)}%</div><div class='kpi-label'>Discipline Score</div></div>", unsafe_allow_html=True)
-
-            # --- SECTION 2: BEHAVIOR SNAPSHOT ---
-            st.markdown("<div class='section-header'>BEHAVIORAL DNA</div>", unsafe_allow_html=True)
-            
-            b1, b2 = st.columns(2)
-            
-            with b1:
-                st.caption("Mistake Frequency Distribution")
-                if all_tags:
-                    tag_counts = pd.Series(all_tags).value_counts().reset_index()
-                    tag_counts.columns = ['Mistake', 'Count']
-                    # Using standard Streamlit Bar Chart for clean look
-                    st.bar_chart(tag_counts.set_index('Mistake'), color="#ff4d4d")
-                else:
-                    st.info("No mistakes tagged yet.")
-
-            with b2:
-                st.caption("Trade Quality Distribution (0-100)")
-                st.bar_chart(df['score'], color="#3b82f6")
-
-            # --- SECTION 3: PATTERN INSIGHTS ---
-            st.markdown("<div class='section-header'>AI PATTERN RECOGNITION</div>", unsafe_allow_html=True)
-            insights = generate_insights(df)
-            for insight in insights:
-                st.info(insight)
-
-            # --- SECTION 4: PROGRESS OVER TIME ---
-            st.markdown("<div class='section-header'>LEARNING CURVE</div>", unsafe_allow_html=True)
-            st.caption("Average Trade Quality Score (Moving Average)")
-            chart_data = df[['created_at', 'score']].sort_values('created_at')
-            st.line_chart(chart_data.set_index('created_at'), color="#10b981")
-
-            # --- SECTION 5: RULES PANEL (READ ONLY VIEW) ---
-            st.markdown("<div class='section-header'>ACTIVE GUARDRAILS</div>", unsafe_allow_html=True)
-            user_rules = get_user_rules(current_user)
-            if user_rules:
-                r_cols = st.columns(3)
-                for i, rule in enumerate(user_rules):
-                    r_cols[i % 3].error(f"⛔ {rule}")
+        if supabase:
+            rules_data = supabase.table("rules").select("*").eq("user_id", current_user).execute()
+            if rules_data.data:
+                for r in rules_data.data:
+                    c1, c2 = st.columns([6, 1])
+                    c1.markdown(f"<div style='background:rgba(255,0,0,0.1); padding:15px; border-radius:8px; border:1px solid rgba(255,0,0,0.3);'>⛔ {r['rule_text']}</div>", unsafe_allow_html=True)
+                    if c2.button("ARCHIVE", key=r['id']):
+                        supabase.table("rules").delete().eq("id", r['id']).execute()
+                        st.rerun()
             else:
-                st.caption("No active rules found.")
+                st.info("No active restrictions. You are trading well.")
+        st.markdown('</div>', unsafe_allow_html=True)
 
-            # --- SECTION 6: RECENT TRADES TABLE ---
-            st.markdown("<div class='section-header'>FORENSIC LOGS</div>", unsafe_allow_html=True)
+    # --- TAB 3: DASHBOARD ---
+    with main_tab3:
+        if supabase:
+            hist = supabase.table("trades").select("*").eq("user_id", current_user).order("created_at", desc=True).execute()
             
-            # Clean Table Data
-            table_df = df[['created_at', 'ticker', 'score', 'mistake_tags', 'fix_action']].copy()
-            table_df.columns = ['Date', 'Ticker', 'Quality Score', 'Mistakes', 'Surgical Fix']
-            table_df['Date'] = table_df['Date'].dt.strftime('%Y-%m-%d %H:%M')
-            
-            st.dataframe(
-                table_df, 
-                use_container_width=True,
-                column_config={
-                    "Quality Score": st.column_config.ProgressColumn(
-                        "Quality Score",
-                        format="%d",
-                        min_value=0,
-                        max_value=100,
-                    ),
-                    "Mistakes": st.column_config.ListColumn("Mistakes")
-                },
-                hide_index=True
-            )
+            if hist.data:
+                df = pd.DataFrame(hist.data)
+                df['created_at'] = pd.to_datetime(df['created_at'])
+                
+                # METRICS CALC
+                avg_score = df['score'].mean()
+                total_trades = len(df)
+                all_tags = [tag for sublist in df['mistake_tags'] for tag in sublist]
+                top_mistake = pd.Series(all_tags).mode()[0] if all_tags else "None"
+                
+                # 1. KPI ROW (HTML INJECTION)
+                st.markdown(f"""
+                <div class="kpi-container">
+                    <div class="kpi-card">
+                        <div class="kpi-val">{int(avg_score)}</div>
+                        <div class="kpi-label">Avg Quality</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-val">{total_trades}</div>
+                        <div class="kpi-label">Total Audits</div>
+                    </div>
+                    <div class="kpi-card" style="border-color: rgba(255, 77, 77, 0.4);">
+                        <div class="kpi-val" style="color:#ff4d4d; font-size:1.8rem; margin-top:10px;">{top_mistake}</div>
+                        <div class="kpi-label">Primary Leak</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-val">{len(all_tags)}</div>
+                        <div class="kpi-label">Total Errors</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
 
-        else:
-            st.info("⚠️ Dashboard Empty. Upload your first trade autopsy to initialize analytics.")
+                # 2. SPLIT LAYOUT
+                col_left, col_right = st.columns([2, 1])
+                
+                with col_left:
+                    st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
+                    st.markdown('<div class="section-title">Performance Trend</div>', unsafe_allow_html=True)
+                    
+                    chart_data = df[['created_at', 'score']].sort_values('created_at')
+                    base = alt.Chart(chart_data).encode(x=alt.X('created_at', axis=None))
+                    line = base.mark_line(color='#00e676', strokeWidth=3).encode(y=alt.Y('score', scale=alt.Scale(domain=[0, 100])))
+                    area = base.mark_area(color='#00e676', opacity=0.1).encode(y='score')
+                    
+                    st.altair_chart((line + area).properties(height=250), use_container_width=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
+                    
+                    # LOGS
+                    st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
+                    st.markdown('<div class="section-title">Forensic Log</div>', unsafe_allow_html=True)
+                    table_df = df[['created_at', 'ticker', 'score', 'mistake_tags']].copy()
+                    table_df.columns = ['Time', 'Asset', 'Score', 'Tags']
+                    st.dataframe(
+                        table_df, 
+                        use_container_width=True, 
+                        hide_index=True,
+                        column_config={
+                            "Score": st.column_config.ProgressColumn("Quality", min_value=0, max_value=100, format="%d"),
+                            "Time": st.column_config.DatetimeColumn("Time", format="MM-DD HH:mm")
+                        }
+                    )
+                    st.markdown('</div>', unsafe_allow_html=True)
+
+                with col_right:
+                    st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
+                    st.markdown('<div class="section-title">AI Insights</div>', unsafe_allow_html=True)
+                    insights = generate_insights(df)
+                    for insight in insights:
+                        st.markdown(f"<div style='font-size:0.9rem; margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid #333;'>{insight}</div>", unsafe_allow_html=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
+                    
+                    st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
+                    st.markdown('<div class="section-title">Mistake Distribution</div>', unsafe_allow_html=True)
+                    if all_tags:
+                        tag_counts = pd.Series(all_tags).value_counts().reset_index()
+                        tag_counts.columns = ['Mistake', 'Count']
+                        c = alt.Chart(tag_counts).mark_arc(innerRadius=40).encode(
+                            theta=alt.Theta("Count", stack=True), 
+                            color=alt.Color("Mistake", scale=alt.Scale(scheme='reds'))
+                        )
+                        st.altair_chart(c, use_container_width=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
+            else:
+                st.info("No data available. Perform your first audit.")
