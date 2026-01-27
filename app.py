@@ -321,32 +321,33 @@ st.markdown("""
     .header-nav {
         display: flex;
         align-items: center;
-        gap: 2px;
-        background: rgba(15, 15, 15, 0.3);
+        justify-content: center;
+        gap: 0;
+        background: rgba(15, 15, 15, 0.4);
         backdrop-filter: blur(10px);
         border: 1px solid rgba(255, 255, 255, 0.05);
         border-radius: 12px;
-        padding: 4px;
+        padding: 6px;
     }
     
-    /* --- NAVIGATION BUTTONS - AESTHETIC TRANSPARENT --- */
+    /* --- NAVIGATION BUTTONS - CLEAN GLASS MORPHISM --- */
     button[key="nav_btn_analyze"],
     button[key="nav_btn_vault"],
     button[key="nav_btn_pricing"] {
         background: transparent !important;
         border: none !important;
-        color: rgba(255, 255, 255, 0.7) !important;
-        font-size: 0.8rem !important;
+        color: rgba(255, 255, 255, 0.6) !important;
+        font-size: 0.75rem !important;
         font-weight: 600 !important;
         text-transform: uppercase !important;
-        letter-spacing: 0.5px !important;
-        padding: 10px 20px !important;
+        letter-spacing: 1px !important;
+        padding: 12px 32px !important;
         border-radius: 8px !important;
-        transition: all 0.3s ease !important;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
         position: relative !important;
         box-shadow: none !important;
-        margin: 0 !important;
-        min-height: 40px !important;
+        margin: 0 4px !important;
+        min-height: 44px !important;
     }
     
     button[key="nav_btn_analyze"]:hover,
@@ -358,30 +359,37 @@ st.markdown("""
         box-shadow: none !important;
     }
     
-    /* Active state styling */
-    button.nav-active {
-        color: rgba(255, 255, 255, 0.95) !important;
-        background: rgba(255, 255, 255, 0.02) !important;
-    }
-    
-    button.nav-active::after {
+    /* Active state with subtle red underline glow */
+    button[key="nav_btn_analyze"]::after,
+    button[key="nav_btn_vault"]::after,
+    button[key="nav_btn_pricing"]::after {
         content: '';
         position: absolute;
-        bottom: 0;
-        left: 20%;
-        right: 20%;
+        bottom: 6px;
+        left: 25%;
+        right: 25%;
         height: 2px;
-        background: linear-gradient(90deg, 
-            rgba(220, 38, 38, 0) 0%, 
-            rgba(220, 38, 38, 0.8) 50%, 
-            rgba(220, 38, 38, 0) 100%);
+        background: transparent;
         border-radius: 2px;
-        animation: pulse-glow 2s ease-in-out infinite;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     }
     
-    @keyframes pulse-glow {
-        0%, 100% { opacity: 0.7; }
-        50% { opacity: 1; }
+    button[key="nav_btn_analyze"]:hover::after,
+    button[key="nav_btn_vault"]:hover::after,
+    button[key="nav_btn_pricing"]:hover::after {
+        background: linear-gradient(90deg, 
+            rgba(220, 38, 38, 0) 0%, 
+            rgba(220, 38, 38, 0.4) 50%, 
+            rgba(220, 38, 38, 0) 100%);
+    }
+    
+    /* Remove all red backgrounds from buttons */
+    div[data-testid="column"] button[key^="nav_btn"] {
+        background: transparent !important;
+    }
+    
+    div[data-testid="column"] button[key^="nav_btn"]:hover {
+        background: rgba(255, 255, 255, 0.03) !important;
     }
 
     /* --- INPUTS --- */
@@ -521,6 +529,25 @@ st.markdown("""
         color: #fca5a5;
         font-weight: 600;
     }
+    
+    /* --- HIDE UNNECESSARY BOXES --- */
+    [data-testid="stVerticalBlock"] > [data-testid="stVerticalBlock"] {
+        background: transparent !important;
+        border: none !important;
+        padding: 0 !important;
+    }
+    
+    /* Clean up radio button container */
+    .stRadio > div {
+        background: transparent !important;
+        border: none !important;
+    }
+    
+    /* Clean up form containers */
+    [data-testid="stForm"] {
+        background: transparent !important;
+        border: none !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -611,7 +638,7 @@ else:
     current_user = st.session_state["user"]
     current_page = st.session_state.get("current_page", "analyze")
     
-    # --- AESTHETIC HEADER WITH TRANSPARENT BUTTONS ---
+    # --- CLEAN HEADER WITH GLASS MORPHISM NAV ---
     header_col1, header_col2, header_col3 = st.columns([2, 6, 2])
     
     with header_col1:
@@ -625,42 +652,57 @@ else:
         """, unsafe_allow_html=True)
     
     with header_col2:
-        # Navigation container
+        # Navigation with glass morphism container
         st.markdown('<div class="header-nav">', unsafe_allow_html=True)
         
-        # Create columns for navigation buttons
         nav_col1, nav_col2, nav_col3 = st.columns(3)
         
-        # Define active state CSS for each button
-        active_css = """
-        <style>
-            button[key="nav_btn_analyze"] {
-                color: rgba(255, 255, 255, 0.95) !important;
-                background: rgba(255, 255, 255, 0.02) !important;
-            }
-            button[key="nav_btn_analyze"]::after {
-                content: '';
-                position: absolute;
-                bottom: 0;
-                left: 20%;
-                right: 20%;
-                height: 2px;
-                background: linear-gradient(90deg, 
-                    rgba(220, 38, 38, 0) 0%, 
-                    rgba(220, 38, 38, 0.8) 50%, 
-                    rgba(220, 38, 38, 0) 100%);
-                border-radius: 2px;
-                animation: pulse-glow 2s ease-in-out infinite;
-            }
-        </style>
-        """
-        
+        # Add active state indicator with CSS injection
         if current_page == "analyze":
-            st.markdown(active_css.replace("nav_btn_analyze", "nav_btn_analyze"), unsafe_allow_html=True)
+            st.markdown("""
+            <style>
+                button[key="nav_btn_analyze"] {
+                    color: rgba(255, 255, 255, 0.95) !important;
+                }
+                button[key="nav_btn_analyze"]::after {
+                    background: linear-gradient(90deg, 
+                        rgba(220, 38, 38, 0) 0%, 
+                        rgba(220, 38, 38, 0.8) 50%, 
+                        rgba(220, 38, 38, 0) 100%) !important;
+                    box-shadow: 0 0 12px rgba(220, 38, 38, 0.4);
+                }
+            </style>
+            """, unsafe_allow_html=True)
         elif current_page == "data_vault":
-            st.markdown(active_css.replace("nav_btn_analyze", "nav_btn_vault"), unsafe_allow_html=True)
+            st.markdown("""
+            <style>
+                button[key="nav_btn_vault"] {
+                    color: rgba(255, 255, 255, 0.95) !important;
+                }
+                button[key="nav_btn_vault"]::after {
+                    background: linear-gradient(90deg, 
+                        rgba(220, 38, 38, 0) 0%, 
+                        rgba(220, 38, 38, 0.8) 50%, 
+                        rgba(220, 38, 38, 0) 100%) !important;
+                    box-shadow: 0 0 12px rgba(220, 38, 38, 0.4);
+                }
+            </style>
+            """, unsafe_allow_html=True)
         elif current_page == "pricing":
-            st.markdown(active_css.replace("nav_btn_analyze", "nav_btn_pricing"), unsafe_allow_html=True)
+            st.markdown("""
+            <style>
+                button[key="nav_btn_pricing"] {
+                    color: rgba(255, 255, 255, 0.95) !important;
+                }
+                button[key="nav_btn_pricing"]::after {
+                    background: linear-gradient(90deg, 
+                        rgba(220, 38, 38, 0) 0%, 
+                        rgba(220, 38, 38, 0.8) 50%, 
+                        rgba(220, 38, 38, 0) 100%) !important;
+                    box-shadow: 0 0 12px rgba(220, 38, 38, 0.4);
+                }
+            </style>
+            """, unsafe_allow_html=True)
         
         with nav_col1:
             if st.button("📊 ANALYZE", key="nav_btn_analyze", help="Go to Analyze"):
