@@ -318,6 +318,78 @@ st.markdown("""
         box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1) !important;
     }
 
+    /* --- FILE UPLOADER STYLING --- */
+    [data-testid="stFileUploader"] {
+        background: transparent !important;
+    }
+    
+    [data-testid="stFileUploader"] > div {
+        background: transparent !important;
+        border: none !important;
+    }
+    
+    [data-testid="stFileUploader"] section {
+        background: rgba(15, 15, 15, 0.6) !important;
+        backdrop-filter: blur(10px);
+        border: 2px dashed rgba(220, 38, 38, 0.3) !important;
+        border-radius: 20px !important;
+        padding: 60px 40px !important;
+        transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1) !important;
+    }
+    
+    [data-testid="stFileUploader"] section:hover {
+        border-color: rgba(220, 38, 38, 0.6) !important;
+        background: rgba(20, 20, 20, 0.7) !important;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 32px rgba(220, 38, 38, 0.15);
+    }
+    
+    [data-testid="stFileUploader"] section button {
+        background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%) !important;
+        border: none !important;
+        border-radius: 12px !important;
+        color: white !important;
+        font-weight: 600 !important;
+        padding: 14px 32px !important;
+        font-size: 0.95rem !important;
+        transition: all 0.3s ease !important;
+        box-shadow: 0 4px 16px rgba(220, 38, 38, 0.25) !important;
+        margin-top: 20px !important;
+    }
+    
+    [data-testid="stFileUploader"] section button:hover {
+        background: linear-gradient(135deg, #b91c1c 0%, #7f1d1d 100%) !important;
+        box-shadow: 0 6px 24px rgba(220, 38, 38, 0.4) !important;
+        transform: translateY(-2px);
+    }
+    
+    .upload-icon {
+        font-size: 3.5rem;
+        margin-bottom: 24px;
+        display: block;
+        opacity: 0.8;
+        animation: float 3s ease-in-out infinite;
+    }
+    
+    @keyframes float {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-10px); }
+    }
+    
+    .upload-text {
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: #f8fafc;
+        margin-bottom: 12px;
+        letter-spacing: -0.01em;
+    }
+    
+    .upload-subtext {
+        font-size: 0.9rem;
+        color: #9ca3af;
+        line-height: 1.6;
+    }
+
     /* --- DATAFRAME STYLING --- */
     .stDataFrame {
         background: rgba(15, 15, 15, 0.6);
@@ -500,10 +572,26 @@ else:
         ready_to_run = False
 
         if c_mode == "Chart Vision":
-            uploaded_file = st.file_uploader("Upload Chart Screenshot", type=["png", "jpg"], label_visibility="collapsed")
+            st.markdown("""
+            <div style="text-align: center; margin-bottom: 20px;">
+                <div class="upload-icon">📊</div>
+                <div class="upload-text">Drop your P&L or Chart screenshot here</div>
+                <div class="upload-subtext">Supports PNG, JPG (Max 10MB). Your data is encrypted and deleted after analysis.</div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            uploaded_file = st.file_uploader(
+                "Upload Chart Screenshot", 
+                type=["png", "jpg"], 
+                label_visibility="collapsed",
+                key="chart_upload"
+            )
+            
             if uploaded_file:
+                st.markdown('<div style="margin-top: 24px;">', unsafe_allow_html=True)
                 st.image(uploaded_file, use_column_width=True)
-                st.markdown('<div style="height: 16px;"></div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+                st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
                 if st.button("RUN OPTICAL ANALYSIS", type="primary", use_container_width=True):
                     image = Image.open(uploaded_file)
                     buf = io.BytesIO()
