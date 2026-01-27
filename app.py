@@ -403,6 +403,42 @@ st.markdown("""
         transform: translateY(0);
     }
     
+    /* User Dropdown Menu */
+    .user-dropdown {
+        display: none;
+        position: absolute;
+        top: calc(100% + 8px);
+        right: 0;
+        background: #1a1d24;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        z-index: 1001;
+        min-width: 220px;
+    }
+    
+    .user-dropdown-header {
+        padding: 16px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .disconnect-btn {
+        width: calc(100% - 16px);
+        background: #dc2626;
+        color: white;
+        border: none;
+        padding: 10px;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        margin: 8px;
+        transition: background 0.3s ease;
+    }
+    
+    .disconnect-btn:hover {
+        background: #b91c1c;
+    }
+    
     /* --- HEADER NAVIGATION --- */
     .header-nav {
         display: flex;
@@ -724,7 +760,34 @@ else:
     current_user = st.session_state["user"]
     current_page = st.session_state.get("current_page", "analyze")
     
-    # --- EXACT HEADER FROM SCREENSHOT ---
+    # --- CLEAN HEADER WITHOUT ARTIFACTS ---
+    
+    # First, hide ALL streamlit buttons that might appear
+    st.markdown("""
+    <style>
+        /* Aggressively hide all button rows */
+        .stButton, button, .row-widget {
+            display: none !important;
+            visibility: hidden !important;
+            height: 0 !important;
+            width: 0 !important;
+            position: absolute !important;
+            left: -9999px !important;
+        }
+        
+        /* Show only our custom header button */
+        .get-started-btn {
+            display: block !important;
+            visibility: visible !important;
+            position: relative !important;
+            left: auto !important;
+            width: auto !important;
+            height: auto !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # Render the clean header
     st.markdown(f"""
     <div class="header-bar">
         <div class="header-content">
@@ -735,122 +798,59 @@ else:
             
             <!-- Navigation -->
             <div class="header-nav-items">
-                <div class="nav-item {'nav-item-active' if current_page == 'analyze' else ''}" onclick="document.getElementById('hidden_nav_analyze').click();">
+                <div class="nav-item {'nav-item-active' if current_page == 'analyze' else ''}" onclick="window.location.href='?page=analyze'">
                     ANALYZE {'<span class="dropdown-arrow">▼</span>' if current_page == 'analyze' else ''}
                 </div>
-                <div class="nav-item {'nav-item-active' if current_page == 'data_vault' else ''}" onclick="document.getElementById('hidden_nav_vault').click();">
+                <div class="nav-item {'nav-item-active' if current_page == 'data_vault' else ''}" onclick="window.location.href='?page=data_vault'">
                     DATA VAULT
                 </div>
-                <div class="nav-item {'nav-item-active' if current_page == 'pricing' else ''}" onclick="document.getElementById('hidden_nav_pricing').click();">
+                <div class="nav-item {'nav-item-active' if current_page == 'pricing' else ''}" onclick="window.location.href='?page=pricing'">
                     PRICING
                 </div>
             </div>
             
-            <!-- Get Started Button -->
-            <button class="get-started-btn" onclick="toggleUserMenu()">
-                Get Started
-            </button>
-        </div>
-    </div>
-    
-    <div id="user-dropdown" class="user-dropdown" style="display: none;">
-        <div class="user-dropdown-content">
-            <div style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1);">
-                <strong>Operator:</strong> {current_user}<br>
-                <small style="color: #9ca3af;">Access Level: PRO</small>
+            <!-- Get Started Button with Dropdown -->
+            <div style="position: relative;">
+                <button class="get-started-btn" onclick="toggleUserMenu(event)">
+                    Get Started
+                </button>
+                <div id="user-dropdown" class="user-dropdown">
+                    <div class="user-dropdown-header">
+                        <strong>Operator:</strong> {current_user}<br>
+                        <small style="color: #9ca3af;">Access Level: PRO</small>
+                    </div>
+                    <button class="disconnect-btn" onclick="window.location.href='?logout=true'">
+                        🔴 DISCONNECT
+                    </button>
+                </div>
             </div>
-            <button class="disconnect-btn" onclick="document.getElementById('hidden_logout').click();">
-                🔴 DISCONNECT
-            </button>
         </div>
     </div>
     
     <script>
-    function toggleUserMenu() {{
+    function toggleUserMenu(event) {{
+        event.stopPropagation();
         const menu = document.getElementById('user-dropdown');
-        menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+        menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
     }}
     
-    // Close dropdown when clicking outside
     document.addEventListener('click', function(event) {{
         const menu = document.getElementById('user-dropdown');
         const btn = document.querySelector('.get-started-btn');
-        if (!menu.contains(event.target) && !btn.contains(event.target)) {{
+        if (!menu.contains(event.target) && event.target !== btn) {{
             menu.style.display = 'none';
         }}
     }});
     </script>
-    
-    <style>
-    .user-dropdown {{
-        position: fixed;
-        top: 72px;
-        right: 48px;
-        background: #1a1d24;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 12px;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-        z-index: 1001;
-        min-width: 200px;
-    }}
-    
-    .user-dropdown-content {{
-        padding: 8px;
-    }}
-    
-    .disconnect-btn {{
-        width: 100%;
-        background: #dc2626;
-        color: white;
-        border: none;
-        padding: 10px;
-        border-radius: 8px;
-        font-weight: 600;
-        cursor: pointer;
-        margin-top: 8px;
-        transition: background 0.3s ease;
-    }}
-    
-    .disconnect-btn:hover {{
-        background: #b91c1c;
-    }}
-    </style>
     """, unsafe_allow_html=True)
     
-    # Completely hidden navigation buttons using columns with visibility hidden
-    st.markdown("""
-    <style>
-        /* Hide the navigation button container */
-        .nav-button-container {
-            position: absolute;
-            left: -9999px;
-            width: 1px;
-            height: 1px;
-            overflow: hidden;
-        }
-    </style>
-    <div class="nav-button-container">
-    """, unsafe_allow_html=True)
-    
-    # Create hidden buttons in a single row
-    cols = st.columns(4)
-    with cols[0]:
-        if st.button("", key="hidden_nav_analyze"):
-            st.session_state["current_page"] = "analyze"
-            st.rerun()
-    with cols[1]:
-        if st.button("", key="hidden_nav_vault"):
-            st.session_state["current_page"] = "data_vault"
-            st.rerun()
-    with cols[2]:
-        if st.button("", key="hidden_nav_pricing"):
-            st.session_state["current_page"] = "pricing"
-            st.rerun()
-    with cols[3]:
-        if st.button("", key="hidden_logout"):
+    # Handle logout via query parameter
+    try:
+        params = st.query_params
+        if "logout" in params and params["logout"] == "true":
             logout()
-    
-    st.markdown("</div>", unsafe_allow_html=True)
+    except:
+        pass
     
     st.markdown("""
     <div style="height: 1px; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent); margin: 20px 0 32px 0;"></div>
