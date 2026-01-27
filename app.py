@@ -203,6 +203,30 @@ st.markdown("""
         width: 100%;
     }
     
+    /* --- RADIO BUTTONS - REMOVE RED, USE GREEN/BLUE --- */
+    .stRadio > div[role="radiogroup"] > label > div[data-testid="stMarkdownContainer"] {
+        color: #9ca3af !important;
+    }
+    
+    .stRadio > div[role="radiogroup"] > label[data-baseweb="radio"] > div:first-child {
+        background-color: transparent !important;
+        border-color: rgba(255, 255, 255, 0.2) !important;
+    }
+    
+    .stRadio > div[role="radiogroup"] > label[data-baseweb="radio"][data-selected="true"] > div:first-child {
+        background-color: #10b981 !important;
+        border-color: #10b981 !important;
+    }
+    
+    .stRadio > div[role="radiogroup"] > label[data-baseweb="radio"][data-selected="true"] > div:first-child::after {
+        background-color: white !important;
+    }
+    
+    /* Override any red radio button styling */
+    input[type="radio"]:checked {
+        accent-color: #10b981 !important;
+    }
+    
     /* --- PREMIUM GLASS PANELS --- */
     .glass-panel {
         background: rgba(15, 15, 20, 0.75);
@@ -438,6 +462,11 @@ st.markdown("""
         box-shadow: 0 0 24px rgba(16, 185, 129, 0.3);
     }
     
+    /* Remove any red tab underlines */
+    .stTabs [data-baseweb="tab-highlight"] {
+        background-color: #10b981 !important;
+    }
+    
     .stTabs [data-baseweb="tab-panel"] {
         padding-top: 0 !important;
     }
@@ -454,6 +483,44 @@ st.markdown("""
     
     .stRadio > label {
         display: none !important;
+    }
+    
+    /* Radio button selected state - GREEN instead of RED */
+    .stRadio div[role="radiogroup"] label div[data-testid="stMarkdownContainer"] {
+        color: #9ca3af !important;
+        transition: color 0.3s ease !important;
+    }
+    
+    .stRadio div[role="radiogroup"] label[data-baseweb="radio"] div:first-child {
+        border: 2px solid rgba(255, 255, 255, 0.2) !important;
+        background: transparent !important;
+    }
+    
+    .stRadio div[role="radiogroup"] label[data-baseweb="radio"]:hover div:first-child {
+        border-color: rgba(16, 185, 129, 0.5) !important;
+    }
+    
+    /* Selected radio button - GREEN theme */
+    .stRadio div[role="radiogroup"] label div:first-child[data-checked="true"],
+    .stRadio div[role="radiogroup"] label[aria-checked="true"] div:first-child {
+        background: #10b981 !important;
+        border-color: #10b981 !important;
+    }
+    
+    .stRadio div[role="radiogroup"] label div:first-child[data-checked="true"]::after,
+    .stRadio div[role="radiogroup"] label[aria-checked="true"] div:first-child::after {
+        background: white !important;
+    }
+    
+    /* Selected text color */
+    .stRadio div[role="radiogroup"] label[aria-checked="true"] div[data-testid="stMarkdownContainer"] {
+        color: #10b981 !important;
+        font-weight: 600 !important;
+    }
+    
+    /* Override Streamlit's default red accent */
+    [data-baseweb="radio"] input[type="radio"]:checked {
+        accent-color: #10b981 !important;
     }
 
     /* --- PREMIUM BUTTONS --- */
@@ -717,6 +784,55 @@ st.markdown("""
     ::-webkit-scrollbar-thumb:hover {
         background: rgba(16, 185, 129, 0.5);
     }
+    
+    /* === GLOBAL RED COLOR REMOVAL === */
+    /* Override all Streamlit red colors with green */
+    button[kind="primary"], 
+    button[type="submit"],
+    .stButton > button[kind="primary"],
+    [data-testid="stFormSubmitButton"] > button {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+        border-color: rgba(16, 185, 129, 0.4) !important;
+    }
+    
+    button[kind="primary"]:hover, 
+    button[type="submit"]:hover,
+    .stButton > button[kind="primary"]:hover,
+    [data-testid="stFormSubmitButton"] > button:hover {
+        background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+    }
+    
+    /* Remove red from error messages and warnings */
+    .stAlert, .element-container .stException {
+        border-left-color: #f59e0b !important;
+    }
+    
+    /* Radio and checkbox accent colors */
+    input[type="radio"]:checked,
+    input[type="checkbox"]:checked {
+        accent-color: #10b981 !important;
+        background-color: #10b981 !important;
+        border-color: #10b981 !important;
+    }
+    
+    /* Slider and progress bars */
+    .stSlider [role="slider"],
+    .stProgress > div > div {
+        background-color: #10b981 !important;
+    }
+    
+    /* Any element with red background */
+    *[style*="background: red"],
+    *[style*="background-color: red"],
+    *[style*="background: #ef4444"],
+    *[style*="background-color: #ef4444"],
+    *[style*="background: #dc2626"],
+    *[style*="background-color: #dc2626"],
+    *[style*="background: rgb(239, 68, 68)"],
+    *[style*="background-color: rgb(239, 68, 68)"] {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+        background-color: #10b981 !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -813,45 +929,21 @@ else:
     current_page = st.session_state.get("current_page", "analyze")
     
     # --- PREMIUM NAVIGATION BAR ---
-    # Navigation menu with clickable text links
-    col_brand, col_nav1, col_nav2, col_nav3, col_spacer, col_user = st.columns([3, 1, 1.2, 1, 2, 1.5])
-    
-    with col_brand:
-        st.markdown("""
-        <div style="display: flex; align-items: center; gap: 12px; padding-top: 8px;">
-            <div style="font-size: 1.8rem; filter: drop-shadow(0 0 16px rgba(16, 185, 129, 0.4));">🩸</div>
-            <div style="font-size: 1.4rem; font-weight: 700; background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; letter-spacing: -0.02em;">
-                Trade Autopsy
+    st.markdown(f"""
+    <div class="premium-navbar">
+        <div class="nav-brand">
+            <div class="nav-logo">🩸</div>
+            <div>
+                <div class="nav-title">Trade Autopsy</div>
             </div>
         </div>
-        """, unsafe_allow_html=True)
-    
-    with col_nav1:
-        if st.button("**Analyze**" if current_page == "analyze" else "Analyze", 
-                     key="nav_analyze", use_container_width=True,
-                     type="secondary"):
-            st.session_state["current_page"] = "analyze"
-            st.rerun()
-    
-    with col_nav2:
-        if st.button("**Data Vault**" if current_page == "data_vault" else "Data Vault",
-                     key="nav_vault", use_container_width=True,
-                     type="secondary"):
-            st.session_state["current_page"] = "data_vault"
-            st.rerun()
-    
-    with col_nav3:
-        if st.button("**Pricing**" if current_page == "pricing" else "Pricing",
-                     key="nav_pricing", use_container_width=True,
-                     type="secondary"):
-            st.session_state["current_page"] = "pricing"
-            st.rerun()
-    
-    with col_user:
-        st.markdown(f"""
-        <div style="padding-top: 12px; text-align: right;">
+        <div class="nav-menu">
+            <span class="nav-link {'active' if current_page == 'analyze' else ''}" id="nav_analyze">Analyze</span>
+            <span class="nav-link {'active' if current_page == 'data_vault' else ''}" id="nav_vault">Data Vault</span>
+            <span class="nav-link {'active' if current_page == 'pricing' else ''}" id="nav_pricing">Pricing</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px;">
             <div style="
-                display: inline-block;
                 background: rgba(16, 185, 129, 0.15);
                 padding: 8px 16px;
                 border-radius: 10px;
@@ -863,9 +955,20 @@ else:
                 {current_user}
             </div>
         </div>
-        """, unsafe_allow_html=True)
+    </div>
     
-    st.markdown('<div style="height: 24px;"></div>', unsafe_allow_html=True)
+    <script>
+    document.getElementById('nav_analyze').onclick = function() {{
+        window.location.href = '?page=analyze';
+    }};
+    document.getElementById('nav_vault').onclick = function() {{
+        window.location.href = '?page=data_vault';
+    }};
+    document.getElementById('nav_pricing').onclick = function() {{
+        window.location.href = '?page=pricing';
+    }};
+    </script>
+    """, unsafe_allow_html=True)
     
     # --- PAGE ROUTING ---
     if st.session_state["current_page"] == "data_vault":
