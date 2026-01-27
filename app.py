@@ -317,6 +317,92 @@ st.markdown("""
         transform: translateY(-2px);
     }
     
+    /* --- HEADER STYLES --- */
+    .header-bar {
+        background: #1a1d24;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+        margin: -2rem -3rem 2rem -3rem;
+        padding: 0 48px;
+    }
+    
+    .header-content {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 72px;
+        max-width: 1600px;
+        margin: 0 auto;
+    }
+    
+    .header-logo {
+        font-family: 'Inter', sans-serif;
+        font-size: 1.25rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        flex-shrink: 0;
+    }
+    
+    .header-nav-items {
+        display: flex;
+        align-items: center;
+        gap: 48px;
+        flex: 1;
+        justify-content: center;
+    }
+    
+    .nav-item {
+        color: #9ca3af;
+        font-size: 0.875rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        transition: color 0.3s ease;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    
+    .nav-item:hover {
+        color: #ffffff;
+    }
+    
+    .nav-item-active {
+        color: #ffffff !important;
+    }
+    
+    .dropdown-arrow {
+        font-size: 0.65rem;
+        opacity: 0.7;
+    }
+    
+    .get-started-btn {
+        background: #dc2626;
+        color: #ffffff;
+        border: none;
+        border-radius: 50px;
+        padding: 12px 32px;
+        font-size: 0.95rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+        flex-shrink: 0;
+    }
+    
+    .get-started-btn:hover {
+        background: #b91c1c;
+        box-shadow: 0 6px 16px rgba(220, 38, 38, 0.4);
+        transform: translateY(-1px);
+    }
+    
+    .get-started-btn:active {
+        transform: translateY(0);
+    }
+    
     /* --- HEADER NAVIGATION --- */
     .header-nav {
         display: flex;
@@ -649,153 +735,122 @@ else:
             
             <!-- Navigation -->
             <div class="header-nav-items">
-                <a href="#" class="nav-item {'nav-item-active' if current_page == 'analyze' else ''}" onclick="document.getElementById('btn_analyze').click(); return false;">
+                <div class="nav-item {'nav-item-active' if current_page == 'analyze' else ''}" onclick="document.getElementById('hidden_nav_analyze').click();">
                     ANALYZE {'<span class="dropdown-arrow">▼</span>' if current_page == 'analyze' else ''}
-                </a>
-                <a href="#" class="nav-item {'nav-item-active' if current_page == 'data_vault' else ''}" onclick="document.getElementById('btn_vault').click(); return false;">
+                </div>
+                <div class="nav-item {'nav-item-active' if current_page == 'data_vault' else ''}" onclick="document.getElementById('hidden_nav_vault').click();">
                     DATA VAULT
-                </a>
-                <a href="#" class="nav-item {'nav-item-active' if current_page == 'pricing' else ''}" onclick="document.getElementById('btn_pricing').click(); return false;">
+                </div>
+                <div class="nav-item {'nav-item-active' if current_page == 'pricing' else ''}" onclick="document.getElementById('hidden_nav_pricing').click();">
                     PRICING
-                </a>
+                </div>
             </div>
             
             <!-- Get Started Button -->
-            <button class="get-started-btn" onclick="document.getElementById('btn_user').click();">
+            <button class="get-started-btn" onclick="toggleUserMenu()">
                 Get Started
             </button>
         </div>
     </div>
     
+    <div id="user-dropdown" class="user-dropdown" style="display: none;">
+        <div class="user-dropdown-content">
+            <div style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                <strong>Operator:</strong> {current_user}<br>
+                <small style="color: #9ca3af;">Access Level: PRO</small>
+            </div>
+            <button class="disconnect-btn" onclick="document.getElementById('hidden_logout').click();">
+                🔴 DISCONNECT
+            </button>
+        </div>
+    </div>
+    
+    <script>
+    function toggleUserMenu() {{
+        const menu = document.getElementById('user-dropdown');
+        menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+    }}
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(event) {{
+        const menu = document.getElementById('user-dropdown');
+        const btn = document.querySelector('.get-started-btn');
+        if (!menu.contains(event.target) && !btn.contains(event.target)) {{
+            menu.style.display = 'none';
+        }}
+    }});
+    </script>
+    
     <style>
-        .header-bar {{
-            background: #1a1d24;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-            margin: -2rem -3rem 2rem -3rem;
-            padding: 0 48px;
-        }}
-        
-        .header-content {{
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            height: 72px;
-            max-width: 1600px;
-            margin: 0 auto;
-        }}
-        
-        .header-logo {{
-            font-family: 'Inter', sans-serif;
-            font-size: 1.25rem;
-            font-weight: 800;
-            letter-spacing: -0.02em;
-            flex-shrink: 0;
-        }}
-        
-        .header-nav-items {{
-            display: flex;
-            align-items: center;
-            gap: 48px;
-            flex: 1;
-            justify-content: center;
-        }}
-        
-        .nav-item {{
-            color: #9ca3af;
-            font-size: 0.875rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            text-decoration: none;
-            transition: color 0.3s ease;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }}
-        
-        .nav-item:hover {{
-            color: #ffffff;
-        }}
-        
-        .nav-item-active {{
-            color: #ffffff !important;
-        }}
-        
-        .dropdown-arrow {{
-            font-size: 0.65rem;
-            opacity: 0.7;
-        }}
-        
-        .get-started-btn {{
-            background: #dc2626;
-            color: #ffffff;
-            border: none;
-            border-radius: 50px;
-            padding: 12px 32px;
-            font-size: 0.95rem;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
-            flex-shrink: 0;
-        }}
-        
-        .get-started-btn:hover {{
-            background: #b91c1c;
-            box-shadow: 0 6px 16px rgba(220, 38, 38, 0.4);
-            transform: translateY(-1px);
-        }}
-        
-        .get-started-btn:active {{
-            transform: translateY(0);
-        }}
+    .user-dropdown {{
+        position: fixed;
+        top: 72px;
+        right: 48px;
+        background: #1a1d24;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        z-index: 1001;
+        min-width: 200px;
+    }}
+    
+    .user-dropdown-content {{
+        padding: 8px;
+    }}
+    
+    .disconnect-btn {{
+        width: 100%;
+        background: #dc2626;
+        color: white;
+        border: none;
+        padding: 10px;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        margin-top: 8px;
+        transition: background 0.3s ease;
+    }}
+    
+    .disconnect-btn:hover {{
+        background: #b91c1c;
+    }}
     </style>
     """, unsafe_allow_html=True)
     
-    # Hidden navigation buttons
-    nav_cols = st.columns([1, 1, 1, 1])
-    with nav_cols[0]:
-        if st.button("analyze", key="btn_analyze"):
-            st.session_state["current_page"] = "analyze"
-            st.rerun()
-    with nav_cols[1]:
-        if st.button("vault", key="btn_vault"):
-            st.session_state["current_page"] = "data_vault"
-            st.rerun()
-    with nav_cols[2]:
-        if st.button("pricing", key="btn_pricing"):
-            st.session_state["current_page"] = "pricing"
-            st.rerun()
-    with nav_cols[3]:
-        if st.button("user", key="btn_user"):
-            pass  # User menu trigger
-    
-    # Hide navigation buttons
+    # Completely hidden navigation buttons using columns with visibility hidden
     st.markdown("""
     <style>
-        button[key="btn_analyze"],
-        button[key="btn_vault"],
-        button[key="btn_pricing"],
-        button[key="btn_user"] {
-            display: none !important;
-        }
-        div[data-testid="column"]:has(button[key^="btn_"]) {
-            display: none !important;
+        /* Hide the navigation button container */
+        .nav-button-container {
+            position: absolute;
+            left: -9999px;
+            width: 1px;
+            height: 1px;
+            overflow: hidden;
         }
     </style>
+    <div class="nav-button-container">
     """, unsafe_allow_html=True)
     
-    # User menu popover (separate from header)
-    with st.popover(f"👤 {current_user}", use_container_width=False):
-        st.markdown(f"**Operator:** {current_user}")
-        st.caption("Access Level: PRO")
-        st.markdown("---")
-        if st.button("🔴 DISCONNECT", type="primary", use_container_width=True):
+    # Create hidden buttons in a single row
+    cols = st.columns(4)
+    with cols[0]:
+        if st.button("", key="hidden_nav_analyze"):
+            st.session_state["current_page"] = "analyze"
+            st.rerun()
+    with cols[1]:
+        if st.button("", key="hidden_nav_vault"):
+            st.session_state["current_page"] = "data_vault"
+            st.rerun()
+    with cols[2]:
+        if st.button("", key="hidden_nav_pricing"):
+            st.session_state["current_page"] = "pricing"
+            st.rerun()
+    with cols[3]:
+        if st.button("", key="hidden_logout"):
             logout()
+    
+    st.markdown("</div>", unsafe_allow_html=True)
     
     st.markdown("""
     <div style="height: 1px; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent); margin: 20px 0 32px 0;"></div>
