@@ -638,96 +638,164 @@ else:
     current_user = st.session_state["user"]
     current_page = st.session_state.get("current_page", "analyze")
     
-    # --- CLEAN HEADER WITH GLASS MORPHISM NAV ---
-    header_col1, header_col2, header_col3 = st.columns([2, 6, 2])
-    
-    with header_col1:
-        st.markdown("""
-        <div style="display: flex; align-items: center; gap: 12px; padding: 8px 0;">
-            <span style="font-size: 1.8rem; filter: drop-shadow(0 0 12px rgba(220, 38, 38, 0.4));">🩸</span>
-            <div>
-                <span style="font-weight: 800; font-size: 1.3rem; color: #f8fafc; letter-spacing: -0.02em;">STOCK</span><span style="font-weight: 800; font-size: 1.3rem; background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">POSTMORTEM</span><span style="font-size: 1.1rem; color: #6b7280;">.AI</span>
+    # --- EXACT HEADER FROM SCREENSHOT ---
+    st.markdown(f"""
+    <div class="header-bar">
+        <div class="header-content">
+            <!-- Logo -->
+            <div class="header-logo">
+                <span style="color: #ffffff;">STOCK</span><span style="color: #dc2626;">POSTMORTEM</span><span style="color: #9ca3af;">.AI</span>
             </div>
+            
+            <!-- Navigation -->
+            <div class="header-nav-items">
+                <a href="#" class="nav-item {'nav-item-active' if current_page == 'analyze' else ''}" onclick="document.getElementById('btn_analyze').click(); return false;">
+                    ANALYZE {'<span class="dropdown-arrow">▼</span>' if current_page == 'analyze' else ''}
+                </a>
+                <a href="#" class="nav-item {'nav-item-active' if current_page == 'data_vault' else ''}" onclick="document.getElementById('btn_vault').click(); return false;">
+                    DATA VAULT
+                </a>
+                <a href="#" class="nav-item {'nav-item-active' if current_page == 'pricing' else ''}" onclick="document.getElementById('btn_pricing').click(); return false;">
+                    PRICING
+                </a>
+            </div>
+            
+            <!-- Get Started Button -->
+            <button class="get-started-btn" onclick="document.getElementById('btn_user').click();">
+                Get Started
+            </button>
         </div>
-        """, unsafe_allow_html=True)
+    </div>
     
-    with header_col2:
-        # Navigation with glass morphism container
-        st.markdown('<div class="header-nav">', unsafe_allow_html=True)
+    <style>
+        .header-bar {{
+            background: #1a1d24;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            margin: -2rem -3rem 2rem -3rem;
+            padding: 0 48px;
+        }}
         
-        nav_col1, nav_col2, nav_col3 = st.columns(3)
+        .header-content {{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 72px;
+            max-width: 1600px;
+            margin: 0 auto;
+        }}
         
-        # Add active state indicator with CSS injection
-        if current_page == "analyze":
-            st.markdown("""
-            <style>
-                button[key="nav_btn_analyze"] {
-                    color: rgba(255, 255, 255, 0.95) !important;
-                }
-                button[key="nav_btn_analyze"]::after {
-                    background: linear-gradient(90deg, 
-                        rgba(220, 38, 38, 0) 0%, 
-                        rgba(220, 38, 38, 0.8) 50%, 
-                        rgba(220, 38, 38, 0) 100%) !important;
-                    box-shadow: 0 0 12px rgba(220, 38, 38, 0.4);
-                }
-            </style>
-            """, unsafe_allow_html=True)
-        elif current_page == "data_vault":
-            st.markdown("""
-            <style>
-                button[key="nav_btn_vault"] {
-                    color: rgba(255, 255, 255, 0.95) !important;
-                }
-                button[key="nav_btn_vault"]::after {
-                    background: linear-gradient(90deg, 
-                        rgba(220, 38, 38, 0) 0%, 
-                        rgba(220, 38, 38, 0.8) 50%, 
-                        rgba(220, 38, 38, 0) 100%) !important;
-                    box-shadow: 0 0 12px rgba(220, 38, 38, 0.4);
-                }
-            </style>
-            """, unsafe_allow_html=True)
-        elif current_page == "pricing":
-            st.markdown("""
-            <style>
-                button[key="nav_btn_pricing"] {
-                    color: rgba(255, 255, 255, 0.95) !important;
-                }
-                button[key="nav_btn_pricing"]::after {
-                    background: linear-gradient(90deg, 
-                        rgba(220, 38, 38, 0) 0%, 
-                        rgba(220, 38, 38, 0.8) 50%, 
-                        rgba(220, 38, 38, 0) 100%) !important;
-                    box-shadow: 0 0 12px rgba(220, 38, 38, 0.4);
-                }
-            </style>
-            """, unsafe_allow_html=True)
+        .header-logo {{
+            font-family: 'Inter', sans-serif;
+            font-size: 1.25rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            flex-shrink: 0;
+        }}
         
-        with nav_col1:
-            if st.button("📊 ANALYZE", key="nav_btn_analyze", help="Go to Analyze"):
-                st.session_state["current_page"] = "analyze"
-                st.rerun()
+        .header-nav-items {{
+            display: flex;
+            align-items: center;
+            gap: 48px;
+            flex: 1;
+            justify-content: center;
+        }}
         
-        with nav_col2:
-            if st.button("🗄️ VAULT", key="nav_btn_vault", help="Go to Data Vault"):
-                st.session_state["current_page"] = "data_vault"
-                st.rerun()
+        .nav-item {{
+            color: #9ca3af;
+            font-size: 0.875rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            text-decoration: none;
+            transition: color 0.3s ease;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }}
         
-        with nav_col3:
-            if st.button("💳 PRICING", key="nav_btn_pricing", help="Go to Pricing"):
-                st.session_state["current_page"] = "pricing"
-                st.rerun()
+        .nav-item:hover {{
+            color: #ffffff;
+        }}
         
-        st.markdown('</div>', unsafe_allow_html=True)
+        .nav-item-active {{
+            color: #ffffff !important;
+        }}
+        
+        .dropdown-arrow {{
+            font-size: 0.65rem;
+            opacity: 0.7;
+        }}
+        
+        .get-started-btn {{
+            background: #dc2626;
+            color: #ffffff;
+            border: none;
+            border-radius: 50px;
+            padding: 12px 32px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+            flex-shrink: 0;
+        }}
+        
+        .get-started-btn:hover {{
+            background: #b91c1c;
+            box-shadow: 0 6px 16px rgba(220, 38, 38, 0.4);
+            transform: translateY(-1px);
+        }}
+        
+        .get-started-btn:active {{
+            transform: translateY(0);
+        }}
+    </style>
+    """, unsafe_allow_html=True)
     
-    with header_col3:
-        with st.popover(f"👤 {current_user}", use_container_width=True):
-            st.markdown(f"**Operator:** {current_user}")
-            st.caption("Access Level: PRO")
-            st.markdown("---")
-            if st.button("🔴 DISCONNECT", type="primary", use_container_width=True):
-                logout()
+    # Hidden navigation buttons
+    nav_cols = st.columns([1, 1, 1, 1])
+    with nav_cols[0]:
+        if st.button("analyze", key="btn_analyze"):
+            st.session_state["current_page"] = "analyze"
+            st.rerun()
+    with nav_cols[1]:
+        if st.button("vault", key="btn_vault"):
+            st.session_state["current_page"] = "data_vault"
+            st.rerun()
+    with nav_cols[2]:
+        if st.button("pricing", key="btn_pricing"):
+            st.session_state["current_page"] = "pricing"
+            st.rerun()
+    with nav_cols[3]:
+        if st.button("user", key="btn_user"):
+            pass  # User menu trigger
+    
+    # Hide navigation buttons
+    st.markdown("""
+    <style>
+        button[key="btn_analyze"],
+        button[key="btn_vault"],
+        button[key="btn_pricing"],
+        button[key="btn_user"] {
+            display: none !important;
+        }
+        div[data-testid="column"]:has(button[key^="btn_"]) {
+            display: none !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # User menu popover (separate from header)
+    with st.popover(f"👤 {current_user}", use_container_width=False):
+        st.markdown(f"**Operator:** {current_user}")
+        st.caption("Access Level: PRO")
+        st.markdown("---")
+        if st.button("🔴 DISCONNECT", type="primary", use_container_width=True):
+            logout()
     
     st.markdown("""
     <div style="height: 1px; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent); margin: 20px 0 32px 0;"></div>
