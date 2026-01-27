@@ -29,7 +29,7 @@ USERS = {
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
     st.session_state["user"] = None
-    st.session_state["current_page"] = "analyze"  # Default page
+    st.session_state["current_page"] = "analyze"
 
 # Check for URL parameters
 try:
@@ -73,12 +73,12 @@ if st.session_state["authenticated"]:
         st.stop()
 
 # ==========================================
-# 2. ULTRA-MODERN CSS THEME
+# 2. PREMIUM DARK THEME CSS
 # ==========================================
 st.markdown("""
 <style>
-    /* --- GLOBAL FONTS & RESET --- */
-    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@300;400;500;600;700;800&display=swap');
+    /* --- PREMIUM FONTS --- */
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
     
     * {
         margin: 0;
@@ -86,226 +86,323 @@ st.markdown("""
         box-sizing: border-box;
     }
     
+    /* --- DARK PREMIUM BACKGROUND --- */
     body, .stApp { 
-        background: #000000 !important;
+        background: #0a0a0f !important;
         background-image: 
-            radial-gradient(ellipse at 20% 10%, rgba(220, 38, 38, 0.08) 0%, transparent 50%),
-            radial-gradient(ellipse at 80% 90%, rgba(220, 38, 38, 0.05) 0%, transparent 50%);
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important; 
-        color: #f8fafc; 
-        line-height: 1.6;
+            radial-gradient(ellipse at 10% 0%, rgba(16, 185, 129, 0.08) 0%, transparent 40%),
+            radial-gradient(ellipse at 90% 100%, rgba(59, 130, 246, 0.08) 0%, transparent 40%),
+            radial-gradient(ellipse at 50% 50%, rgba(139, 92, 246, 0.04) 0%, transparent 50%);
+        font-family: 'Space Grotesk', -apple-system, sans-serif !important; 
+        color: #e5e7eb; 
+        line-height: 1.7;
     }
     
-    /* --- REMOVE TOP PADDING --- */
+    /* --- CONTAINER SPACING --- */
     .block-container {
-        padding-top: 2rem !important;
-        padding-bottom: 3rem !important;
+        padding-top: 1.5rem !important;
+        padding-bottom: 2rem !important;
+        max-width: 1400px !important;
     }
 
-    /* --- HIDE SIDEBAR & STREAMLIT ELEMENTS --- */
+    /* --- HIDE STREAMLIT ELEMENTS --- */
     [data-testid="stSidebar"] { display: none; }
     [data-testid="collapsedControl"] { display: none; }
     #MainMenu { visibility: hidden; }
     footer { visibility: hidden; }
     header { visibility: hidden; }
     
-    /* --- REFINED GLASSMORPHISM --- */
-    .glass-panel {
-        background: rgba(15, 15, 15, 0.65);
+    /* --- PREMIUM NAVIGATION BAR --- */
+    .premium-navbar {
+        background: rgba(15, 15, 20, 0.8);
         backdrop-filter: blur(20px) saturate(180%);
         -webkit-backdrop-filter: blur(20px) saturate(180%);
         border: 1px solid rgba(255, 255, 255, 0.06);
-        border-radius: 20px;
-        padding: 32px;
+        border-radius: 16px;
+        padding: 16px 28px;
+        margin-bottom: 32px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 
+            0 8px 32px rgba(0, 0, 0, 0.4),
+            inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    }
+    
+    .nav-brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .nav-logo {
+        font-size: 1.8rem;
+        filter: drop-shadow(0 0 16px rgba(16, 185, 129, 0.4));
+    }
+    
+    .nav-title {
+        font-size: 1.4rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        letter-spacing: -0.02em;
+    }
+    
+    .nav-subtitle {
+        font-size: 0.7rem;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        font-weight: 600;
+    }
+    
+    .nav-menu {
+        display: flex;
+        gap: 8px;
+    }
+    
+    /* --- PREMIUM GLASS PANELS --- */
+    .glass-panel {
+        background: rgba(15, 15, 20, 0.75);
+        backdrop-filter: blur(24px) saturate(200%);
+        -webkit-backdrop-filter: blur(24px) saturate(200%);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 24px;
+        padding: 36px;
         margin-bottom: 24px;
         box-shadow: 
-            0 8px 32px rgba(0, 0, 0, 0.3),
-            inset 0 1px 0 rgba(255, 255, 255, 0.03);
-        transition: all 0.3s ease;
-    }
-    
-    .glass-panel:hover {
-        border-color: rgba(255, 255, 255, 0.1);
-        box-shadow: 
-            0 12px 40px rgba(0, 0, 0, 0.4),
+            0 12px 40px rgba(0, 0, 0, 0.5),
             inset 0 1px 0 rgba(255, 255, 255, 0.05);
-    }
-    
-    /* --- KPI CARDS WITH ENHANCED GRADIENT --- */
-    .kpi-container {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 20px;
-        margin-bottom: 32px;
-    }
-    
-    .kpi-card {
-        background: linear-gradient(135deg, rgba(20, 20, 20, 0.8) 0%, rgba(10, 10, 10, 0.9) 100%);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        padding: 28px 24px;
-        border-radius: 16px;
-        text-align: center;
         transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
         position: relative;
         overflow: hidden;
     }
     
-    .kpi-card::before {
+    .glass-panel::before {
         content: '';
         position: absolute;
         top: 0;
         left: 0;
         right: 0;
-        height: 2px;
-        background: linear-gradient(90deg, transparent, rgba(220, 38, 38, 0.5), transparent);
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.5), transparent);
         opacity: 0;
         transition: opacity 0.4s ease;
     }
     
-    .kpi-card:hover {
-        border-color: rgba(220, 38, 38, 0.3);
-        transform: translateY(-6px);
+    .glass-panel:hover {
+        border-color: rgba(255, 255, 255, 0.12);
         box-shadow: 
-            0 16px 48px -12px rgba(220, 38, 38, 0.25),
-            0 0 0 1px rgba(220, 38, 38, 0.1);
+            0 16px 48px rgba(0, 0, 0, 0.6),
+            inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        transform: translateY(-2px);
     }
     
-    .kpi-card:hover::before {
+    .glass-panel:hover::before {
+        opacity: 1;
+    }
+    
+    /* --- PREMIUM KPI CARDS --- */
+    .kpi-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 20px;
+        margin-bottom: 32px;
+    }
+    
+    .kpi-card {
+        background: linear-gradient(135deg, rgba(20, 20, 28, 0.9) 0%, rgba(10, 10, 15, 0.95) 100%);
+        backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        padding: 32px 28px;
+        border-radius: 20px;
+        text-align: center;
+        transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .kpi-card::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.15), transparent 70%);
+        opacity: 0;
+        transition: opacity 0.5s ease;
+    }
+    
+    .kpi-card:hover {
+        border-color: rgba(16, 185, 129, 0.4);
+        transform: translateY(-8px) scale(1.02);
+        box-shadow: 
+            0 20px 60px -12px rgba(16, 185, 129, 0.3),
+            0 0 0 1px rgba(16, 185, 129, 0.2);
+    }
+    
+    .kpi-card:hover::after {
         opacity: 1;
     }
     
     .kpi-val { 
         font-family: 'JetBrains Mono', monospace;
-        font-size: 2.75rem; 
+        font-size: 3rem; 
         font-weight: 700; 
-        background: linear-gradient(135deg, #ffffff 0%, #e5e7eb 100%);
+        background: linear-gradient(135deg, #ffffff 0%, #10b981 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
-        margin-bottom: 8px;
-        letter-spacing: -0.02em;
+        margin-bottom: 10px;
+        letter-spacing: -0.03em;
+        position: relative;
+        z-index: 1;
     }
     
     .kpi-label { 
         color: #9ca3af; 
-        font-size: 0.75rem; 
+        font-size: 0.7rem; 
         text-transform: uppercase; 
-        letter-spacing: 2px; 
-        font-weight: 600; 
+        letter-spacing: 2.5px; 
+        font-weight: 600;
+        position: relative;
+        z-index: 1;
     }
 
-    /* --- LOGIN CONTAINER --- */
+    /* --- PREMIUM LOGIN --- */
     .login-container {
-        max-width: 440px;
-        margin: 12vh auto;
-        padding: 48px;
-        background: rgba(15, 15, 15, 0.85);
-        backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 24px;
+        max-width: 480px;
+        margin: 10vh auto;
+        padding: 56px;
+        background: rgba(15, 15, 20, 0.9);
+        backdrop-filter: blur(24px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 32px;
         box-shadow: 
-            0 20px 60px rgba(0, 0, 0, 0.5),
-            inset 0 1px 0 rgba(255, 255, 255, 0.05);
+            0 24px 80px rgba(0, 0, 0, 0.6),
+            inset 0 1px 0 rgba(255, 255, 255, 0.08);
         text-align: center;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .login-container::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(16, 185, 129, 0.1) 0%, transparent 70%);
+        animation: rotate 20s linear infinite;
+    }
+    
+    @keyframes rotate {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
     }
     
     .login-logo {
-        font-size: 3.5rem;
-        margin-bottom: 16px;
-        filter: drop-shadow(0 0 20px rgba(220, 38, 38, 0.3));
+        font-size: 4rem;
+        margin-bottom: 20px;
+        filter: drop-shadow(0 0 24px rgba(16, 185, 129, 0.4));
+        position: relative;
+        z-index: 1;
     }
 
     /* --- SECTION TITLES --- */
     .section-title {
-        font-size: 1rem;
+        font-size: 0.95rem;
         font-weight: 700;
         color: #f8fafc;
-        margin-bottom: 20px;
+        margin-bottom: 28px;
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 14px;
         text-transform: uppercase;
-        letter-spacing: 1.5px;
+        letter-spacing: 2px;
     }
     
     .section-title::before {
         content: '';
         display: block;
-        width: 3px;
-        height: 20px;
-        background: linear-gradient(180deg, #dc2626 0%, #991b1b 100%);
-        border-radius: 2px;
-        box-shadow: 0 0 10px rgba(220, 38, 38, 0.4);
+        width: 4px;
+        height: 24px;
+        background: linear-gradient(180deg, #10b981 0%, #3b82f6 100%);
+        border-radius: 3px;
+        box-shadow: 0 0 16px rgba(16, 185, 129, 0.5);
     }
 
-    /* --- ANALYSIS REPORT GRID --- */
+    /* --- REPORT GRID --- */
     .report-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-        gap: 16px;
-        margin-top: 24px;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 20px;
+        margin-top: 32px;
     }
     
     .report-item {
-        background: rgba(255, 255, 255, 0.02);
-        border-left: 3px solid rgba(100, 100, 100, 0.4);
-        padding: 20px;
-        border-radius: 0 12px 12px 0;
-        transition: all 0.3s ease;
-        font-size: 0.9rem;
-        line-height: 1.7;
+        background: rgba(255, 255, 255, 0.03);
+        border-left: 4px solid rgba(100, 100, 100, 0.4);
+        padding: 24px;
+        border-radius: 0 16px 16px 0;
+        transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+        font-size: 0.92rem;
+        line-height: 1.8;
     }
     
     .report-item:hover {
-        background: rgba(255, 255, 255, 0.04);
+        background: rgba(255, 255, 255, 0.06);
         border-left-color: currentColor;
+        transform: translateX(4px);
     }
     
     .report-label {
         font-weight: 700;
         font-size: 0.75rem;
         text-transform: uppercase;
-        letter-spacing: 1.2px;
-        margin-bottom: 12px;
+        letter-spacing: 1.5px;
+        margin-bottom: 14px;
         display: block;
     }
 
-    /* --- TABS STYLING --- */
+    /* --- PREMIUM TABS --- */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-        background: rgba(20, 20, 20, 0.4);
-        border-radius: 12px;
-        padding: 6px;
-        margin-bottom: 24px;
+        gap: 12px;
+        background: rgba(20, 20, 28, 0.5);
+        border-radius: 16px;
+        padding: 8px;
+        margin-bottom: 32px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
     }
     
     .stTabs [data-baseweb="tab"] {
         background: transparent;
-        border-radius: 8px;
+        border-radius: 12px;
         color: #9ca3af;
         font-weight: 600;
-        padding: 12px 24px;
+        padding: 14px 28px;
         transition: all 0.3s ease;
+        font-size: 0.9rem;
+        letter-spacing: 0.5px;
     }
     
     .stTabs [data-baseweb="tab"]:hover {
-        background: rgba(255, 255, 255, 0.05);
+        background: rgba(255, 255, 255, 0.06);
         color: #f8fafc;
     }
     
     .stTabs [aria-selected="true"] {
-        background: rgba(220, 38, 38, 0.15) !important;
-        color: #fca5a5 !important;
-        box-shadow: 0 0 20px rgba(220, 38, 38, 0.2);
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(59, 130, 246, 0.2) 100%) !important;
+        color: #10b981 !important;
+        box-shadow: 0 0 24px rgba(16, 185, 129, 0.3);
     }
     
-    /* Remove extra padding from tab panels */
     .stTabs [data-baseweb="tab-panel"] {
         padding-top: 0 !important;
     }
     
-    /* Radio buttons styling */
+    /* --- RADIO BUTTONS --- */
     .stRadio {
         background: transparent !important;
     }
@@ -319,41 +416,48 @@ st.markdown("""
         display: none !important;
     }
 
-    /* --- BUTTONS --- */
+    /* --- PREMIUM BUTTONS --- */
     .stButton button {
-        background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
-        border: 1px solid rgba(220, 38, 38, 0.3);
-        border-radius: 12px;
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        border: 1px solid rgba(16, 185, 129, 0.4);
+        border-radius: 14px;
         color: white;
         font-weight: 600;
-        padding: 12px 28px;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 16px rgba(220, 38, 38, 0.2);
+        padding: 14px 32px;
+        transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+        box-shadow: 
+            0 4px 20px rgba(16, 185, 129, 0.3),
+            inset 0 1px 0 rgba(255, 255, 255, 0.2);
+        letter-spacing: 0.5px;
+        font-size: 0.9rem;
     }
     
     .stButton button:hover {
-        background: linear-gradient(135deg, #b91c1c 0%, #7f1d1d 100%);
-        box-shadow: 0 6px 24px rgba(220, 38, 38, 0.35);
-        transform: translateY(-2px);
+        background: linear-gradient(135deg, #059669 0%, #047857 100%);
+        box-shadow: 
+            0 8px 32px rgba(16, 185, 129, 0.5),
+            inset 0 1px 0 rgba(255, 255, 255, 0.25);
+        transform: translateY(-3px);
     }
 
-    /* --- INPUTS --- */
+    /* --- PREMIUM INPUTS --- */
     .stTextInput input, .stNumberInput input, .stTextArea textarea, .stSelectbox select {
-        background: rgba(20, 20, 20, 0.6) !important;
-        border: 1px solid rgba(255, 255, 255, 0.08) !important;
-        border-radius: 10px !important;
+        background: rgba(20, 20, 28, 0.7) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border-radius: 12px !important;
         color: #f8fafc !important;
-        padding: 12px 16px !important;
+        padding: 14px 18px !important;
         font-size: 0.95rem !important;
         transition: all 0.3s ease !important;
     }
     
     .stTextInput input:focus, .stNumberInput input:focus, .stTextArea textarea:focus, .stSelectbox select:focus {
-        border-color: rgba(220, 38, 38, 0.4) !important;
-        box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1) !important;
+        border-color: rgba(16, 185, 129, 0.5) !important;
+        box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15) !important;
+        background: rgba(20, 20, 28, 0.9) !important;
     }
 
-    /* --- FILE UPLOADER STYLING --- */
+    /* --- PREMIUM FILE UPLOADER --- */
     [data-testid="stFileUploader"] {
         background: transparent !important;
     }
@@ -364,72 +468,89 @@ st.markdown("""
     }
     
     [data-testid="stFileUploader"] section {
-        background: rgba(15, 15, 15, 0.6) !important;
-        backdrop-filter: blur(10px);
-        border: 2px dashed rgba(220, 38, 38, 0.3) !important;
-        border-radius: 20px !important;
-        padding: 60px 40px !important;
-        transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1) !important;
+        background: rgba(15, 15, 20, 0.7) !important;
+        backdrop-filter: blur(16px);
+        border: 2px dashed rgba(16, 185, 129, 0.4) !important;
+        border-radius: 24px !important;
+        padding: 72px 48px !important;
+        transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1) !important;
+        position: relative;
+    }
+    
+    [data-testid="stFileUploader"] section::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: 24px;
+        background: radial-gradient(circle at 50% 50%, rgba(16, 185, 129, 0.1), transparent 70%);
+        opacity: 0;
+        transition: opacity 0.5s ease;
     }
     
     [data-testid="stFileUploader"] section:hover {
-        border-color: rgba(220, 38, 38, 0.6) !important;
-        background: rgba(20, 20, 20, 0.7) !important;
-        transform: translateY(-2px);
-        box-shadow: 0 8px 32px rgba(220, 38, 38, 0.15);
+        border-color: rgba(16, 185, 129, 0.7) !important;
+        background: rgba(20, 20, 28, 0.8) !important;
+        transform: translateY(-4px);
+        box-shadow: 0 12px 48px rgba(16, 185, 129, 0.25);
+    }
+    
+    [data-testid="stFileUploader"] section:hover::before {
+        opacity: 1;
     }
     
     [data-testid="stFileUploader"] section button {
-        background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%) !important;
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
         border: none !important;
-        border-radius: 12px !important;
+        border-radius: 14px !important;
         color: white !important;
         font-weight: 600 !important;
-        padding: 14px 32px !important;
+        padding: 16px 36px !important;
         font-size: 0.95rem !important;
-        transition: all 0.3s ease !important;
-        box-shadow: 0 4px 16px rgba(220, 38, 38, 0.25) !important;
-        margin-top: 20px !important;
+        transition: all 0.4s ease !important;
+        box-shadow: 0 4px 20px rgba(16, 185, 129, 0.3) !important;
+        margin-top: 24px !important;
     }
     
     [data-testid="stFileUploader"] section button:hover {
-        background: linear-gradient(135deg, #b91c1c 0%, #7f1d1d 100%) !important;
-        box-shadow: 0 6px 24px rgba(220, 38, 38, 0.4) !important;
+        background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+        box-shadow: 0 8px 32px rgba(16, 185, 129, 0.5) !important;
         transform: translateY(-2px);
     }
     
     .upload-icon {
-        font-size: 3.5rem;
-        margin-bottom: 24px;
+        font-size: 4rem;
+        margin-bottom: 28px;
         display: block;
-        opacity: 0.8;
+        opacity: 0.9;
         animation: float 3s ease-in-out infinite;
+        filter: drop-shadow(0 0 20px rgba(16, 185, 129, 0.3));
     }
     
     @keyframes float {
         0%, 100% { transform: translateY(0px); }
-        50% { transform: translateY(-10px); }
+        50% { transform: translateY(-12px); }
     }
     
     .upload-text {
-        font-size: 1.4rem;
+        font-size: 1.5rem;
         font-weight: 700;
         color: #f8fafc;
-        margin-bottom: 12px;
+        margin-bottom: 14px;
         letter-spacing: -0.01em;
     }
     
     .upload-subtext {
-        font-size: 0.9rem;
+        font-size: 0.92rem;
         color: #9ca3af;
-        line-height: 1.6;
+        line-height: 1.7;
     }
 
-    /* --- DATAFRAME STYLING --- */
+    /* --- DATAFRAME --- */
     .stDataFrame {
-        background: rgba(15, 15, 15, 0.6);
-        border-radius: 12px;
+        background: rgba(15, 15, 20, 0.7);
+        border-radius: 16px;
         overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.06);
     }
 
     /* --- SCORE DISPLAY --- */
@@ -437,15 +558,15 @@ st.markdown("""
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 24px;
+        margin-bottom: 32px;
     }
     
     .score-value {
         font-family: 'JetBrains Mono', monospace;
-        font-size: 5rem;
+        font-size: 5.5rem;
         font-weight: 800;
         line-height: 1;
-        letter-spacing: -0.03em;
+        letter-spacing: -0.04em;
     }
     
     .score-meta {
@@ -453,26 +574,46 @@ st.markdown("""
     }
     
     .ticker-badge {
-        background: rgba(255, 255, 255, 0.08);
-        padding: 8px 16px;
-        border-radius: 8px;
+        background: rgba(16, 185, 129, 0.15);
+        padding: 10px 20px;
+        border-radius: 10px;
         display: inline-block;
         font-weight: 600;
-        font-size: 0.9rem;
-        letter-spacing: 0.5px;
-        margin-bottom: 8px;
+        font-size: 0.95rem;
+        letter-spacing: 1px;
+        margin-bottom: 10px;
+        border: 1px solid rgba(16, 185, 129, 0.3);
     }
 
     /* --- UTILITY CLASSES --- */
     .divider {
         height: 1px;
         background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-        margin: 24px 0;
+        margin: 32px 0;
     }
     
     .accent-text {
-        color: #fca5a5;
+        color: #10b981;
         font-weight: 600;
+    }
+    
+    /* --- CUSTOM SCROLLBAR --- */
+    ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+    }
+    
+    ::-webkit-scrollbar-track {
+        background: rgba(20, 20, 28, 0.5);
+    }
+    
+    ::-webkit-scrollbar-thumb {
+        background: rgba(16, 185, 129, 0.3);
+        border-radius: 5px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+        background: rgba(16, 185, 129, 0.5);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -545,8 +686,8 @@ if not st.session_state["authenticated"]:
     st.markdown("""
     <div class="login-container">
         <div class="login-logo">🩸</div>
-        <h1 style="margin: 0 0 8px 0; font-size: 2rem; font-weight: 800; letter-spacing: -0.02em;">StockPostmortem</h1>
-        <p style="color: #6b7280; font-size: 0.85rem; margin-bottom: 40px; letter-spacing: 2px; text-transform: uppercase;">Algorithmic Behavioral Forensics</p>
+        <h1 style="margin: 0 0 10px 0; font-size: 2.2rem; font-weight: 800; letter-spacing: -0.02em; position: relative; z-index: 1;">StockPostmortem</h1>
+        <p style="color: #6b7280; font-size: 0.8rem; margin-bottom: 48px; letter-spacing: 3px; text-transform: uppercase; position: relative; z-index: 1;">Algorithmic Behavioral Forensics</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -568,6 +709,32 @@ else:
         st.session_state["current_page"] = "analyze"
     
     current_page = st.session_state.get("current_page", "analyze")
+    
+    # --- PREMIUM NAVIGATION BAR ---
+    st.markdown(f"""
+    <div class="premium-navbar">
+        <div class="nav-brand">
+            <div class="nav-logo">🩸</div>
+            <div>
+                <div class="nav-title">StockPostmortem</div>
+                <div class="nav-subtitle">Behavioral Trading Analytics</div>
+            </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="
+                background: rgba(16, 185, 129, 0.15);
+                padding: 8px 16px;
+                border-radius: 10px;
+                font-size: 0.85rem;
+                font-weight: 600;
+                color: #10b981;
+                border: 1px solid rgba(16, 185, 129, 0.3);
+            ">
+                {current_user}
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
     
     # --- PAGE ROUTING ---
     if st.session_state["current_page"] == "data_vault":
@@ -595,7 +762,7 @@ else:
                 with col_search3:
                     sort_order = st.selectbox("Sort By", ["Newest First", "Oldest First", "Highest Score", "Lowest Score"], label_visibility="collapsed")
                 
-                st.markdown('<div style="height: 16px;"></div>', unsafe_allow_html=True)
+                st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
                 
                 # Apply filters
                 filtered_df = df.copy()
@@ -618,7 +785,7 @@ else:
                     filtered_df = filtered_df.sort_values('score', ascending=False)
                 elif sort_order == "Lowest Score":
                     filtered_df = filtered_df.sort_values('score', ascending=True)
-                else:  # Newest First (default)
+                else:
                     filtered_df = filtered_df.sort_values('created_at', ascending=False)
                 
                 # Prepare table data
@@ -674,7 +841,7 @@ else:
                 )
                 
                 # Export option
-                st.markdown('<div style="margin-top: 16px;"></div>', unsafe_allow_html=True)
+                st.markdown('<div style="margin-top: 20px;"></div>', unsafe_allow_html=True)
                 csv = filtered_df.to_csv(index=False)
                 st.download_button(
                     label="📥 Export to CSV",
@@ -687,21 +854,21 @@ else:
                 st.markdown('</div>', unsafe_allow_html=True)
                 
             else:
-                st.markdown('<div class="glass-panel" style="text-align: center; padding: 60px;">', unsafe_allow_html=True)
+                st.markdown('<div class="glass-panel" style="text-align: center; padding: 80px;">', unsafe_allow_html=True)
                 st.markdown("""
-                <div style="font-size: 3rem; margin-bottom: 16px; opacity: 0.3;">🗄️</div>
-                <div style="font-size: 1.1rem; color: #9ca3af; margin-bottom: 8px;">Data Vault Empty</div>
-                <div style="font-size: 0.9rem; color: #6b7280;">Your audit history will appear here once you start analyzing trades.</div>
+                <div style="font-size: 3.5rem; margin-bottom: 20px; opacity: 0.4;">🗄️</div>
+                <div style="font-size: 1.2rem; color: #9ca3af; margin-bottom: 10px; font-weight: 600;">Data Vault Empty</div>
+                <div style="font-size: 0.95rem; color: #6b7280;">Your audit history will appear here once you start analyzing trades.</div>
                 """, unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
     
     elif st.session_state["current_page"] == "pricing":
-        # PRICING PAGE (Placeholder)
-        st.markdown('<div class="glass-panel" style="text-align: center; padding: 60px;">', unsafe_allow_html=True)
+        # PRICING PAGE
+        st.markdown('<div class="glass-panel" style="text-align: center; padding: 80px;">', unsafe_allow_html=True)
         st.markdown("""
-        <div style="font-size: 3rem; margin-bottom: 16px; opacity: 0.3;">💳</div>
-        <div style="font-size: 1.1rem; color: #9ca3af; margin-bottom: 8px;">Pricing Information</div>
-        <div style="font-size: 0.9rem; color: #6b7280;">Pricing details coming soon.</div>
+        <div style="font-size: 3.5rem; margin-bottom: 20px; opacity: 0.4;">💳</div>
+        <div style="font-size: 1.2rem; color: #9ca3af; margin-bottom: 10px; font-weight: 600;">Pricing Information</div>
+        <div style="font-size: 0.95rem; color: #6b7280;">Pricing details coming soon.</div>
         """, unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
     
@@ -722,7 +889,7 @@ else:
                 st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
                 st.markdown('<div class="section-title">Chart Analysis</div>', unsafe_allow_html=True)
                 st.markdown("""
-                <div style="text-align: center; margin-bottom: 20px;">
+                <div style="text-align: center; margin-bottom: 24px;">
                     <div class="upload-icon">📊</div>
                     <div class="upload-text">Drop your P&L or Chart screenshot here</div>
                     <div class="upload-subtext">Supports PNG, JPG (Max 10MB). Your data is encrypted and deleted after analysis.</div>
@@ -737,10 +904,10 @@ else:
                 )
             
                 if uploaded_file:
-                    st.markdown('<div style="margin-top: 24px;">', unsafe_allow_html=True)
+                    st.markdown('<div style="margin-top: 32px;">', unsafe_allow_html=True)
                     st.image(uploaded_file, use_column_width=True)
                     st.markdown('</div>', unsafe_allow_html=True)
-                    st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
+                    st.markdown('<div style="height: 24px;"></div>', unsafe_allow_html=True)
                     if st.button("RUN OPTICAL ANALYSIS", type="primary", use_container_width=True):
                         image = Image.open(uploaded_file)
                         buf = io.BytesIO()
@@ -763,18 +930,18 @@ else:
                     with col_b: setup_type = st.selectbox("Setup", ["Trend", "Reversal", "Breakout"])
                     with col_c: emotion = st.selectbox("State", ["Neutral", "FOMO", "Revenge", "Tilt"])
                 
-                    st.markdown('<div style="height: 8px;"></div>', unsafe_allow_html=True)
+                    st.markdown('<div style="height: 12px;"></div>', unsafe_allow_html=True)
                 
                     col_d, col_e, col_f = st.columns(3)
                     with col_d: entry = st.number_input("Entry", 0.0, step=0.01)
                     with col_e: exit_price = st.number_input("Exit", 0.0, step=0.01)
                     with col_f: stop = st.number_input("Stop", 0.0, step=0.01)
                 
-                    st.markdown('<div style="height: 8px;"></div>', unsafe_allow_html=True)
-                
-                    notes = st.text_area("Execution Notes", height=100, placeholder="Describe your decision-making process, entry hesitation, stop management...")
-                
                     st.markdown('<div style="height: 12px;"></div>', unsafe_allow_html=True)
+                
+                    notes = st.text_area("Execution Notes", height=120, placeholder="Describe your decision-making process, entry hesitation, stop management...")
+                
+                    st.markdown('<div style="height: 16px;"></div>', unsafe_allow_html=True)
                 
                     if st.form_submit_button("EXECUTE AUDIT", type="primary", use_container_width=True):
                         ticker_val = ticker
@@ -802,18 +969,18 @@ else:
                             report = parse_report(res.json()["choices"][0]["message"]["content"])
                             save_analysis(current_user, report, ticker_val)
                         
-                            score_color = "#dc2626" if report['score'] < 50 else "#10b981"
+                            score_color = "#10b981" if report['score'] >= 50 else "#ef4444"
                         
                             st.markdown(f"""
                             <div class="glass-panel" style="border-top: 3px solid {score_color}">
                                 <div class="score-container">
                                     <div>
-                                        <div style="color:#6b7280; letter-spacing:2.5px; font-size:0.7rem; text-transform: uppercase; margin-bottom: 8px;">AUDIT SCORE</div>
+                                        <div style="color:#6b7280; letter-spacing:3px; font-size:0.7rem; text-transform: uppercase; margin-bottom: 10px; font-weight: 600;">AUDIT SCORE</div>
                                         <div class="score-value" style="color:{score_color}">{report['score']}</div>
                                     </div>
                                     <div class="score-meta">
                                         <div class="ticker-badge">{ticker_val}</div>
-                                        <div style="color:#6b7280; font-size:0.8rem;">{datetime.now().strftime('%B %d, %Y')}</div>
+                                        <div style="color:#6b7280; font-size:0.85rem;">{datetime.now().strftime('%B %d, %Y')}</div>
                                     </div>
                                 </div>
                                 <div class="report-grid">
@@ -878,7 +1045,7 @@ else:
                             <div class="kpi-label">Total Audits</div>
                         </div>
                         <div class="kpi-card">
-                            <div class="kpi-val" style="font-size:2rem;">{trend}</div>
+                            <div class="kpi-val" style="font-size:2.5rem;">{trend}</div>
                             <div class="kpi-label">Recent Trend</div>
                         </div>
                     </div>
@@ -1042,14 +1209,15 @@ else:
                         
                             st.markdown(f"""
                             <div style='
-                                background: rgba(255, 255, 255, 0.02);
-                                border-left: 3px solid #dc2626;
-                                padding: 16px;
-                                border-radius: 0 10px 10px 0;
-                                margin-bottom: 16px;
+                                background: rgba(255, 255, 255, 0.03);
+                                border-left: 4px solid #10b981;
+                                padding: 20px;
+                                border-radius: 0 12px 12px 0;
+                                margin-bottom: 18px;
+                                transition: all 0.3s ease;
                             '>
-                                <div style='font-size: 1.5rem; margin-bottom: 8px;'>{emoji}</div>
-                                <div style='font-size: 0.9rem; line-height: 1.6; color: #d1d5db;'>
+                                <div style='font-size: 1.6rem; margin-bottom: 10px;'>{emoji}</div>
+                                <div style='font-size: 0.92rem; line-height: 1.7; color: #d1d5db;'>
                                     {content}
                                 </div>
                             </div>
@@ -1081,23 +1249,23 @@ else:
                             color = color_map.get(range_name, '#6b7280')
                         
                             st.markdown(f"""
-                            <div style='margin-bottom: 20px;'>
-                                <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;'>
-                                    <span style='font-size: 0.85rem; color: #9ca3af; font-weight: 600;'>{range_name}</span>
-                                    <span style='font-size: 0.85rem; color: #e5e7eb; font-family: "JetBrains Mono", monospace;'>{count} ({int(percentage)}%)</span>
+                            <div style='margin-bottom: 22px;'>
+                                <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;'>
+                                    <span style='font-size: 0.88rem; color: #9ca3af; font-weight: 600;'>{range_name}</span>
+                                    <span style='font-size: 0.88rem; color: #e5e7eb; font-family: "JetBrains Mono", monospace;'>{count} ({int(percentage)}%)</span>
                                 </div>
                                 <div style='
                                     width: 100%;
-                                    height: 8px;
+                                    height: 10px;
                                     background: rgba(255, 255, 255, 0.05);
-                                    border-radius: 4px;
+                                    border-radius: 5px;
                                     overflow: hidden;
                                 '>
                                     <div style='
                                         width: {percentage}%;
                                         height: 100%;
                                         background: {color};
-                                        border-radius: 4px;
+                                        border-radius: 5px;
                                         transition: width 0.6s ease;
                                     '></div>
                                 </div>
@@ -1142,10 +1310,10 @@ else:
                     st.markdown('</div>', unsafe_allow_html=True)
                 
                 else:
-                    st.markdown('<div class="glass-panel" style="text-align: center; padding: 60px;">', unsafe_allow_html=True)
+                    st.markdown('<div class="glass-panel" style="text-align: center; padding: 80px;">', unsafe_allow_html=True)
                     st.markdown("""
-                    <div style="font-size: 3rem; margin-bottom: 16px; opacity: 0.3;">📊</div>
-                    <div style="font-size: 1.1rem; color: #9ca3af; margin-bottom: 8px;">No Performance Data Yet</div>
-                    <div style="font-size: 0.9rem; color: #6b7280;">Complete your first forensic audit to see metrics here.</div>
+                    <div style="font-size: 3.5rem; margin-bottom: 20px; opacity: 0.4;">📊</div>
+                    <div style="font-size: 1.2rem; color: #9ca3af; margin-bottom: 10px; font-weight: 600;">No Performance Data Yet</div>
+                    <div style="font-size: 0.95rem; color: #6b7280;">Complete your first forensic audit to see metrics here.</div>
                     """, unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
