@@ -29,6 +29,7 @@ USERS = {
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
     st.session_state["user"] = None
+    st.session_state["current_page"] = "analyze"  # Default page
 
 def check_login(username, password):
     if username in USERS and USERS[username] == password:
@@ -307,6 +308,30 @@ st.markdown("""
         box-shadow: 0 6px 24px rgba(220, 38, 38, 0.35);
         transform: translateY(-2px);
     }
+    
+    /* Navigation buttons in header */
+    button[key="nav_analyze"],
+    button[key="nav_data_vault"],
+    button[key="nav_pricing"] {
+        background: transparent !important;
+        border: none !important;
+        color: #9ca3af !important;
+        font-size: 0.85rem !important;
+        font-weight: 600 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.5px !important;
+        padding: 10px 20px !important;
+        border-radius: 8px !important;
+        box-shadow: none !important;
+    }
+    
+    button[key="nav_analyze"]:hover,
+    button[key="nav_data_vault"]:hover,
+    button[key="nav_pricing"]:hover {
+        background: rgba(255, 255, 255, 0.05) !important;
+        color: #f8fafc !important;
+        transform: none !important;
+    }
 
     /* --- INPUTS --- */
     .stTextInput input, .stNumberInput input, .stTextArea textarea, .stSelectbox select {
@@ -534,6 +559,10 @@ if not st.session_state["authenticated"]:
 else:
     current_user = st.session_state["user"]
     
+    # Initialize current_page if not exists
+    if "current_page" not in st.session_state:
+        st.session_state["current_page"] = "analyze"
+    
     # --- CLEAN HEADER USING STREAMLIT ---
     header_col1, header_col2, header_col3 = st.columns([2, 6, 2])
     
@@ -548,19 +577,22 @@ else:
         """, unsafe_allow_html=True)
     
     with header_col2:
-        st.markdown("""
-        <div style="display: flex; justify-content: center; align-items: center; gap: 8px; padding: 8px 0;">
-            <div style="padding: 10px 20px; color: #fca5a5; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; background: rgba(220, 38, 38, 0.1); border-radius: 8px; border-bottom: 2px solid #dc2626;">
-                ANALYZE
-            </div>
-            <div style="padding: 10px 20px; color: #9ca3af; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; cursor: pointer;">
-                DATA VAULT
-            </div>
-            <div style="padding: 10px 20px; color: #9ca3af; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; cursor: pointer;">
-                PRICING
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        nav_col1, nav_col2, nav_col3 = st.columns(3)
+        
+        with nav_col1:
+            if st.button("ANALYZE", key="nav_analyze", use_container_width=True):
+                st.session_state["current_page"] = "analyze"
+                st.rerun()
+        
+        with nav_col2:
+            if st.button("DATA VAULT", key="nav_data_vault", use_container_width=True):
+                st.session_state["current_page"] = "data_vault"
+                st.rerun()
+        
+        with nav_col3:
+            if st.button("PRICING", key="nav_pricing", use_container_width=True):
+                st.session_state["current_page"] = "pricing"
+                st.rerun()
     
     with header_col3:
         with st.popover("👤 " + current_user, use_container_width=True):
@@ -573,140 +605,10 @@ else:
     st.markdown("""
     <div style="height: 1px; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent); margin: 20px 0 32px 0;"></div>
     """, unsafe_allow_html=True)
-
-    # TABS
-    main_tab1, main_tab2, main_tab3 = st.tabs(["🔎 FORENSIC AUDIT", "📊 PERFORMANCE METRICS", "🗄️ DATA VAULT"])
-
-    # --- TAB 1: AUDIT (INPUT) ---
-    with main_tab1:
-        st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
-        st.markdown('<div class="section-title">Case Data Input</div>', unsafe_allow_html=True)
-        
-        c_mode = st.radio("Input Vector", ["Text Parameters", "Chart Vision"], horizontal=True, label_visibility="collapsed")
-        
-        prompt = ""
-        img_b64 = None
-        ticker_val = "IMG"
-        ready_to_run = False
-
-        if c_mode == "Chart Vision":
-            st.markdown("""
-            <div style="text-align: center; margin-bottom: 20px;">
-                <div class="upload-icon">📊</div>
-                <div class="upload-text">Drop your P&L or Chart screenshot here</div>
-                <div class="upload-subtext">Supports PNG, JPG (Max 10MB). Your data is encrypted and deleted after analysis.</div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            uploaded_file = st.file_uploader(
-                "Upload Chart Screenshot", 
-                type=["png", "jpg"], 
-                label_visibility="collapsed",
-                key="chart_upload"
-            )
-            
-            if uploaded_file:
-                st.markdown('<div style="margin-top: 24px;">', unsafe_allow_html=True)
-                st.image(uploaded_file, use_column_width=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-                st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
-                if st.button("RUN OPTICAL ANALYSIS", type="primary", use_container_width=True):
-                    image = Image.open(uploaded_file)
-                    buf = io.BytesIO()
-                    image.save(buf, format="PNG")
-                    img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
-                    prompt = f"""
-                    SYSTEM: Hedge Fund Risk Manager.
-                    TASK: Analyze chart for technical/psychological errors.
-                    OUTPUT: [SCORE], [TAGS], [TECH], [PSYCH], [RISK], [FIX].
-                    """
-                    ready_to_run = True
-
-        else:
-            with st.form("audit_form"):
-                col_a, col_b, col_c = st.columns(3)
-                with col_a: ticker = st.text_input("Ticker", "SPY")
-                with col_b: setup_type = st.selectbox("Setup", ["Trend", "Reversal", "Breakout"])
-                with col_c: emotion = st.selectbox("State", ["Neutral", "FOMO", "Revenge", "Tilt"])
-                
-                st.markdown('<div style="height: 8px;"></div>', unsafe_allow_html=True)
-                
-                col_d, col_e, col_f = st.columns(3)
-                with col_d: entry = st.number_input("Entry", 0.0, step=0.01)
-                with col_e: exit_price = st.number_input("Exit", 0.0, step=0.01)
-                with col_f: stop = st.number_input("Stop", 0.0, step=0.01)
-                
-                st.markdown('<div style="height: 8px;"></div>', unsafe_allow_html=True)
-                
-                notes = st.text_area("Execution Notes", height=100, placeholder="Describe your decision-making process, entry hesitation, stop management...")
-                
-                st.markdown('<div style="height: 12px;"></div>', unsafe_allow_html=True)
-                
-                if st.form_submit_button("EXECUTE AUDIT", type="primary", use_container_width=True):
-                    ticker_val = ticker
-                    prompt = f"""
-                    SYSTEM: Trading Coach.
-                    DATA: {ticker} | {setup_type} | {emotion} | Note: {notes}
-                    ENTRY: {entry} | EXIT: {exit_price} | STOP: {stop}
-                    OUTPUT: [SCORE], [TAGS], [TECH], [PSYCH], [RISK], [FIX].
-                    """
-                    ready_to_run = True
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        # RESULTS AREA
-        if ready_to_run and supabase:
-            with st.spinner("🧠 AI Forensic Analysis in progress..."):
-                try:
-                    messages = [{"role": "user", "content": [{"type": "text", "text": prompt}]}]
-                    if img_b64: messages[0]["content"].append({"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}})
-                    
-                    payload = {"model": "Qwen/Qwen2.5-VL-7B-Instruct", "messages": messages, "max_tokens": 600}
-                    headers = {"Authorization": f"Bearer {HF_TOKEN}", "Content-Type": "application/json"}
-                    res = requests.post(API_URL, headers=headers, json=payload)
-
-                    if res.status_code == 200:
-                        report = parse_report(res.json()["choices"][0]["message"]["content"])
-                        save_analysis(current_user, report, ticker_val)
-                        
-                        score_color = "#dc2626" if report['score'] < 50 else "#10b981"
-                        
-                        st.markdown(f"""
-                        <div class="glass-panel" style="border-top: 3px solid {score_color}">
-                            <div class="score-container">
-                                <div>
-                                    <div style="color:#6b7280; letter-spacing:2.5px; font-size:0.7rem; text-transform: uppercase; margin-bottom: 8px;">AUDIT SCORE</div>
-                                    <div class="score-value" style="color:{score_color}">{report['score']}</div>
-                                </div>
-                                <div class="score-meta">
-                                    <div class="ticker-badge">{ticker_val}</div>
-                                    <div style="color:#6b7280; font-size:0.8rem;">{datetime.now().strftime('%B %d, %Y')}</div>
-                                </div>
-                            </div>
-                            <div class="report-grid">
-                                <div class="report-item" style="border-left-color: #3b82f6;">
-                                    <span class="report-label" style="color:#3b82f6;">Technical Analysis</span>
-                                    {report['tech']}
-                                </div>
-                                <div class="report-item" style="border-left-color: #f59e0b;">
-                                    <span class="report-label" style="color:#f59e0b;">Psychology</span>
-                                    {report['psych']}
-                                </div>
-                                <div class="report-item" style="border-left-color: #ef4444;">
-                                    <span class="report-label" style="color:#ef4444;">Risk Assessment</span>
-                                    {report['risk']}
-                                </div>
-                                <div class="report-item" style="border-left-color: #10b981;">
-                                    <span class="report-label" style="color:#10b981;">Corrective Action</span>
-                                    {report['fix']}
-                                </div>
-                            </div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                except Exception as e:
-                    st.error(f"Analysis Failed: {e}")
-
-    # --- TAB 2: DASHBOARD ---
-    with main_tab2:
+    
+    # --- PAGE ROUTING ---
+    if st.session_state["current_page"] == "data_vault":
+        # DATA VAULT PAGE
         if supabase:
             hist = supabase.table("trades").select("*").eq("user_id", current_user).order("created_at", desc=True).execute()
             
@@ -714,348 +616,11 @@ else:
                 df = pd.DataFrame(hist.data)
                 df['created_at'] = pd.to_datetime(df['created_at'])
                 
-                # METRICS CALC
-                avg_score = df['score'].mean()
-                total_trades = len(df)
-                all_tags = [tag for sublist in df['mistake_tags'] for tag in sublist]
-                top_mistake = pd.Series(all_tags).mode()[0] if all_tags else "None"
-                
-                # Calculate win rate (scores > 60 = good trades)
-                win_rate = len(df[df['score'] > 60]) / len(df) * 100 if len(df) > 0 else 0
-                
-                # Recent trend (last 5 vs previous 5)
-                recent_avg = df.head(5)['score'].mean() if len(df) >= 5 else avg_score
-                prev_avg = df.iloc[5:10]['score'].mean() if len(df) >= 10 else avg_score
-                trend = "↗" if recent_avg > prev_avg else "↘" if recent_avg < prev_avg else "→"
-                
-                # 1. KPI ROW
-                st.markdown(f"""
-                <div class="kpi-container">
-                    <div class="kpi-card">
-                        <div class="kpi-val">{int(avg_score)}</div>
-                        <div class="kpi-label">Avg Quality Score</div>
-                    </div>
-                    <div class="kpi-card">
-                        <div class="kpi-val">{int(win_rate)}%</div>
-                        <div class="kpi-label">Quality Rate</div>
-                    </div>
-                    <div class="kpi-card">
-                        <div class="kpi-val">{total_trades}</div>
-                        <div class="kpi-label">Total Audits</div>
-                    </div>
-                    <div class="kpi-card">
-                        <div class="kpi-val" style="font-size:2rem;">{trend}</div>
-                        <div class="kpi-label">Recent Trend</div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-
-                # 2. MAIN CHART - Full Width
+                # Main Data Table
                 st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
-                st.markdown('<div class="section-title">Performance Evolution</div>', unsafe_allow_html=True)
-                
-                chart_data = df[['created_at', 'score']].sort_values('created_at').reset_index(drop=True)
-                chart_data['index'] = range(len(chart_data))
-                
-                # Create base chart
-                base = alt.Chart(chart_data).encode(
-                    x=alt.X('index:Q', 
-                        axis=alt.Axis(
-                            title='Trade Sequence',
-                            grid=False,
-                            labelColor='#6b7280',
-                            titleColor='#9ca3af',
-                            labelFontSize=11,
-                            titleFontSize=12
-                        )
-                    )
-                )
-                
-                # Reference lines
-                good_line = alt.Chart(pd.DataFrame({'y': [70]})).mark_rule(
-                    strokeDash=[5, 5],
-                    color='#10b981',
-                    opacity=0.3
-                ).encode(y='y:Q')
-                
-                bad_line = alt.Chart(pd.DataFrame({'y': [40]})).mark_rule(
-                    strokeDash=[5, 5],
-                    color='#ef4444',
-                    opacity=0.3
-                ).encode(y='y:Q')
-                
-                # Main line with gradient
-                line = base.mark_line(
-                    color='#3b82f6', 
-                    strokeWidth=3,
-                    point=alt.OverlayMarkDef(
-                        filled=True,
-                        size=80,
-                        color='#3b82f6',
-                        strokeWidth=2,
-                        stroke='#1e40af'
-                    )
-                ).encode(
-                    y=alt.Y('score:Q', 
-                        scale=alt.Scale(domain=[0, 100]),
-                        axis=alt.Axis(
-                            title='Quality Score',
-                            grid=True,
-                            gridColor='rgba(255,255,255,0.04)',
-                            labelColor='#6b7280',
-                            titleColor='#9ca3af',
-                            labelFontSize=11,
-                            titleFontSize=12
-                        )
-                    ),
-                    tooltip=[
-                        alt.Tooltip('index:Q', title='Trade #'),
-                        alt.Tooltip('score:Q', title='Score'),
-                        alt.Tooltip('created_at:T', title='Date', format='%b %d, %Y')
-                    ]
-                )
-                
-                area = base.mark_area(
-                    color='#3b82f6', 
-                    opacity=0.1,
-                    line=False
-                ).encode(y='score:Q')
-                
-                chart = (good_line + bad_line + area + line).properties(
-                    height=320
-                ).configure_view(
-                    strokeWidth=0,
-                    fill='transparent'
-                ).configure(
-                    background='transparent'
-                )
-                
-                st.altair_chart(chart, use_container_width=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-
-                # 3. TWO COLUMN LAYOUT
-                col_left, col_right = st.columns([1.5, 1])
-                
-                with col_left:
-                    # MISTAKE BREAKDOWN with Bar Chart
-                    st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
-                    st.markdown('<div class="section-title">Error Pattern Analysis</div>', unsafe_allow_html=True)
-                    
-                    if all_tags:
-                        tag_counts = pd.Series(all_tags).value_counts().head(6).reset_index()
-                        tag_counts.columns = ['Mistake', 'Count']
-                        
-                        # Horizontal bar chart
-                        bar_chart = alt.Chart(tag_counts).mark_bar(
-                            cornerRadiusEnd=6,
-                            height=28
-                        ).encode(
-                            x=alt.X('Count:Q',
-                                axis=alt.Axis(
-                                    title=None,
-                                    grid=False,
-                                    labelColor='#6b7280',
-                                    labelFontSize=11
-                                )
-                            ),
-                            y=alt.Y('Mistake:N',
-                                sort='-x',
-                                axis=alt.Axis(
-                                    title=None,
-                                    labelColor='#e5e7eb',
-                                    labelFontSize=12,
-                                    labelPadding=10
-                                )
-                            ),
-                            color=alt.Color('Count:Q',
-                                scale=alt.Scale(
-                                    scheme='redyellowblue',
-                                    reverse=True
-                                ),
-                                legend=None
-                            ),
-                            tooltip=[
-                                alt.Tooltip('Mistake:N', title='Error Type'),
-                                alt.Tooltip('Count:Q', title='Occurrences')
-                            ]
-                        ).properties(
-                            height=280
-                        ).configure_view(
-                            strokeWidth=0,
-                            fill='transparent'
-                        ).configure(
-                            background='transparent'
-                        )
-                        
-                        st.altair_chart(bar_chart, use_container_width=True)
-                    else:
-                        st.info("No error patterns detected yet.")
-                    
-                    st.markdown('</div>', unsafe_allow_html=True)
-
-                with col_right:
-                    # AI INSIGHTS
-                    st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
-                    st.markdown('<div class="section-title">AI Insights</div>', unsafe_allow_html=True)
-                    
-                    insights = generate_insights(df)
-                    
-                    for i, insight in enumerate(insights):
-                        # Parse emoji and content
-                        parts = insight.split(' ', 1)
-                        emoji = parts[0] if len(parts) > 0 else ''
-                        content = parts[1] if len(parts) > 1 else insight
-                        
-                        st.markdown(f"""
-                        <div style='
-                            background: rgba(255, 255, 255, 0.02);
-                            border-left: 3px solid #dc2626;
-                            padding: 16px;
-                            border-radius: 0 10px 10px 0;
-                            margin-bottom: 16px;
-                        '>
-                            <div style='font-size: 1.5rem; margin-bottom: 8px;'>{emoji}</div>
-                            <div style='font-size: 0.9rem; line-height: 1.6; color: #d1d5db;'>
-                                {content}
-                            </div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                    
-                    st.markdown('</div>', unsafe_allow_html=True)
-                    
-                    # SCORE DISTRIBUTION
-                    st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
-                    st.markdown('<div class="section-title">Score Distribution</div>', unsafe_allow_html=True)
-                    
-                    # Create score ranges
-                    score_ranges = pd.cut(df['score'], bins=[0, 40, 60, 80, 100], labels=['Poor (0-40)', 'Fair (40-60)', 'Good (60-80)', 'Excellent (80-100)'])
-                    dist_data = score_ranges.value_counts().reset_index()
-                    dist_data.columns = ['Range', 'Count']
-                    
-                    # Color mapping
-                    color_map = {
-                        'Poor (0-40)': '#ef4444',
-                        'Fair (40-60)': '#f59e0b',
-                        'Good (60-80)': '#3b82f6',
-                        'Excellent (80-100)': '#10b981'
-                    }
-                    
-                    for _, row in dist_data.iterrows():
-                        range_name = row['Range']
-                        count = row['Count']
-                        percentage = (count / len(df)) * 100
-                        color = color_map.get(range_name, '#6b7280')
-                        
-                        st.markdown(f"""
-                        <div style='margin-bottom: 20px;'>
-                            <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;'>
-                                <span style='font-size: 0.85rem; color: #9ca3af; font-weight: 600;'>{range_name}</span>
-                                <span style='font-size: 0.85rem; color: #e5e7eb; font-family: "JetBrains Mono", monospace;'>{count} ({int(percentage)}%)</span>
-                            </div>
-                            <div style='
-                                width: 100%;
-                                height: 8px;
-                                background: rgba(255, 255, 255, 0.05);
-                                border-radius: 4px;
-                                overflow: hidden;
-                            '>
-                                <div style='
-                                    width: {percentage}%;
-                                    height: 100%;
-                                    background: {color};
-                                    border-radius: 4px;
-                                    transition: width 0.6s ease;
-                                '></div>
-                            </div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                    
-                    st.markdown('</div>', unsafe_allow_html=True)
-
-                # 4. RECENT TRADES TABLE
-                st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
-                st.markdown('<div class="section-title">Recent Activity</div>', unsafe_allow_html=True)
-                
-                table_df = df.head(10)[['created_at', 'ticker', 'score', 'mistake_tags']].copy()
-                table_df.columns = ['Time', 'Asset', 'Score', 'Primary Errors']
-                
-                # Format tags to show only first 2
-                table_df['Primary Errors'] = table_df['Primary Errors'].apply(
-                    lambda x: ', '.join(x[:2]) if len(x) > 0 else 'None'
-                )
-                
-                st.dataframe(
-                    table_df, 
-                    use_container_width=True, 
-                    hide_index=True,
-                    column_config={
-                        "Score": st.column_config.ProgressColumn(
-                            "Quality Score", 
-                            min_value=0, 
-                            max_value=100, 
-                            format="%d"
-                        ),
-                        "Time": st.column_config.DatetimeColumn(
-                            "Time", 
-                            format="MMM DD, HH:mm"
-                        ),
-                        "Asset": st.column_config.TextColumn(
-                            "Asset",
-                            width="small"
-                        )
-                    }
-                )
-                st.markdown('</div>', unsafe_allow_html=True)
-                
-            else:
-                st.markdown('<div class="glass-panel" style="text-align: center; padding: 60px;">', unsafe_allow_html=True)
-                st.markdown("""
-                <div style="font-size: 3rem; margin-bottom: 16px; opacity: 0.3;">📊</div>
-                <div style="font-size: 1.1rem; color: #9ca3af; margin-bottom: 8px;">No Performance Data Yet</div>
-                <div style="font-size: 0.9rem; color: #6b7280;">Complete your first forensic audit to see metrics here.</div>
-                """, unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-
-    # --- TAB 3: DATA VAULT (ALL ACTIVITY) ---
-    with main_tab3:
-        if supabase:
-            hist = supabase.table("trades").select("*").eq("user_id", current_user).order("created_at", desc=True).execute()
-            
-            if hist.data:
-                df = pd.DataFrame(hist.data)
-                df['created_at'] = pd.to_datetime(df['created_at'])
-                
-                # Summary Stats at top
-                total_audits = len(df)
-                avg_score = df['score'].mean()
-                best_score = df['score'].max()
-                worst_score = df['score'].min()
-                
-                st.markdown(f"""
-                <div class="kpi-container">
-                    <div class="kpi-card">
-                        <div class="kpi-val">{total_audits}</div>
-                        <div class="kpi-label">Total Records</div>
-                    </div>
-                    <div class="kpi-card">
-                        <div class="kpi-val">{int(avg_score)}</div>
-                        <div class="kpi-label">Lifetime Avg</div>
-                    </div>
-                    <div class="kpi-card">
-                        <div class="kpi-val" style="color: #10b981;">{int(best_score)}</div>
-                        <div class="kpi-label">Best Score</div>
-                    </div>
-                    <div class="kpi-card">
-                        <div class="kpi-val" style="color: #ef4444;">{int(worst_score)}</div>
-                        <div class="kpi-label">Worst Score</div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown(f'<div class="section-title">Complete Audit History ({len(df)} records)</div>', unsafe_allow_html=True)
                 
                 # Filter and Search
-                st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
-                st.markdown('<div class="section-title">Filter & Search</div>', unsafe_allow_html=True)
-                
                 col_search1, col_search2, col_search3 = st.columns([2, 1, 1])
                 
                 with col_search1:
@@ -1067,7 +632,7 @@ else:
                 with col_search3:
                     sort_order = st.selectbox("Sort By", ["Newest First", "Oldest First", "Highest Score", "Lowest Score"], label_visibility="collapsed")
                 
-                st.markdown('</div>', unsafe_allow_html=True)
+                st.markdown('<div style="height: 16px;"></div>', unsafe_allow_html=True)
                 
                 # Apply filters
                 filtered_df = df.copy()
@@ -1092,10 +657,6 @@ else:
                     filtered_df = filtered_df.sort_values('score', ascending=True)
                 else:  # Newest First (default)
                     filtered_df = filtered_df.sort_values('created_at', ascending=False)
-                
-                # Main Data Table
-                st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
-                st.markdown(f'<div class="section-title">Complete Audit History ({len(filtered_df)} records)</div>', unsafe_allow_html=True)
                 
                 # Prepare table data
                 table_df = filtered_df[['created_at', 'ticker', 'score', 'mistake_tags', 'technical_analysis', 'psych_analysis']].copy()
@@ -1170,3 +731,456 @@ else:
                 <div style="font-size: 0.9rem; color: #6b7280;">Your audit history will appear here once you start analyzing trades.</div>
                 """, unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
+    
+    elif st.session_state["current_page"] == "pricing":
+        # PRICING PAGE (Placeholder)
+        st.markdown('<div class="glass-panel" style="text-align: center; padding: 60px;">', unsafe_allow_html=True)
+        st.markdown("""
+        <div style="font-size: 3rem; margin-bottom: 16px; opacity: 0.3;">💳</div>
+        <div style="font-size: 1.1rem; color: #9ca3af; margin-bottom: 8px;">Pricing Information</div>
+        <div style="font-size: 0.9rem; color: #6b7280;">Pricing details coming soon.</div>
+        """, unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    else:  # analyze page (default)
+        # TABS
+        main_tab1, main_tab2 = st.tabs(["🔎 FORENSIC AUDIT", "📊 PERFORMANCE METRICS"])
+
+        # --- TAB 1: AUDIT (INPUT) ---
+        with main_tab1:
+            st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
+            st.markdown('<div class="section-title">Case Data Input</div>', unsafe_allow_html=True)
+        
+            c_mode = st.radio("Input Vector", ["Text Parameters", "Chart Vision"], horizontal=True, label_visibility="collapsed")
+        
+            prompt = ""
+            img_b64 = None
+            ticker_val = "IMG"
+            ready_to_run = False
+
+            if c_mode == "Chart Vision":
+                st.markdown("""
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <div class="upload-icon">📊</div>
+                    <div class="upload-text">Drop your P&L or Chart screenshot here</div>
+                    <div class="upload-subtext">Supports PNG, JPG (Max 10MB). Your data is encrypted and deleted after analysis.</div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+                uploaded_file = st.file_uploader(
+                    "Upload Chart Screenshot", 
+                    type=["png", "jpg"], 
+                    label_visibility="collapsed",
+                    key="chart_upload"
+                )
+            
+                if uploaded_file:
+                    st.markdown('<div style="margin-top: 24px;">', unsafe_allow_html=True)
+                    st.image(uploaded_file, use_column_width=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
+                    st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
+                    if st.button("RUN OPTICAL ANALYSIS", type="primary", use_container_width=True):
+                        image = Image.open(uploaded_file)
+                        buf = io.BytesIO()
+                        image.save(buf, format="PNG")
+                        img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+                        prompt = f"""
+                        SYSTEM: Hedge Fund Risk Manager.
+                        TASK: Analyze chart for technical/psychological errors.
+                        OUTPUT: [SCORE], [TAGS], [TECH], [PSYCH], [RISK], [FIX].
+                        """
+                        ready_to_run = True
+
+            else:
+                with st.form("audit_form"):
+                    col_a, col_b, col_c = st.columns(3)
+                    with col_a: ticker = st.text_input("Ticker", "SPY")
+                    with col_b: setup_type = st.selectbox("Setup", ["Trend", "Reversal", "Breakout"])
+                    with col_c: emotion = st.selectbox("State", ["Neutral", "FOMO", "Revenge", "Tilt"])
+                
+                    st.markdown('<div style="height: 8px;"></div>', unsafe_allow_html=True)
+                
+                    col_d, col_e, col_f = st.columns(3)
+                    with col_d: entry = st.number_input("Entry", 0.0, step=0.01)
+                    with col_e: exit_price = st.number_input("Exit", 0.0, step=0.01)
+                    with col_f: stop = st.number_input("Stop", 0.0, step=0.01)
+                
+                    st.markdown('<div style="height: 8px;"></div>', unsafe_allow_html=True)
+                
+                    notes = st.text_area("Execution Notes", height=100, placeholder="Describe your decision-making process, entry hesitation, stop management...")
+                
+                    st.markdown('<div style="height: 12px;"></div>', unsafe_allow_html=True)
+                
+                    if st.form_submit_button("EXECUTE AUDIT", type="primary", use_container_width=True):
+                        ticker_val = ticker
+                        prompt = f"""
+                        SYSTEM: Trading Coach.
+                        DATA: {ticker} | {setup_type} | {emotion} | Note: {notes}
+                        ENTRY: {entry} | EXIT: {exit_price} | STOP: {stop}
+                        OUTPUT: [SCORE], [TAGS], [TECH], [PSYCH], [RISK], [FIX].
+                        """
+                        ready_to_run = True
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            # RESULTS AREA
+            if ready_to_run and supabase:
+                with st.spinner("🧠 AI Forensic Analysis in progress..."):
+                    try:
+                        messages = [{"role": "user", "content": [{"type": "text", "text": prompt}]}]
+                        if img_b64: messages[0]["content"].append({"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}})
+                    
+                        payload = {"model": "Qwen/Qwen2.5-VL-7B-Instruct", "messages": messages, "max_tokens": 600}
+                        headers = {"Authorization": f"Bearer {HF_TOKEN}", "Content-Type": "application/json"}
+                        res = requests.post(API_URL, headers=headers, json=payload)
+
+                        if res.status_code == 200:
+                            report = parse_report(res.json()["choices"][0]["message"]["content"])
+                            save_analysis(current_user, report, ticker_val)
+                        
+                            score_color = "#dc2626" if report['score'] < 50 else "#10b981"
+                        
+                            st.markdown(f"""
+                            <div class="glass-panel" style="border-top: 3px solid {score_color}">
+                                <div class="score-container">
+                                    <div>
+                                        <div style="color:#6b7280; letter-spacing:2.5px; font-size:0.7rem; text-transform: uppercase; margin-bottom: 8px;">AUDIT SCORE</div>
+                                        <div class="score-value" style="color:{score_color}">{report['score']}</div>
+                                    </div>
+                                    <div class="score-meta">
+                                        <div class="ticker-badge">{ticker_val}</div>
+                                        <div style="color:#6b7280; font-size:0.8rem;">{datetime.now().strftime('%B %d, %Y')}</div>
+                                    </div>
+                                </div>
+                                <div class="report-grid">
+                                    <div class="report-item" style="border-left-color: #3b82f6;">
+                                        <span class="report-label" style="color:#3b82f6;">Technical Analysis</span>
+                                        {report['tech']}
+                                    </div>
+                                    <div class="report-item" style="border-left-color: #f59e0b;">
+                                        <span class="report-label" style="color:#f59e0b;">Psychology</span>
+                                        {report['psych']}
+                                    </div>
+                                    <div class="report-item" style="border-left-color: #ef4444;">
+                                        <span class="report-label" style="color:#ef4444;">Risk Assessment</span>
+                                        {report['risk']}
+                                    </div>
+                                    <div class="report-item" style="border-left-color: #10b981;">
+                                        <span class="report-label" style="color:#10b981;">Corrective Action</span>
+                                        {report['fix']}
+                                    </div>
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                    except Exception as e:
+                        st.error(f"Analysis Failed: {e}")
+
+        # --- TAB 2: DASHBOARD ---
+        with main_tab2:
+            if supabase:
+                hist = supabase.table("trades").select("*").eq("user_id", current_user).order("created_at", desc=True).execute()
+            
+                if hist.data:
+                    df = pd.DataFrame(hist.data)
+                    df['created_at'] = pd.to_datetime(df['created_at'])
+                
+                    # METRICS CALC
+                    avg_score = df['score'].mean()
+                    total_trades = len(df)
+                    all_tags = [tag for sublist in df['mistake_tags'] for tag in sublist]
+                    top_mistake = pd.Series(all_tags).mode()[0] if all_tags else "None"
+                
+                    # Calculate win rate (scores > 60 = good trades)
+                    win_rate = len(df[df['score'] > 60]) / len(df) * 100 if len(df) > 0 else 0
+                
+                    # Recent trend (last 5 vs previous 5)
+                    recent_avg = df.head(5)['score'].mean() if len(df) >= 5 else avg_score
+                    prev_avg = df.iloc[5:10]['score'].mean() if len(df) >= 10 else avg_score
+                    trend = "↗" if recent_avg > prev_avg else "↘" if recent_avg < prev_avg else "→"
+                
+                    # 1. KPI ROW
+                    st.markdown(f"""
+                    <div class="kpi-container">
+                        <div class="kpi-card">
+                            <div class="kpi-val">{int(avg_score)}</div>
+                            <div class="kpi-label">Avg Quality Score</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-val">{int(win_rate)}%</div>
+                            <div class="kpi-label">Quality Rate</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-val">{total_trades}</div>
+                            <div class="kpi-label">Total Audits</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-val" style="font-size:2rem;">{trend}</div>
+                            <div class="kpi-label">Recent Trend</div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    # 2. MAIN CHART - Full Width
+                    st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
+                    st.markdown('<div class="section-title">Performance Evolution</div>', unsafe_allow_html=True)
+                
+                    chart_data = df[['created_at', 'score']].sort_values('created_at').reset_index(drop=True)
+                    chart_data['index'] = range(len(chart_data))
+                
+                    # Create base chart
+                    base = alt.Chart(chart_data).encode(
+                        x=alt.X('index:Q', 
+                            axis=alt.Axis(
+                                title='Trade Sequence',
+                                grid=False,
+                                labelColor='#6b7280',
+                                titleColor='#9ca3af',
+                                labelFontSize=11,
+                                titleFontSize=12
+                            )
+                        )
+                    )
+                
+                    # Reference lines
+                    good_line = alt.Chart(pd.DataFrame({'y': [70]})).mark_rule(
+                        strokeDash=[5, 5],
+                        color='#10b981',
+                        opacity=0.3
+                    ).encode(y='y:Q')
+                
+                    bad_line = alt.Chart(pd.DataFrame({'y': [40]})).mark_rule(
+                        strokeDash=[5, 5],
+                        color='#ef4444',
+                        opacity=0.3
+                    ).encode(y='y:Q')
+                
+                    # Main line with gradient
+                    line = base.mark_line(
+                        color='#3b82f6', 
+                        strokeWidth=3,
+                        point=alt.OverlayMarkDef(
+                            filled=True,
+                            size=80,
+                            color='#3b82f6',
+                            strokeWidth=2,
+                            stroke='#1e40af'
+                        )
+                    ).encode(
+                        y=alt.Y('score:Q', 
+                            scale=alt.Scale(domain=[0, 100]),
+                            axis=alt.Axis(
+                                title='Quality Score',
+                                grid=True,
+                                gridColor='rgba(255,255,255,0.04)',
+                                labelColor='#6b7280',
+                                titleColor='#9ca3af',
+                                labelFontSize=11,
+                                titleFontSize=12
+                            )
+                        ),
+                        tooltip=[
+                            alt.Tooltip('index:Q', title='Trade #'),
+                            alt.Tooltip('score:Q', title='Score'),
+                            alt.Tooltip('created_at:T', title='Date', format='%b %d, %Y')
+                        ]
+                    )
+                
+                    area = base.mark_area(
+                        color='#3b82f6', 
+                        opacity=0.1,
+                        line=False
+                    ).encode(y='score:Q')
+                
+                    chart = (good_line + bad_line + area + line).properties(
+                        height=320
+                    ).configure_view(
+                        strokeWidth=0,
+                        fill='transparent'
+                    ).configure(
+                        background='transparent'
+                    )
+                
+                    st.altair_chart(chart, use_container_width=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
+
+                    # 3. TWO COLUMN LAYOUT
+                    col_left, col_right = st.columns([1.5, 1])
+                
+                    with col_left:
+                        # MISTAKE BREAKDOWN with Bar Chart
+                        st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
+                        st.markdown('<div class="section-title">Error Pattern Analysis</div>', unsafe_allow_html=True)
+                    
+                        if all_tags:
+                            tag_counts = pd.Series(all_tags).value_counts().head(6).reset_index()
+                            tag_counts.columns = ['Mistake', 'Count']
+                        
+                            # Horizontal bar chart
+                            bar_chart = alt.Chart(tag_counts).mark_bar(
+                                cornerRadiusEnd=6,
+                                height=28
+                            ).encode(
+                                x=alt.X('Count:Q',
+                                    axis=alt.Axis(
+                                        title=None,
+                                        grid=False,
+                                        labelColor='#6b7280',
+                                        labelFontSize=11
+                                    )
+                                ),
+                                y=alt.Y('Mistake:N',
+                                    sort='-x',
+                                    axis=alt.Axis(
+                                        title=None,
+                                        labelColor='#e5e7eb',
+                                        labelFontSize=12,
+                                        labelPadding=10
+                                    )
+                                ),
+                                color=alt.Color('Count:Q',
+                                    scale=alt.Scale(
+                                        scheme='redyellowblue',
+                                        reverse=True
+                                    ),
+                                    legend=None
+                                ),
+                                tooltip=[
+                                    alt.Tooltip('Mistake:N', title='Error Type'),
+                                    alt.Tooltip('Count:Q', title='Occurrences')
+                                ]
+                            ).properties(
+                                height=280
+                            ).configure_view(
+                                strokeWidth=0,
+                                fill='transparent'
+                            ).configure(
+                                background='transparent'
+                            )
+                        
+                            st.altair_chart(bar_chart, use_container_width=True)
+                        else:
+                            st.info("No error patterns detected yet.")
+                    
+                        st.markdown('</div>', unsafe_allow_html=True)
+
+                    with col_right:
+                        # AI INSIGHTS
+                        st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
+                        st.markdown('<div class="section-title">AI Insights</div>', unsafe_allow_html=True)
+                    
+                        insights = generate_insights(df)
+                    
+                        for i, insight in enumerate(insights):
+                            # Parse emoji and content
+                            parts = insight.split(' ', 1)
+                            emoji = parts[0] if len(parts) > 0 else ''
+                            content = parts[1] if len(parts) > 1 else insight
+                        
+                            st.markdown(f"""
+                            <div style='
+                                background: rgba(255, 255, 255, 0.02);
+                                border-left: 3px solid #dc2626;
+                                padding: 16px;
+                                border-radius: 0 10px 10px 0;
+                                margin-bottom: 16px;
+                            '>
+                                <div style='font-size: 1.5rem; margin-bottom: 8px;'>{emoji}</div>
+                                <div style='font-size: 0.9rem; line-height: 1.6; color: #d1d5db;'>
+                                    {content}
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                    
+                        st.markdown('</div>', unsafe_allow_html=True)
+                    
+                        # SCORE DISTRIBUTION
+                        st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
+                        st.markdown('<div class="section-title">Score Distribution</div>', unsafe_allow_html=True)
+                    
+                        # Create score ranges
+                        score_ranges = pd.cut(df['score'], bins=[0, 40, 60, 80, 100], labels=['Poor (0-40)', 'Fair (40-60)', 'Good (60-80)', 'Excellent (80-100)'])
+                        dist_data = score_ranges.value_counts().reset_index()
+                        dist_data.columns = ['Range', 'Count']
+                    
+                        # Color mapping
+                        color_map = {
+                            'Poor (0-40)': '#ef4444',
+                            'Fair (40-60)': '#f59e0b',
+                            'Good (60-80)': '#3b82f6',
+                            'Excellent (80-100)': '#10b981'
+                        }
+                    
+                        for _, row in dist_data.iterrows():
+                            range_name = row['Range']
+                            count = row['Count']
+                            percentage = (count / len(df)) * 100
+                            color = color_map.get(range_name, '#6b7280')
+                        
+                            st.markdown(f"""
+                            <div style='margin-bottom: 20px;'>
+                                <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;'>
+                                    <span style='font-size: 0.85rem; color: #9ca3af; font-weight: 600;'>{range_name}</span>
+                                    <span style='font-size: 0.85rem; color: #e5e7eb; font-family: "JetBrains Mono", monospace;'>{count} ({int(percentage)}%)</span>
+                                </div>
+                                <div style='
+                                    width: 100%;
+                                    height: 8px;
+                                    background: rgba(255, 255, 255, 0.05);
+                                    border-radius: 4px;
+                                    overflow: hidden;
+                                '>
+                                    <div style='
+                                        width: {percentage}%;
+                                        height: 100%;
+                                        background: {color};
+                                        border-radius: 4px;
+                                        transition: width 0.6s ease;
+                                    '></div>
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                    
+                        st.markdown('</div>', unsafe_allow_html=True)
+
+                    # 4. RECENT TRADES TABLE
+                    st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
+                    st.markdown('<div class="section-title">Recent Activity</div>', unsafe_allow_html=True)
+                
+                    table_df = df.head(10)[['created_at', 'ticker', 'score', 'mistake_tags']].copy()
+                    table_df.columns = ['Time', 'Asset', 'Score', 'Primary Errors']
+                
+                    # Format tags to show only first 2
+                    table_df['Primary Errors'] = table_df['Primary Errors'].apply(
+                        lambda x: ', '.join(x[:2]) if len(x) > 0 else 'None'
+                    )
+                
+                    st.dataframe(
+                        table_df, 
+                        use_container_width=True, 
+                        hide_index=True,
+                        column_config={
+                            "Score": st.column_config.ProgressColumn(
+                                "Quality Score", 
+                                min_value=0, 
+                                max_value=100, 
+                                format="%d"
+                            ),
+                            "Time": st.column_config.DatetimeColumn(
+                                "Time", 
+                                format="MMM DD, HH:mm"
+                            ),
+                            "Asset": st.column_config.TextColumn(
+                                "Asset",
+                                width="small"
+                            )
+                        }
+                    )
+                    st.markdown('</div>', unsafe_allow_html=True)
+                
+                else:
+                    st.markdown('<div class="glass-panel" style="text-align: center; padding: 60px;">', unsafe_allow_html=True)
+                    st.markdown("""
+                    <div style="font-size: 3rem; margin-bottom: 16px; opacity: 0.3;">📊</div>
+                    <div style="font-size: 1.1rem; color: #9ca3af; margin-bottom: 8px;">No Performance Data Yet</div>
+                    <div style="font-size: 0.9rem; color: #6b7280;">Complete your first forensic audit to see metrics here.</div>
+                    """, unsafe_allow_html=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
