@@ -309,25 +309,18 @@ st.markdown("""
         transform: translateY(-2px);
     }
     
-    /* Style the overlay navigation buttons to be invisible but clickable */
-    button[key="nav_analyze_btn"],
-    button[key="nav_vault_btn"],
-    button[key="nav_pricing_btn"] {
-        background: transparent !important;
-        border: none !important;
-        color: transparent !important;
-        box-shadow: none !important;
-        padding: 18px !important;
-        position: relative;
-        z-index: 10;
-    }
-    
-    button[key="nav_analyze_btn"]:hover,
-    button[key="nav_vault_btn"]:hover,
-    button[key="nav_pricing_btn"]:hover {
-        background: transparent !important;
-        box-shadow: none !important;
-        transform: none !important;
+    /* Completely hide navigation helper buttons */
+    button[key="btn_analyze"],
+    button[key="btn_vault"],
+    button[key="btn_pricing"] {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0 !important;
+        width: 0 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        position: absolute !important;
+        opacity: 0 !important;
     }
 
     /* --- INPUTS --- */
@@ -560,6 +553,8 @@ else:
     if "current_page" not in st.session_state:
         st.session_state["current_page"] = "analyze"
     
+    current_page = st.session_state.get("current_page", "analyze")
+    
     # --- CLEAN HEADER USING STREAMLIT ---
     header_col1, header_col2, header_col3 = st.columns([2, 6, 2])
     
@@ -574,39 +569,37 @@ else:
         """, unsafe_allow_html=True)
     
     with header_col2:
-        current_page = st.session_state.get("current_page", "analyze")
+        # Navigation with proper styling
+        analyze_active = 'color: #fca5a5; background: rgba(220, 38, 38, 0.1); border-bottom: 2px solid #dc2626;' if current_page == 'analyze' else 'color: #9ca3af;'
+        vault_active = 'color: #fca5a5; background: rgba(220, 38, 38, 0.1); border-bottom: 2px solid #dc2626;' if current_page == 'data_vault' else 'color: #9ca3af;'
+        pricing_active = 'color: #fca5a5; background: rgba(220, 38, 38, 0.1); border-bottom: 2px solid #dc2626;' if current_page == 'pricing' else 'color: #9ca3af;'
         
-        # Create columns for positioning
-        nav_col1, nav_col2, nav_col3 = st.columns(3)
-        
-        # Display styled navigation centered across all columns
         st.markdown(f"""
-        <div style="display: flex; justify-content: center; align-items: center; gap: 8px; padding: 8px 0; position: relative; z-index: 1; pointer-events: none; margin-top: -50px;">
-            <div style="padding: 10px 20px; {'color: #fca5a5; background: rgba(220, 38, 38, 0.1); border-radius: 8px; border-bottom: 2px solid #dc2626;' if current_page == 'analyze' else 'color: #9ca3af;'} font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">
+        <div style="display: flex; justify-content: center; align-items: center; gap: 8px; padding: 8px 0;">
+            <div id="nav-analyze" onclick="document.querySelector('button[key=btn_analyze]').click()" style="padding: 10px 20px; {analyze_active} font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; border-radius: 8px; cursor: pointer; transition: all 0.3s ease;">
                 ANALYZE
             </div>
-            <div style="padding: 10px 20px; {'color: #fca5a5; background: rgba(220, 38, 38, 0.1); border-radius: 8px; border-bottom: 2px solid #dc2626;' if current_page == 'data_vault' else 'color: #9ca3af;'} font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">
+            <div id="nav-vault" onclick="document.querySelector('button[key=btn_vault]').click()" style="padding: 10px 20px; {vault_active} font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; border-radius: 8px; cursor: pointer; transition: all 0.3s ease;">
                 DATA VAULT
             </div>
-            <div style="padding: 10px 20px; {'color: #fca5a5; background: rgba(220, 38, 38, 0.1); border-radius: 8px; border-bottom: 2px solid #dc2626;' if current_page == 'pricing' else 'color: #9ca3af;'} font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">
+            <div id="nav-pricing" onclick="document.querySelector('button[key=btn_pricing]').click()" style="padding: 10px 20px; {pricing_active} font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; border-radius: 8px; cursor: pointer; transition: all 0.3s ease;">
                 PRICING
             </div>
         </div>
         """, unsafe_allow_html=True)
         
-        # Clickable buttons positioned over the styled divs
-        with nav_col1:
-            if st.button("​", key="nav_analyze_btn", use_container_width=True):
+        # Hidden buttons for navigation
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            if st.button("nav_a", key="btn_analyze"):
                 st.session_state["current_page"] = "analyze"
                 st.rerun()
-        
-        with nav_col2:
-            if st.button("​", key="nav_vault_btn", use_container_width=True):
+        with col2:
+            if st.button("nav_v", key="btn_vault"):
                 st.session_state["current_page"] = "data_vault"
                 st.rerun()
-        
-        with nav_col3:
-            if st.button("​", key="nav_pricing_btn", use_container_width=True):
+        with col3:
+            if st.button("nav_p", key="btn_pricing"):
                 st.session_state["current_page"] = "pricing"
                 st.rerun()
     
