@@ -13,8 +13,8 @@ from datetime import datetime
 # 0. AUTHENTICATION & CONFIG
 # ==========================================
 st.set_page_config(
-    page_title="StockPostmortem.ai", 
-    page_icon="🩸", 
+    page_title="TradeInsight - Smart Trading Analysis", 
+    page_icon="📊", 
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -36,7 +36,7 @@ def check_login(username, password):
         st.session_state["user"] = username
         st.rerun()
     else:
-        st.error("Access Denied: Invalid Credentials")
+        st.error("Invalid credentials. Please try again.")
 
 def logout():
     st.session_state["authenticated"] = False
@@ -53,23 +53,42 @@ if st.session_state["authenticated"]:
         SUPABASE_KEY = st.secrets.get("SUPABASE_KEY", "")
         
         if not all([HF_TOKEN, SUPABASE_URL, SUPABASE_KEY]):
-            st.warning("⚠️ Secrets missing. Running in UI-only mode.")
+            st.warning("⚠️ Running in demo mode. Connect your database to save analyses.")
             supabase = None
         else:
             supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
             API_URL = "https://router.huggingface.co/v1/chat/completions"
             
     except Exception as e:
-        st.error(f"⚠️ Configuration Error: {e}")
+        st.error(f"Configuration Error: {e}")
         st.stop()
 
 # ==========================================
-# 2. ULTRA-MODERN CSS THEME
+# 2. MODERN CLEAN CSS THEME
 # ==========================================
 st.markdown("""
 <style>
-    /* --- GLOBAL FONTS & RESET --- */
-    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@300;400;500;600;700;800&display=swap');
+    /* --- FONTS & BASE --- */
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;600&display=swap');
+    
+    :root {
+        --primary: #2563eb;
+        --primary-light: #3b82f6;
+        --primary-dark: #1d4ed8;
+        --success: #10b981;
+        --danger: #ef4444;
+        --warning: #f59e0b;
+        --neutral-50: #f9fafb;
+        --neutral-100: #f3f4f6;
+        --neutral-200: #e5e7eb;
+        --neutral-300: #d1d5db;
+        --neutral-400: #9ca3af;
+        --neutral-500: #6b7280;
+        --neutral-600: #4b5563;
+        --neutral-700: #374151;
+        --neutral-800: #1f2937;
+        --neutral-900: #111827;
+    }
     
     * {
         margin: 0;
@@ -78,294 +97,474 @@ st.markdown("""
     }
     
     body, .stApp { 
-        background: #000000 !important;
-        background-image: 
-            radial-gradient(ellipse at 20% 10%, rgba(220, 38, 38, 0.08) 0%, transparent 50%),
-            radial-gradient(ellipse at 80% 90%, rgba(220, 38, 38, 0.05) 0%, transparent 50%);
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important; 
-        color: #f8fafc; 
+        background: linear-gradient(135deg, #f0f9ff 0%, #f8fafc 50%, #fef3f2 100%) !important;
+        font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif !important; 
+        color: var(--neutral-800);
         line-height: 1.6;
     }
 
-    /* --- HIDE SIDEBAR & STREAMLIT ELEMENTS --- */
-    [data-testid="stSidebar"] { display: none; }
-    [data-testid="collapsedControl"] { display: none; }
-    #MainMenu { visibility: hidden; }
-    footer { visibility: hidden; }
-    header { visibility: hidden; }
+    /* --- HIDE ELEMENTS --- */
+    [data-testid="stSidebar"], [data-testid="collapsedControl"], 
+    #MainMenu, footer, header { display: none !important; visibility: hidden !important; }
     
-    /* --- REFINED GLASSMORPHISM --- */
-    .glass-panel {
-        background: rgba(15, 15, 15, 0.65);
-        backdrop-filter: blur(20px) saturate(180%);
-        -webkit-backdrop-filter: blur(20px) saturate(180%);
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        border-radius: 20px;
+    /* --- CONTAINERS --- */
+    .main-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 40px 32px;
+    }
+    
+    .card {
+        background: white;
+        border-radius: 16px;
         padding: 32px;
         margin-bottom: 24px;
         box-shadow: 
-            0 8px 32px rgba(0, 0, 0, 0.3),
-            inset 0 1px 0 rgba(255, 255, 255, 0.03);
-        transition: all 0.3s ease;
+            0 1px 3px rgba(0, 0, 0, 0.05),
+            0 20px 40px -10px rgba(0, 0, 0, 0.08);
+        border: 1px solid rgba(0, 0, 0, 0.05);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
     
-    .glass-panel:hover {
-        border-color: rgba(255, 255, 255, 0.1);
+    .card:hover {
         box-shadow: 
-            0 12px 40px rgba(0, 0, 0, 0.4),
-            inset 0 1px 0 rgba(255, 255, 255, 0.05);
+            0 4px 6px rgba(0, 0, 0, 0.05),
+            0 25px 50px -12px rgba(0, 0, 0, 0.12);
+        transform: translateY(-2px);
     }
     
-    /* --- KPI CARDS WITH ENHANCED GRADIENT --- */
-    .kpi-container {
+    .card-compact {
+        padding: 24px;
+    }
+    
+    /* --- HEADER --- */
+    .app-header {
+        background: white;
+        border-bottom: 1px solid var(--neutral-200);
+        padding: 20px 32px;
+        margin: -40px -32px 40px -32px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    }
+    
+    .logo {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .logo-icon {
+        width: 40px;
+        height: 40px;
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.3rem;
+    }
+    
+    .logo-text {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--neutral-900);
+        letter-spacing: -0.02em;
+    }
+    
+    .logo-subtext {
+        font-size: 0.75rem;
+        color: var(--neutral-500);
+        margin-top: -2px;
+    }
+    
+    /* --- KPI GRID --- */
+    .kpi-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
         gap: 20px;
         margin-bottom: 32px;
     }
     
-    .kpi-card {
-        background: linear-gradient(135deg, rgba(20, 20, 20, 0.8) 0%, rgba(10, 10, 10, 0.9) 100%);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        padding: 28px 24px;
-        border-radius: 16px;
-        text-align: center;
-        transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+    .kpi-item {
+        background: white;
+        border-radius: 14px;
+        padding: 24px;
+        border: 1px solid var(--neutral-200);
+        transition: all 0.3s ease;
         position: relative;
         overflow: hidden;
     }
     
-    .kpi-card::before {
+    .kpi-item::before {
         content: '';
         position: absolute;
         top: 0;
         left: 0;
         right: 0;
-        height: 2px;
-        background: linear-gradient(90deg, transparent, rgba(220, 38, 38, 0.5), transparent);
+        height: 3px;
+        background: linear-gradient(90deg, var(--primary), var(--primary-light));
         opacity: 0;
-        transition: opacity 0.4s ease;
+        transition: opacity 0.3s ease;
     }
     
-    .kpi-card:hover {
-        border-color: rgba(220, 38, 38, 0.3);
-        transform: translateY(-6px);
-        box-shadow: 
-            0 16px 48px -12px rgba(220, 38, 38, 0.25),
-            0 0 0 1px rgba(220, 38, 38, 0.1);
+    .kpi-item:hover {
+        border-color: var(--primary-light);
+        box-shadow: 0 8px 24px -8px rgba(37, 99, 235, 0.2);
+        transform: translateY(-4px);
     }
     
-    .kpi-card:hover::before {
+    .kpi-item:hover::before {
         opacity: 1;
     }
     
-    .kpi-val { 
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 2.75rem; 
-        font-weight: 700; 
-        background: linear-gradient(135deg, #ffffff 0%, #e5e7eb 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
+    .kpi-label {
+        font-size: 0.8rem;
+        color: var(--neutral-500);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
         margin-bottom: 8px;
-        letter-spacing: -0.02em;
     }
     
-    .kpi-label { 
-        color: #9ca3af; 
-        font-size: 0.75rem; 
-        text-transform: uppercase; 
-        letter-spacing: 2px; 
-        font-weight: 600; 
-    }
-
-    /* --- LOGIN CONTAINER --- */
-    .login-container {
-        max-width: 440px;
-        margin: 12vh auto;
-        padding: 48px;
-        background: rgba(15, 15, 15, 0.85);
-        backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 24px;
-        box-shadow: 
-            0 20px 60px rgba(0, 0, 0, 0.5),
-            inset 0 1px 0 rgba(255, 255, 255, 0.05);
-        text-align: center;
-    }
-    
-    .login-logo {
-        font-size: 3.5rem;
-        margin-bottom: 16px;
-        filter: drop-shadow(0 0 20px rgba(220, 38, 38, 0.3));
-    }
-
-    /* --- SECTION TITLES --- */
-    .section-title {
-        font-size: 1rem;
+    .kpi-value {
+        font-family: 'Fira Code', monospace;
+        font-size: 2.2rem;
         font-weight: 700;
-        color: #f8fafc;
-        margin-bottom: 20px;
+        color: var(--neutral-900);
+        line-height: 1;
+    }
+    
+    .kpi-value.success { color: var(--success); }
+    .kpi-value.danger { color: var(--danger); }
+    .kpi-value.warning { color: var(--warning); }
+    .kpi-value.primary { color: var(--primary); }
+    
+    /* --- SECTION HEADERS --- */
+    .section-header {
         display: flex;
         align-items: center;
         gap: 12px;
-        text-transform: uppercase;
-        letter-spacing: 1.5px;
+        margin-bottom: 24px;
     }
     
-    .section-title::before {
-        content: '';
-        display: block;
-        width: 3px;
-        height: 20px;
-        background: linear-gradient(180deg, #dc2626 0%, #991b1b 100%);
-        border-radius: 2px;
-        box-shadow: 0 0 10px rgba(220, 38, 38, 0.4);
-    }
-
-    /* --- ANALYSIS REPORT GRID --- */
-    .report-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-        gap: 16px;
-        margin-top: 24px;
+    .section-icon {
+        width: 36px;
+        height: 36px;
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.1rem;
     }
     
-    .report-item {
-        background: rgba(255, 255, 255, 0.02);
-        border-left: 3px solid rgba(100, 100, 100, 0.4);
-        padding: 20px;
-        border-radius: 0 12px 12px 0;
-        transition: all 0.3s ease;
-        font-size: 0.9rem;
-        line-height: 1.7;
-    }
-    
-    .report-item:hover {
-        background: rgba(255, 255, 255, 0.04);
-        border-left-color: currentColor;
-    }
-    
-    .report-label {
+    .section-title {
+        font-size: 1.2rem;
         font-weight: 700;
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        letter-spacing: 1.2px;
-        margin-bottom: 12px;
-        display: block;
+        color: var(--neutral-900);
+        letter-spacing: -0.01em;
     }
-
-    /* --- TABS STYLING --- */
+    
+    /* --- LOGIN --- */
+    .login-wrapper {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #dbeafe 0%, #fef2f2 100%);
+    }
+    
+    .login-card {
+        background: white;
+        border-radius: 24px;
+        padding: 48px;
+        width: 100%;
+        max-width: 440px;
+        box-shadow: 
+            0 4px 6px rgba(0, 0, 0, 0.05),
+            0 40px 80px -20px rgba(0, 0, 0, 0.15);
+        border: 1px solid rgba(0, 0, 0, 0.05);
+    }
+    
+    .login-logo {
+        width: 72px;
+        height: 72px;
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.5rem;
+        margin: 0 auto 24px;
+    }
+    
+    .login-title {
+        font-size: 1.75rem;
+        font-weight: 700;
+        text-align: center;
+        color: var(--neutral-900);
+        margin-bottom: 8px;
+    }
+    
+    .login-subtitle {
+        text-align: center;
+        color: var(--neutral-500);
+        font-size: 0.9rem;
+        margin-bottom: 32px;
+    }
+    
+    /* --- TABS --- */
     .stTabs [data-baseweb="tab-list"] {
         gap: 8px;
-        background: rgba(20, 20, 20, 0.4);
+        background: var(--neutral-100);
         border-radius: 12px;
         padding: 6px;
+        margin-bottom: 24px;
     }
     
     .stTabs [data-baseweb="tab"] {
         background: transparent;
         border-radius: 8px;
-        color: #9ca3af;
+        color: var(--neutral-600);
         font-weight: 600;
         padding: 12px 24px;
-        transition: all 0.3s ease;
+        font-size: 0.95rem;
     }
     
     .stTabs [data-baseweb="tab"]:hover {
-        background: rgba(255, 255, 255, 0.05);
-        color: #f8fafc;
+        background: rgba(37, 99, 235, 0.08);
+        color: var(--primary);
     }
     
     .stTabs [aria-selected="true"] {
-        background: rgba(220, 38, 38, 0.15) !important;
-        color: #fca5a5 !important;
-        box-shadow: 0 0 20px rgba(220, 38, 38, 0.2);
+        background: white !important;
+        color: var(--primary) !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
     }
-
+    
     /* --- BUTTONS --- */
     .stButton button {
-        background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
-        border: 1px solid rgba(220, 38, 38, 0.3);
-        border-radius: 12px;
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+        border: none;
+        border-radius: 10px;
         color: white;
         font-weight: 600;
         padding: 12px 28px;
+        font-size: 0.95rem;
         transition: all 0.3s ease;
-        box-shadow: 0 4px 16px rgba(220, 38, 38, 0.2);
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
     }
     
     .stButton button:hover {
-        background: linear-gradient(135deg, #b91c1c 0%, #7f1d1d 100%);
-        box-shadow: 0 6px 24px rgba(220, 38, 38, 0.35);
+        background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
+        box-shadow: 0 6px 20px rgba(37, 99, 235, 0.35);
         transform: translateY(-2px);
     }
-
+    
+    .stButton button:active {
+        transform: translateY(0);
+    }
+    
     /* --- INPUTS --- */
     .stTextInput input, .stNumberInput input, .stTextArea textarea, .stSelectbox select {
-        background: rgba(20, 20, 20, 0.6) !important;
-        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        background: var(--neutral-50) !important;
+        border: 1px solid var(--neutral-300) !important;
         border-radius: 10px !important;
-        color: #f8fafc !important;
+        color: var(--neutral-900) !important;
         padding: 12px 16px !important;
         font-size: 0.95rem !important;
-        transition: all 0.3s ease !important;
+        transition: all 0.2s ease !important;
+        font-family: 'Outfit', sans-serif !important;
     }
     
-    .stTextInput input:focus, .stNumberInput input:focus, .stTextArea textarea:focus, .stSelectbox select:focus {
-        border-color: rgba(220, 38, 38, 0.4) !important;
-        box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1) !important;
+    .stTextInput input:focus, .stNumberInput input:focus, 
+    .stTextArea textarea:focus, .stSelectbox select:focus {
+        border-color: var(--primary) !important;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1) !important;
+        background: white !important;
     }
-
-    /* --- DATAFRAME STYLING --- */
-    .stDataFrame {
-        background: rgba(15, 15, 15, 0.6);
-        border-radius: 12px;
-        overflow: hidden;
+    
+    /* --- RADIO BUTTONS --- */
+    .stRadio > div {
+        background: var(--neutral-100);
+        padding: 8px;
+        border-radius: 10px;
+        display: inline-flex;
+        gap: 4px;
     }
-
-    /* --- SCORE DISPLAY --- */
-    .score-container {
+    
+    .stRadio label {
+        background: transparent;
+        padding: 8px 16px;
+        border-radius: 6px;
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+    
+    .stRadio label:hover {
+        background: rgba(37, 99, 235, 0.08);
+    }
+    
+    /* --- ANALYSIS REPORT --- */
+    .analysis-header {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+        border-radius: 16px 16px 0 0;
+        padding: 32px;
+        margin: -32px -32px 32px -32px;
+        color: white;
+    }
+    
+    .score-display {
         display: flex;
-        justify-content: space-between;
         align-items: center;
-        margin-bottom: 24px;
+        justify-content: space-between;
     }
     
-    .score-value {
-        font-family: 'JetBrains Mono', monospace;
+    .score-main {
+        font-family: 'Fira Code', monospace;
         font-size: 5rem;
         font-weight: 800;
         line-height: 1;
-        letter-spacing: -0.03em;
+        text-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
     }
     
-    .score-meta {
-        text-align: right;
+    .score-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 8px;
     }
     
     .ticker-badge {
-        background: rgba(255, 255, 255, 0.08);
-        padding: 8px 16px;
-        border-radius: 8px;
-        display: inline-block;
-        font-weight: 600;
-        font-size: 0.9rem;
-        letter-spacing: 0.5px;
-        margin-bottom: 8px;
+        background: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(10px);
+        padding: 10px 20px;
+        border-radius: 10px;
+        font-weight: 700;
+        font-size: 1.1rem;
+        letter-spacing: 1px;
+        border: 1px solid rgba(255, 255, 255, 0.3);
     }
-
-    /* --- UTILITY CLASSES --- */
+    
+    .analysis-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 20px;
+        margin-top: 24px;
+    }
+    
+    .analysis-item {
+        background: var(--neutral-50);
+        border-radius: 12px;
+        padding: 24px;
+        border-left: 4px solid var(--neutral-300);
+        transition: all 0.3s ease;
+    }
+    
+    .analysis-item:hover {
+        background: white;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+    
+    .analysis-label {
+        font-weight: 700;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 12px;
+        display: block;
+    }
+    
+    .analysis-item.tech { border-left-color: #3b82f6; }
+    .analysis-item.tech .analysis-label { color: #3b82f6; }
+    
+    .analysis-item.psych { border-left-color: #8b5cf6; }
+    .analysis-item.psych .analysis-label { color: #8b5cf6; }
+    
+    .analysis-item.risk { border-left-color: #ef4444; }
+    .analysis-item.risk .analysis-label { color: #ef4444; }
+    
+    .analysis-item.fix { border-left-color: #10b981; }
+    .analysis-item.fix .analysis-label { color: #10b981; }
+    
+    .analysis-content {
+        color: var(--neutral-700);
+        font-size: 0.9rem;
+        line-height: 1.7;
+    }
+    
+    /* --- DATAFRAME --- */
+    .stDataFrame {
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid var(--neutral-200);
+    }
+    
+    /* --- INSIGHTS --- */
+    .insight-item {
+        background: var(--neutral-50);
+        border-radius: 10px;
+        padding: 16px;
+        margin-bottom: 12px;
+        border-left: 3px solid var(--primary);
+        font-size: 0.9rem;
+        line-height: 1.6;
+        transition: all 0.2s ease;
+    }
+    
+    .insight-item:hover {
+        background: white;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    }
+    
+    /* --- UTILITY --- */
     .divider {
         height: 1px;
-        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+        background: var(--neutral-200);
         margin: 24px 0;
     }
     
-    .accent-text {
-        color: #fca5a5;
+    .badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 6px;
+        font-size: 0.8rem;
         font-weight: 600;
+    }
+    
+    .badge-success {
+        background: #dcfce7;
+        color: #166534;
+    }
+    
+    .badge-danger {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+    
+    .badge-warning {
+        background: #fef3c7;
+        color: #92400e;
+    }
+    
+    /* --- RESPONSIVE --- */
+    @media (max-width: 768px) {
+        .app-header {
+            flex-direction: column;
+            gap: 16px;
+            text-align: center;
+        }
+        
+        .kpi-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .analysis-grid {
+            grid-template-columns: 1fr;
+        }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -415,17 +614,21 @@ def save_analysis(user_id, data, ticker_symbol="UNK"):
 
 def generate_insights(df):
     insights = []
-    if df.empty: return ["Awaiting data to generate neural patterns."]
+    if df.empty: return ["Start analyzing your trades to receive personalized insights."]
     
     recent_scores = df.head(3)['score'].mean()
     if recent_scores < 50:
-        insights.append("⚠️ **Tilt Detected:** Last 3 trades avg < 50. Suggest 24h trading halt.")
+        insights.append("⚠️ **Pattern Alert:** Your last 3 trades show lower quality scores. Consider taking a break to reset your decision-making process.")
     elif recent_scores > 80:
-        insights.append("🔥 **Flow State:** High decision quality detected. Increase risk tolerance slightly.")
+        insights.append("✅ **Strong Performance:** Excellent decision quality in recent trades. Your current strategy is working well.")
 
     all_tags = [tag for sublist in df['mistake_tags'] for tag in sublist]
-    if "FOMO" in all_tags and "Revenge" in all_tags:
-        insights.append("🧠 **Toxic Loop:** 'FOMO' leading to 'Revenge' detected 3x this month.")
+    if "FOMO" in all_tags:
+        fomo_count = all_tags.count("FOMO")
+        insights.append(f"📊 **Behavioral Pattern:** FOMO detected in {fomo_count} trades. Consider implementing entry rules to reduce impulsive decisions.")
+    
+    if "Revenge" in all_tags:
+        insights.append("🎯 **Risk Management:** Revenge trading detected. Establish clear loss limits and take mandatory breaks after losses.")
     
     return insights
 
@@ -435,172 +638,275 @@ def generate_insights(df):
 
 # --- LOGIN VIEW ---
 if not st.session_state["authenticated"]:
-    st.markdown("""
-    <div class="login-container">
-        <div class="login-logo">🩸</div>
-        <h1 style="margin: 0 0 8px 0; font-size: 2rem; font-weight: 800; letter-spacing: -0.02em;">StockPostmortem</h1>
-        <p style="color: #6b7280; font-size: 0.85rem; margin-bottom: 40px; letter-spacing: 2px; text-transform: uppercase;">Algorithmic Behavioral Forensics</p>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown('<div class="login-wrapper">', unsafe_allow_html=True)
     
-    c1, c2, c3 = st.columns([1,1.2,1])
-    with c2:
+    col1, col2, col3 = st.columns([1, 1.2, 1])
+    with col2:
+        st.markdown("""
+        <div class="login-card">
+            <div class="login-logo">📊</div>
+            <h1 class="login-title">TradeInsight</h1>
+            <p class="login-subtitle">Smart trading analysis powered by AI</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
         with st.form("login_form"):
-            st.text_input("Operator ID", key="username_input", placeholder="Enter your ID")
-            st.text_input("Access Key", type="password", key="password_input", placeholder="Enter your key")
-            submitted = st.form_submit_button("INITIALIZE TERMINAL", type="primary", use_container_width=True)
+            st.text_input("Username", key="username_input", placeholder="Enter your username")
+            st.text_input("Password", type="password", key="password_input", placeholder="Enter your password")
+            submitted = st.form_submit_button("Sign In", type="primary", use_container_width=True)
             if submitted:
                 check_login(st.session_state.username_input, st.session_state.password_input)
+    
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # --- DASHBOARD VIEW ---
 else:
     current_user = st.session_state["user"]
     
-    # --- CUSTOM HEADER ---
-    col_logo, col_spacer, col_profile = st.columns([3, 5, 2], gap="medium")
-    
-    with col_logo:
-        st.markdown(f"""
-        <div style="display:flex; align-items:center; gap: 14px;">
-            <span style="font-size: 2rem;">🩸</span>
+    # --- HEADER ---
+    st.markdown(f"""
+    <div class="app-header">
+        <div class="logo">
+            <div class="logo-icon">📊</div>
             <div>
-                <div style="font-weight: 900; font-size: 1.3rem; line-height: 1.1; letter-spacing: -0.01em;">
-                    STOCK<span style="color:#dc2626">POSTMORTEM</span>
-                </div>
-                <div style="font-size: 0.65rem; color: #6b7280; letter-spacing: 2px; text-transform: uppercase; margin-top: 2px;">
-                    Forensics Unit
-                </div>
+                <div class="logo-text">TradeInsight</div>
+                <div class="logo-subtext">Smart Trading Analysis</div>
             </div>
         </div>
-        """, unsafe_allow_html=True)
-
-    with col_profile:
-        with st.popover(f"👤 {current_user}", use_container_width=True):
-            st.markdown(f"**Operator:** {current_user}")
-            st.caption("Access Level: PRO")
-            st.markdown("---")
-            if st.button("🔴 DISCONNECT", type="primary", use_container_width=True):
+        <div style="display: flex; align-items: center; gap: 16px;">
+            <div style="text-align: right; margin-right: 12px;">
+                <div style="font-weight: 600; color: var(--neutral-900);">{current_user}</div>
+                <div style="font-size: 0.8rem; color: var(--neutral-500);">Active Session</div>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # User menu in popover
+    col_spacer, col_menu = st.columns([6, 1])
+    with col_menu:
+        with st.popover("⚙️", use_container_width=True):
+            st.markdown(f"**User:** {current_user}")
+            st.markdown("**Plan:** Professional")
+            st.divider()
+            if st.button("Sign Out", type="primary", use_container_width=True):
                 logout()
-
-    st.markdown('<div style="height: 32px;"></div>', unsafe_allow_html=True)
-
+    
+    st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
+    
     # TABS
-    main_tab1, main_tab2 = st.tabs(["🔎 FORENSIC AUDIT", "📊 PERFORMANCE METRICS"])
-
-    # --- TAB 1: AUDIT (INPUT) ---
-    with main_tab1:
-        st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
-        st.markdown('<div class="section-title">Case Data Input</div>', unsafe_allow_html=True)
+    tab1, tab2 = st.tabs(["📝 New Analysis", "📈 Dashboard"])
+    
+    # --- TAB 1: NEW ANALYSIS ---
+    with tab1:
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.markdown("""
+        <div class="section-header">
+            <div class="section-icon">📝</div>
+            <div class="section-title">Trade Analysis</div>
+        </div>
+        """, unsafe_allow_html=True)
         
-        c_mode = st.radio("Input Vector", ["Text Parameters", "Chart Vision"], horizontal=True, label_visibility="collapsed")
+        analysis_mode = st.radio(
+            "Analysis Method",
+            ["Manual Entry", "Chart Upload"],
+            horizontal=True,
+            label_visibility="collapsed"
+        )
+        
+        st.markdown('<div style="height: 24px;"></div>', unsafe_allow_html=True)
         
         prompt = ""
         img_b64 = None
-        ticker_val = "IMG"
+        ticker_val = "UNKNOWN"
         ready_to_run = False
-
-        if c_mode == "Chart Vision":
-            uploaded_file = st.file_uploader("Upload Chart Screenshot", type=["png", "jpg"], label_visibility="collapsed")
+        
+        if analysis_mode == "Chart Upload":
+            st.markdown("#### Upload Trading Chart")
+            uploaded_file = st.file_uploader(
+                "Drop your chart image here",
+                type=["png", "jpg", "jpeg"],
+                label_visibility="collapsed"
+            )
+            
             if uploaded_file:
                 st.image(uploaded_file, use_column_width=True)
-                st.markdown('<div style="height: 16px;"></div>', unsafe_allow_html=True)
-                if st.button("RUN OPTICAL ANALYSIS", type="primary", use_container_width=True):
+                st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
+                
+                if st.button("Analyze Chart", type="primary", use_container_width=True):
                     image = Image.open(uploaded_file)
                     buf = io.BytesIO()
                     image.save(buf, format="PNG")
                     img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
-                    prompt = f"""
-                    SYSTEM: Hedge Fund Risk Manager.
-                    TASK: Analyze chart for technical/psychological errors.
-                    OUTPUT: [SCORE], [TAGS], [TECH], [PSYCH], [RISK], [FIX].
+                    prompt = """
+                    You are a professional trading analyst. Analyze this chart for:
+                    - Technical setup quality
+                    - Entry/exit timing
+                    - Risk management issues
+                    - Psychological factors
+                    
+                    Provide output in this format:
+                    [SCORE] (0-100)
+                    [TAGS] (comma-separated mistake types)
+                    [TECH] (technical analysis)
+                    [PSYCH] (psychological factors)
+                    [RISK] (risk assessment)
+                    [FIX] (corrective actions)
                     """
+                    ticker_val = "CHART"
                     ready_to_run = True
-
+        
         else:
-            with st.form("audit_form"):
-                col_a, col_b, col_c = st.columns(3)
-                with col_a: ticker = st.text_input("Ticker", "SPY")
-                with col_b: setup_type = st.selectbox("Setup", ["Trend", "Reversal", "Breakout"])
-                with col_c: emotion = st.selectbox("State", ["Neutral", "FOMO", "Revenge", "Tilt"])
+            with st.form("trade_form"):
+                st.markdown("#### Trade Details")
                 
-                st.markdown('<div style="height: 8px;"></div>', unsafe_allow_html=True)
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    ticker = st.text_input("Ticker Symbol", "AAPL", placeholder="e.g. AAPL")
+                with col2:
+                    setup = st.selectbox("Setup Type", ["Trend Following", "Mean Reversion", "Breakout", "Breakdown"])
+                with col3:
+                    emotion = st.selectbox("Emotional State", ["Neutral", "Confident", "Anxious", "FOMO", "Revenge"])
                 
-                col_d, col_e, col_f = st.columns(3)
-                with col_d: entry = st.number_input("Entry", 0.0, step=0.01)
-                with col_e: exit_price = st.number_input("Exit", 0.0, step=0.01)
-                with col_f: stop = st.number_input("Stop", 0.0, step=0.01)
+                st.markdown('<div style="height: 16px;"></div>', unsafe_allow_html=True)
                 
-                st.markdown('<div style="height: 8px;"></div>', unsafe_allow_html=True)
+                col4, col5, col6 = st.columns(3)
+                with col4:
+                    entry = st.number_input("Entry Price ($)", 0.0, step=0.01, format="%.2f")
+                with col5:
+                    exit_price = st.number_input("Exit Price ($)", 0.0, step=0.01, format="%.2f")
+                with col6:
+                    stop = st.number_input("Stop Loss ($)", 0.0, step=0.01, format="%.2f")
                 
-                notes = st.text_area("Execution Notes", height=100, placeholder="Describe your decision-making process, entry hesitation, stop management...")
+                st.markdown('<div style="height: 16px;"></div>', unsafe_allow_html=True)
                 
-                st.markdown('<div style="height: 12px;"></div>', unsafe_allow_html=True)
+                notes = st.text_area(
+                    "Trade Notes",
+                    height=120,
+                    placeholder="Describe your thought process, hesitations, and decision-making during this trade..."
+                )
                 
-                if st.form_submit_button("EXECUTE AUDIT", type="primary", use_container_width=True):
+                st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
+                
+                submitted = st.form_submit_button("Analyze Trade", type="primary", use_container_width=True)
+                
+                if submitted:
                     ticker_val = ticker
+                    pnl = exit_price - entry if exit_price > 0 and entry > 0 else 0
+                    pnl_pct = (pnl / entry * 100) if entry > 0 else 0
+                    
                     prompt = f"""
-                    SYSTEM: Trading Coach.
-                    DATA: {ticker} | {setup_type} | {emotion} | Note: {notes}
-                    ENTRY: {entry} | EXIT: {exit_price} | STOP: {stop}
-                    OUTPUT: [SCORE], [TAGS], [TECH], [PSYCH], [RISK], [FIX].
+                    You are a professional trading coach. Analyze this trade:
+                    
+                    TRADE DATA:
+                    - Ticker: {ticker}
+                    - Setup: {setup}
+                    - Emotional State: {emotion}
+                    - Entry: ${entry}
+                    - Exit: ${exit_price}
+                    - Stop: ${stop}
+                    - P&L: ${pnl:.2f} ({pnl_pct:.1f}%)
+                    - Notes: {notes}
+                    
+                    Provide constructive analysis in this format:
+                    [SCORE] (0-100 quality score)
+                    [TAGS] (mistake types: FOMO, Revenge, Poor Risk, No Stop, etc)
+                    [TECH] (technical analysis of setup and execution)
+                    [PSYCH] (psychological factors and emotional state)
+                    [RISK] (risk management assessment)
+                    [FIX] (specific actionable improvements)
                     """
                     ready_to_run = True
+        
         st.markdown('</div>', unsafe_allow_html=True)
-
-        # RESULTS AREA
+        
+        # RESULTS
         if ready_to_run and supabase:
-            with st.spinner("🧠 AI Forensic Analysis in progress..."):
+            with st.spinner("🤖 Analyzing trade..."):
                 try:
                     messages = [{"role": "user", "content": [{"type": "text", "text": prompt}]}]
-                    if img_b64: messages[0]["content"].append({"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}})
+                    if img_b64:
+                        messages[0]["content"].append({
+                            "type": "image_url",
+                            "image_url": {"url": f"data:image/png;base64,{img_b64}"}
+                        })
                     
-                    payload = {"model": "Qwen/Qwen2.5-VL-7B-Instruct", "messages": messages, "max_tokens": 600}
-                    headers = {"Authorization": f"Bearer {HF_TOKEN}", "Content-Type": "application/json"}
+                    payload = {
+                        "model": "Qwen/Qwen2.5-VL-7B-Instruct",
+                        "messages": messages,
+                        "max_tokens": 600
+                    }
+                    headers = {
+                        "Authorization": f"Bearer {HF_TOKEN}",
+                        "Content-Type": "application/json"
+                    }
                     res = requests.post(API_URL, headers=headers, json=payload)
-
+                    
                     if res.status_code == 200:
                         report = parse_report(res.json()["choices"][0]["message"]["content"])
                         save_analysis(current_user, report, ticker_val)
                         
-                        score_color = "#dc2626" if report['score'] < 50 else "#10b981"
+                        # Determine score color
+                        if report['score'] >= 75:
+                            score_color = "var(--success)"
+                            score_bg = "linear-gradient(135deg, #10b981 0%, #059669 100%)"
+                        elif report['score'] >= 50:
+                            score_color = "var(--warning)"
+                            score_bg = "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)"
+                        else:
+                            score_color = "var(--danger)"
+                            score_bg = "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)"
+                        
+                        st.markdown('<div style="height: 32px;"></div>', unsafe_allow_html=True)
+                        st.markdown('<div class="card">', unsafe_allow_html=True)
                         
                         st.markdown(f"""
-                        <div class="glass-panel" style="border-top: 3px solid {score_color}">
-                            <div class="score-container">
+                        <div class="analysis-header" style="background: {score_bg};">
+                            <div class="score-display">
                                 <div>
-                                    <div style="color:#6b7280; letter-spacing:2.5px; font-size:0.7rem; text-transform: uppercase; margin-bottom: 8px;">AUDIT SCORE</div>
-                                    <div class="score-value" style="color:{score_color}">{report['score']}</div>
+                                    <div class="score-label">Trade Quality Score</div>
+                                    <div class="score-main">{report['score']}</div>
                                 </div>
-                                <div class="score-meta">
+                                <div style="text-align: right;">
                                     <div class="ticker-badge">{ticker_val}</div>
-                                    <div style="color:#6b7280; font-size:0.8rem;">{datetime.now().strftime('%B %d, %Y')}</div>
-                                </div>
-                            </div>
-                            <div class="report-grid">
-                                <div class="report-item" style="border-left-color: #3b82f6;">
-                                    <span class="report-label" style="color:#3b82f6;">Technical Analysis</span>
-                                    {report['tech']}
-                                </div>
-                                <div class="report-item" style="border-left-color: #f59e0b;">
-                                    <span class="report-label" style="color:#f59e0b;">Psychology</span>
-                                    {report['psych']}
-                                </div>
-                                <div class="report-item" style="border-left-color: #ef4444;">
-                                    <span class="report-label" style="color:#ef4444;">Risk Assessment</span>
-                                    {report['risk']}
-                                </div>
-                                <div class="report-item" style="border-left-color: #10b981;">
-                                    <span class="report-label" style="color:#10b981;">Corrective Action</span>
-                                    {report['fix']}
+                                    <div style="font-size: 0.85rem; opacity: 0.9; margin-top: 8px;">
+                                        {datetime.now().strftime('%B %d, %Y')}
+                                    </div>
                                 </div>
                             </div>
                         </div>
                         """, unsafe_allow_html=True)
+                        
+                        st.markdown(f"""
+                        <div class="analysis-grid">
+                            <div class="analysis-item tech">
+                                <span class="analysis-label">Technical Analysis</span>
+                                <div class="analysis-content">{report['tech']}</div>
+                            </div>
+                            <div class="analysis-item psych">
+                                <span class="analysis-label">Psychology</span>
+                                <div class="analysis-content">{report['psych']}</div>
+                            </div>
+                            <div class="analysis-item risk">
+                                <span class="analysis-label">Risk Management</span>
+                                <div class="analysis-content">{report['risk']}</div>
+                            </div>
+                            <div class="analysis-item fix">
+                                <span class="analysis-label">Action Plan</span>
+                                <div class="analysis-content">{report['fix']}</div>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        st.markdown('</div>', unsafe_allow_html=True)
+                        
+                        st.success("✅ Analysis saved to your dashboard")
+                        
                 except Exception as e:
-                    st.error(f"Analysis Failed: {e}")
-
+                    st.error(f"Analysis failed: {str(e)}")
+    
     # --- TAB 2: DASHBOARD ---
-    with main_tab2:
+    with tab2:
         if supabase:
             hist = supabase.table("trades").select("*").eq("user_id", current_user).order("created_at", desc=True).execute()
             
@@ -608,129 +914,182 @@ else:
                 df = pd.DataFrame(hist.data)
                 df['created_at'] = pd.to_datetime(df['created_at'])
                 
-                # METRICS CALC
+                # Calculate metrics
                 avg_score = df['score'].mean()
                 total_trades = len(df)
                 all_tags = [tag for sublist in df['mistake_tags'] for tag in sublist]
                 top_mistake = pd.Series(all_tags).mode()[0] if all_tags else "None"
+                recent_trend = "Improving" if len(df) >= 2 and df.iloc[0]['score'] > df.iloc[1]['score'] else "Stable"
                 
-                # 1. KPI ROW
+                # KPI Cards
                 st.markdown(f"""
-                <div class="kpi-container">
-                    <div class="kpi-card">
-                        <div class="kpi-val">{int(avg_score)}</div>
-                        <div class="kpi-label">Avg Quality</div>
+                <div class="kpi-grid">
+                    <div class="kpi-item">
+                        <div class="kpi-label">Average Score</div>
+                        <div class="kpi-value primary">{int(avg_score)}</div>
                     </div>
-                    <div class="kpi-card">
-                        <div class="kpi-val">{total_trades}</div>
-                        <div class="kpi-label">Total Audits</div>
+                    <div class="kpi-item">
+                        <div class="kpi-label">Total Analyses</div>
+                        <div class="kpi-value">{total_trades}</div>
                     </div>
-                    <div class="kpi-card">
-                        <div class="kpi-val" style="font-size:1.9rem; margin-top:12px;">{top_mistake}</div>
-                        <div class="kpi-label">Primary Leak</div>
+                    <div class="kpi-item">
+                        <div class="kpi-label">Top Pattern</div>
+                        <div class="kpi-value danger" style="font-size: 1.4rem;">{top_mistake}</div>
                     </div>
-                    <div class="kpi-card">
-                        <div class="kpi-val">{len(all_tags)}</div>
-                        <div class="kpi-label">Total Errors</div>
+                    <div class="kpi-item">
+                        <div class="kpi-label">Trend</div>
+                        <div class="kpi-value success" style="font-size: 1.6rem;">{recent_trend}</div>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
-
-                # 2. SPLIT LAYOUT
-                col_left, col_right = st.columns([2.5, 1.5])
+                
+                # Main content columns
+                col_left, col_right = st.columns([2, 1])
                 
                 with col_left:
-                    st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
-                    st.markdown('<div class="section-title">Performance Trend</div>', unsafe_allow_html=True)
+                    # Performance chart
+                    st.markdown('<div class="card">', unsafe_allow_html=True)
+                    st.markdown("""
+                    <div class="section-header">
+                        <div class="section-icon">📈</div>
+                        <div class="section-title">Performance Trend</div>
+                    </div>
+                    """, unsafe_allow_html=True)
                     
                     chart_data = df[['created_at', 'score']].sort_values('created_at')
+                    
                     base = alt.Chart(chart_data).encode(
-                        x=alt.X('created_at:T', axis=alt.Axis(
+                        x=alt.X('created_at:T', 
                             title=None,
-                            grid=False,
-                            labelColor='#6b7280',
-                            labelFontSize=11
-                        ))
-                    )
-                    line = base.mark_line(
-                        color='#10b981', 
-                        strokeWidth=3,
-                        point=alt.OverlayMarkDef(color='#10b981', size=60)
-                    ).encode(
-                        y=alt.Y('score:Q', 
-                            scale=alt.Scale(domain=[0, 100]),
                             axis=alt.Axis(
-                                title=None,
-                                grid=True,
-                                gridColor='rgba(255,255,255,0.05)',
-                                labelColor='#6b7280'
+                                labelColor='#6b7280',
+                                labelFontSize=11,
+                                grid=False
                             )
                         )
                     )
-                    area = base.mark_area(color='#10b981', opacity=0.08).encode(y='score:Q')
                     
-                    chart = (line + area).properties(height=280).configure_view(
-                        strokeWidth=0,
-                        fill='transparent'
+                    line = base.mark_line(
+                        color='#2563eb',
+                        strokeWidth=3,
+                        point=alt.OverlayMarkDef(
+                            color='#2563eb',
+                            filled=True,
+                            size=80
+                        )
+                    ).encode(
+                        y=alt.Y('score:Q',
+                            title='Score',
+                            scale=alt.Scale(domain=[0, 100]),
+                            axis=alt.Axis(
+                                labelColor='#6b7280',
+                                titleColor='#374151',
+                                grid=True,
+                                gridColor='#e5e7eb'
+                            )
+                        )
+                    )
+                    
+                    area = base.mark_area(
+                        color='#2563eb',
+                        opacity=0.1
+                    ).encode(
+                        y='score:Q'
+                    )
+                    
+                    chart = (line + area).properties(
+                        height=300
+                    ).configure_view(
+                        strokeWidth=0
                     )
                     
                     st.altair_chart(chart, use_container_width=True)
                     st.markdown('</div>', unsafe_allow_html=True)
                     
-                    # LOGS
-                    st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
-                    st.markdown('<div class="section-title">Forensic Log</div>', unsafe_allow_html=True)
+                    # Trade history table
+                    st.markdown('<div class="card">', unsafe_allow_html=True)
+                    st.markdown("""
+                    <div class="section-header">
+                        <div class="section-icon">📋</div>
+                        <div class="section-title">Trade History</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
                     table_df = df[['created_at', 'ticker', 'score', 'mistake_tags']].copy()
-                    table_df.columns = ['Time', 'Asset', 'Score', 'Tags']
+                    table_df.columns = ['Date', 'Ticker', 'Score', 'Tags']
+                    
                     st.dataframe(
-                        table_df, 
-                        use_container_width=True, 
+                        table_df,
+                        use_container_width=True,
                         hide_index=True,
                         column_config={
-                            "Score": st.column_config.ProgressColumn("Quality", min_value=0, max_value=100, format="%d"),
-                            "Time": st.column_config.DatetimeColumn("Time", format="MMM DD, HH:mm")
+                            "Score": st.column_config.ProgressColumn(
+                                "Score",
+                                min_value=0,
+                                max_value=100,
+                                format="%d"
+                            ),
+                            "Date": st.column_config.DatetimeColumn(
+                                "Date",
+                                format="MMM DD, h:mm a"
+                            )
                         }
                     )
                     st.markdown('</div>', unsafe_allow_html=True)
-
+                
                 with col_right:
-                    st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
-                    st.markdown('<div class="section-title">AI Insights</div>', unsafe_allow_html=True)
+                    # AI Insights
+                    st.markdown('<div class="card card-compact">', unsafe_allow_html=True)
+                    st.markdown("""
+                    <div class="section-header">
+                        <div class="section-icon">💡</div>
+                        <div class="section-title">Insights</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
                     insights = generate_insights(df)
-                    for i, insight in enumerate(insights):
-                        st.markdown(f"""
-                        <div style='
-                            font-size:0.88rem; 
-                            margin-bottom:16px; 
-                            padding-bottom:16px; 
-                            border-bottom:1px solid {"transparent" if i == len(insights)-1 else "rgba(255,255,255,0.05)"};
-                            line-height: 1.6;
-                        '>{insight}</div>
-                        """, unsafe_allow_html=True)
+                    for insight in insights:
+                        st.markdown(f'<div class="insight-item">{insight}</div>', unsafe_allow_html=True)
+                    
                     st.markdown('</div>', unsafe_allow_html=True)
                     
-                    st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
-                    st.markdown('<div class="section-title">Mistake Distribution</div>', unsafe_allow_html=True)
+                    # Mistake distribution
+                    st.markdown('<div class="card card-compact">', unsafe_allow_html=True)
+                    st.markdown("""
+                    <div class="section-header">
+                        <div class="section-icon">🎯</div>
+                        <div class="section-title">Patterns</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
                     if all_tags:
                         tag_counts = pd.Series(all_tags).value_counts().reset_index()
-                        tag_counts.columns = ['Mistake', 'Count']
-                        c = alt.Chart(tag_counts).mark_arc(
+                        tag_counts.columns = ['Pattern', 'Count']
+                        
+                        chart = alt.Chart(tag_counts).mark_arc(
                             innerRadius=50,
-                            cornerRadius=4,
+                            cornerRadius=5,
                             padAngle=0.02
                         ).encode(
-                            theta=alt.Theta("Count:Q", stack=True), 
-                            color=alt.Color("Mistake:N", 
-                                scale=alt.Scale(scheme='redyellowblue'),
+                            theta=alt.Theta("Count:Q"),
+                            color=alt.Color("Pattern:N",
+                                scale=alt.Scale(scheme='blues'),
                                 legend=alt.Legend(
                                     title=None,
                                     labelFontSize=11,
-                                    labelColor='#9ca3af',
+                                    labelColor='#6b7280',
                                     orient='bottom'
                                 )
-                            )
+                            ),
+                            tooltip=['Pattern', 'Count']
                         ).properties(height=280)
-                        st.altair_chart(c, use_container_width=True)
+                        
+                        st.altair_chart(chart, use_container_width=True)
+                    
                     st.markdown('</div>', unsafe_allow_html=True)
+            
             else:
-                st.info("No data available. Perform your first audit.")
+                st.info("📊 No data yet. Start by analyzing your first trade!")
+        
+        else:
+            st.warning("Connect your database to view dashboard analytics")
