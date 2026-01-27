@@ -766,6 +766,167 @@ st.markdown("""
         font-weight: 600;
     }
     
+    /* === ANIMATED RESULTS DISPLAY === */
+    @keyframes slideInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    
+    @keyframes scaleIn {
+        from {
+            opacity: 0;
+            transform: scale(0.9);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+    
+    @keyframes slideInRight {
+        from {
+            opacity: 0;
+            transform: translateX(-30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+    
+    @keyframes shimmer {
+        0% { background-position: -1000px 0; }
+        100% { background-position: 1000px 0; }
+    }
+    
+    .animate-slide-up {
+        animation: slideInUp 0.6s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+    }
+    
+    .animate-fade-in {
+        animation: fadeIn 0.8s ease forwards;
+    }
+    
+    .animate-scale-in {
+        animation: scaleIn 0.5s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+    }
+    
+    .animate-slide-right {
+        animation: slideInRight 0.6s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+    }
+    
+    .result-card {
+        background: rgba(15, 15, 20, 0.75);
+        backdrop-filter: blur(24px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 20px;
+        padding: 28px;
+        margin-bottom: 20px;
+        transition: all 0.4s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .result-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.1), transparent);
+        animation: shimmer 2s infinite;
+    }
+    
+    .result-card:hover {
+        border-color: rgba(16, 185, 129, 0.3);
+        transform: translateY(-4px);
+        box-shadow: 0 12px 40px rgba(16, 185, 129, 0.2);
+    }
+    
+    .metric-circle {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        margin: 0 auto;
+    }
+    
+    .metric-circle::before {
+        content: '';
+        position: absolute;
+        inset: -4px;
+        border-radius: 50%;
+        padding: 4px;
+        background: linear-gradient(135deg, #10b981, #3b82f6);
+        -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
+        animation: spin 3s linear infinite;
+    }
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    
+    .grade-badge {
+        display: inline-block;
+        padding: 8px 20px;
+        border-radius: 12px;
+        font-size: 1.1rem;
+        font-weight: 700;
+        letter-spacing: 1px;
+        animation: pulse 2s ease infinite;
+    }
+    
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+    }
+    
+    .progress-bar-container {
+        width: 100%;
+        height: 12px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 6px;
+        overflow: hidden;
+        position: relative;
+    }
+    
+    .progress-bar {
+        height: 100%;
+        border-radius: 6px;
+        transition: width 1.5s cubic-bezier(0.23, 1, 0.32, 1);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .progress-bar::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+        animation: shimmer 1.5s infinite;
+    }
+    
     /* --- CUSTOM SCROLLBAR --- */
     ::-webkit-scrollbar {
         width: 10px;
@@ -843,26 +1004,61 @@ def clean_text(text):
     return re.sub(r'[^\w\s,.:;!?()\[\]\-\'\"%]', '', text).strip()
 
 def parse_report(text):
-    sections = { "score": 0, "tags": [], "tech": "N/A", "psych": "N/A", "risk": "N/A", "fix": "N/A" }
+    sections = { 
+        "score": 0, 
+        "tags": [], 
+        "tech": "N/A", 
+        "psych": "N/A", 
+        "risk": "N/A", 
+        "fix": "N/A",
+        "overall_grade": "C",
+        "entry_quality": 50,
+        "exit_quality": 50,
+        "risk_score": 50,
+        "strength": "N/A",
+        "critical_error": "N/A"
+    }
     text = clean_text(text)
     
+    # Extract score
     score_match = re.search(r'\[SCORE\]\s*(\d+)', text)
     if score_match: sections['score'] = int(score_match.group(1))
     
+    # Extract grade
+    grade_match = re.search(r'\[OVERALL_GRADE\]\s*([A-FS][\-\+]?(?:-Tier)?)', text)
+    if grade_match: sections['overall_grade'] = grade_match.group(1)
+    
+    # Extract quality scores
+    entry_match = re.search(r'\[ENTRY_QUALITY\]\s*(\d+)', text)
+    if entry_match: sections['entry_quality'] = int(entry_match.group(1))
+    
+    exit_match = re.search(r'\[EXIT_QUALITY\]\s*(\d+)', text)
+    if exit_match: sections['exit_quality'] = int(exit_match.group(1))
+    
+    risk_score_match = re.search(r'\[RISK_SCORE\]\s*(\d+)', text)
+    if risk_score_match: sections['risk_score'] = int(risk_score_match.group(1))
+    
+    # Extract tags
     tags_match = re.search(r'\[TAGS\](.*?)(?=\[|$)', text, re.DOTALL)
     if tags_match:
         raw = tags_match.group(1).replace('[', '').replace(']', '').split(',')
         sections['tags'] = [t.strip() for t in raw if t.strip()]
     
+    # Extract text sections
     patterns = {
-        "tech": r"\[TECH\](.*?)(?=\[PSYCH\]|\[RISK\]|\[FIX\]|\[SCORE\]|\[TAGS\]|$)",
-        "psych": r"\[PSYCH\](.*?)(?=\[RISK\]|\[FIX\]|\[SCORE\]|\[TAGS\]|$)",
-        "risk": r"\[RISK\](.*?)(?=\[FIX\]|\[SCORE\]|\[TAGS\]|$)",
-        "fix": r"\[FIX\](.*?)(?=\[SCORE\]|\[TAGS\]|$)"
+        "tech": r"\[TECH\](.*?)(?=\[PSYCH\]|\[RISK\]|\[FIX\]|\[STRENGTH\]|\[CRITICAL_ERROR\]|\[SCORE\]|\[TAGS\]|$)",
+        "psych": r"\[PSYCH\](.*?)(?=\[RISK\]|\[FIX\]|\[STRENGTH\]|\[CRITICAL_ERROR\]|\[SCORE\]|\[TAGS\]|$)",
+        "risk": r"\[RISK\](.*?)(?=\[FIX\]|\[STRENGTH\]|\[CRITICAL_ERROR\]|\[SCORE\]|\[TAGS\]|$)",
+        "fix": r"\[FIX\](.*?)(?=\[STRENGTH\]|\[CRITICAL_ERROR\]|\[SCORE\]|\[TAGS\]|$)",
+        "strength": r"\[STRENGTH\](.*?)(?=\[CRITICAL_ERROR\]|\[SCORE\]|\[TAGS\]|$)",
+        "critical_error": r"\[CRITICAL_ERROR\](.*?)(?=\[SCORE\]|\[TAGS\]|$)"
     }
+    
     for key, pattern in patterns.items():
         match = re.search(pattern, text, re.DOTALL)
-        if match: sections[key] = match.group(1).strip()
+        if match: 
+            sections[key] = match.group(1).strip()
+    
     return sections
 
 def save_analysis(user_id, data, ticker_symbol="UNK"):
@@ -1147,11 +1343,68 @@ else:
                         buf = io.BytesIO()
                         image.save(buf, format="PNG")
                         img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
-                        prompt = f"""
-                        SYSTEM: Hedge Fund Risk Manager.
-                        TASK: Analyze chart for technical/psychological errors.
-                        OUTPUT: [SCORE], [TAGS], [TECH], [PSYCH], [RISK], [FIX].
-                        """
+                        prompt = """You are an elite institutional trading analyst with 20+ years experience in quantitative analysis and behavioral finance. Analyze this trading chart/P&L screenshot with EXTREME precision.
+
+CRITICAL ANALYSIS FRAMEWORK:
+
+1. TECHNICAL ANALYSIS (Examine with surgical precision):
+   - Entry timing quality (scale: Poor/Fair/Good/Excellent)
+   - Exit timing effectiveness
+   - Risk-reward ratio calculation
+   - Position sizing appropriateness
+   - Stop loss placement logic
+   - Support/resistance level utilization
+   - Trend alignment (with/against major trend)
+   - Volume confirmation (if visible)
+
+2. PSYCHOLOGICAL ASSESSMENT (Identify behavioral patterns):
+   - Evidence of FOMO (entering late in move)
+   - Revenge trading indicators (oversized position after loss)
+   - Confirmation bias (ignoring contrary signals)
+   - Loss aversion (holding losers too long)
+   - Overconfidence (position too large)
+   - Fear/panic selling markers
+   - Discipline level (following plan vs emotional)
+
+3. RISK MANAGEMENT EVALUATION:
+   - Account risk percentage (estimate if visible)
+   - Drawdown severity
+   - Risk concentration
+   - Correlation awareness
+   - Liquidity considerations
+
+4. PERFORMANCE METRICS:
+   - Win rate pattern
+   - Average win vs average loss
+   - Consistency of execution
+   - Trade frequency appropriateness
+
+OUTPUT FORMAT (MANDATORY - Follow EXACTLY):
+
+[SCORE] (0-100, be CRITICAL - only 70+ for truly good trades)
+[OVERALL_GRADE] (F/D/C/B/A/S-Tier)
+
+[TAGS] List 3-5 specific issues: FOMO, Poor_Entry, No_Stop, Oversized, Revenge_Trade, Trend_Counter, Emotional_Exit, Good_RR, Disciplined, etc.
+
+[ENTRY_QUALITY] (0-100) Detailed analysis of entry timing and price level
+
+[EXIT_QUALITY] (0-100) Detailed analysis of exit decision and execution
+
+[RISK_SCORE] (0-100, higher = safer) Risk management quality assessment
+
+[TECH] Comprehensive technical analysis (3-5 specific observations about price action, patterns, indicators)
+
+[PSYCH] Behavioral analysis (2-4 specific psychological patterns detected)
+
+[RISK] Risk assessment (Quantify the risk issues - be specific with numbers/percentages if possible)
+
+[FIX] Actionable 3-step improvement plan (be SPECIFIC, not generic advice)
+
+[STRENGTH] What was done well in this trade (even failed trades have learning points)
+
+[CRITICAL_ERROR] The single biggest mistake (be brutally honest)
+
+Be direct, specific, and brutally honest. Use precise terminology. Quantify whenever possible."""
                         ready_to_run = True
                 st.markdown('</div>', unsafe_allow_html=True)
 
@@ -1179,23 +1432,115 @@ else:
                 
                     if st.form_submit_button("EXECUTE AUDIT", type="primary", use_container_width=True):
                         ticker_val = ticker
-                        prompt = f"""
-                        SYSTEM: Trading Coach.
-                        DATA: {ticker} | {setup_type} | {emotion} | Note: {notes}
-                        ENTRY: {entry} | EXIT: {exit_price} | STOP: {stop}
-                        OUTPUT: [SCORE], [TAGS], [TECH], [PSYCH], [RISK], [FIX].
-                        """
+                        
+                        # Calculate key metrics
+                        pnl = exit_price - entry if exit_price > 0 and entry > 0 else 0
+                        pnl_pct = (pnl / entry * 100) if entry > 0 else 0
+                        risk = abs(entry - stop) if stop > 0 and entry > 0 else 0
+                        risk_pct = (risk / entry * 100) if entry > 0 else 0
+                        reward = abs(exit_price - entry) if exit_price > 0 and entry > 0 else 0
+                        rr_ratio = (reward / risk) if risk > 0 else 0
+                        
+                        prompt = f"""You are a world-class trading psychologist and risk management expert. Conduct a DEEP FORENSIC ANALYSIS of this trade with absolute precision.
+
+TRADE DATA:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Ticker: {ticker}
+Setup Type: {setup_type}
+Emotional State: {emotion}
+Entry: ${entry:.2f}
+Exit: ${exit_price:.2f}
+Stop Loss: ${stop:.2f}
+
+CALCULATED METRICS:
+PnL: ${pnl:.2f} ({pnl_pct:+.2f}%)
+Risk: ${risk:.2f} ({risk_pct:.2f}%)
+Risk:Reward Ratio: {rr_ratio:.2f}:1
+
+TRADER NOTES:
+{notes if notes else "No notes provided"}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ANALYSIS REQUIREMENTS:
+
+1. TECHNICAL EXECUTION ANALYSIS:
+   - Entry quality relative to setup type
+   - Stop loss placement logic (too tight/wide/appropriate?)
+   - Risk:Reward ratio assessment (optimal is 1:2 or better)
+   - Position sizing implications
+   - Setup type alignment with market structure
+
+2. PSYCHOLOGICAL PROFILE:
+   - Emotional state impact on decision-making
+   - Evidence of cognitive biases in the notes
+   - Decision-making process quality
+   - Behavioral red flags
+
+3. RISK MANAGEMENT EVALUATION:
+   - Account risk percentage (assess if appropriate 1-2% max)
+   - Stop loss effectiveness
+   - Risk:Reward optimization opportunities
+   - Capital preservation strategy
+
+4. PERFORMANCE SCORING:
+   - Technical execution: 0-100
+   - Psychological discipline: 0-100
+   - Risk management: 0-100
+   - Overall trade quality: 0-100
+
+OUTPUT FORMAT (FOLLOW EXACTLY):
+
+[SCORE] (0-100, be HARSHLY critical - only 80+ for exceptional trades)
+[OVERALL_GRADE] (F/D/C/B/A/S-Tier)
+
+[ENTRY_QUALITY] (0-100) + specific feedback on entry timing/price
+
+[EXIT_QUALITY] (0-100) + analysis of exit decision quality
+
+[RISK_SCORE] (0-100) + risk management effectiveness rating
+
+[TAGS] 3-5 specific behavioral tags: FOMO, Revenge, Disciplined, Poor_RR, Emotional, No_Plan, Good_Execution, etc.
+
+[TECH] Technical analysis (5-7 sentences):
+- Entry timing relative to setup
+- Stop loss placement analysis
+- RR ratio evaluation
+- Position sizing assessment
+- Setup quality for chosen instrument
+
+[PSYCH] Psychological analysis (4-6 sentences):
+- Emotional state impact
+- Cognitive biases detected
+- Decision-making quality
+- Behavioral patterns identified
+
+[RISK] Risk assessment (4-5 sentences with SPECIFIC metrics):
+- Account risk percentage estimate
+- Stop loss effectiveness
+- RR ratio optimization
+- Risk concentration issues
+
+[FIX] THREE specific, actionable improvements:
+1. [Specific technical fix]
+2. [Specific psychological fix]
+3. [Specific risk management fix]
+
+[STRENGTH] What was executed well (1-2 sentences)
+
+[CRITICAL_ERROR] The single biggest mistake in this trade (be direct and specific)
+
+Be brutally honest. Use precise numbers. Provide institutional-grade analysis."""
                         ready_to_run = True
                 st.markdown('</div>', unsafe_allow_html=True)
 
             # RESULTS AREA
             if ready_to_run and supabase:
-                with st.spinner("🧠 AI Forensic Analysis in progress..."):
+                with st.spinner("🧠 Deep Learning Neural Analysis in Progress..."):
                     try:
                         messages = [{"role": "user", "content": [{"type": "text", "text": prompt}]}]
                         if img_b64: messages[0]["content"].append({"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}})
                     
-                        payload = {"model": "Qwen/Qwen2.5-VL-7B-Instruct", "messages": messages, "max_tokens": 600}
+                        payload = {"model": "Qwen/Qwen2.5-VL-7B-Instruct", "messages": messages, "max_tokens": 1200}
                         headers = {"Authorization": f"Bearer {HF_TOKEN}", "Content-Type": "application/json"}
                         res = requests.post(API_URL, headers=headers, json=payload)
 
@@ -1203,42 +1548,310 @@ else:
                             report = parse_report(res.json()["choices"][0]["message"]["content"])
                             save_analysis(current_user, report, ticker_val)
                         
-                            score_color = "#10b981" if report['score'] >= 50 else "#ef4444"
+                            # Determine colors based on score
+                            if report['score'] >= 80:
+                                score_color = "#10b981"
+                                grade_color = "rgba(16, 185, 129, 0.2)"
+                            elif report['score'] >= 60:
+                                score_color = "#3b82f6"
+                                grade_color = "rgba(59, 130, 246, 0.2)"
+                            elif report['score'] >= 40:
+                                score_color = "#f59e0b"
+                                grade_color = "rgba(245, 158, 11, 0.2)"
+                            else:
+                                score_color = "#ef4444"
+                                grade_color = "rgba(239, 68, 68, 0.2)"
                         
+                            # ANIMATED HEADER WITH SCORE
                             st.markdown(f"""
-                            <div class="glass-panel" style="border-top: 3px solid {score_color}">
-                                <div class="score-container">
+                            <div class="glass-panel animate-scale-in" style="border-top: 3px solid {score_color}; margin-top: 32px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px;">
                                     <div>
-                                        <div style="color:#6b7280; letter-spacing:3px; font-size:0.7rem; text-transform: uppercase; margin-bottom: 10px; font-weight: 600;">AUDIT SCORE</div>
-                                        <div class="score-value" style="color:{score_color}">{report['score']}</div>
+                                        <div style="color:#6b7280; letter-spacing:3px; font-size:0.7rem; text-transform: uppercase; margin-bottom: 10px; font-weight: 600;">FORENSIC ANALYSIS COMPLETE</div>
+                                        <div style="display: flex; align-items: center; gap: 20px;">
+                                            <div class="score-value" style="color:{score_color}">{report['score']}</div>
+                                            <div class="grade-badge" style="background:{grade_color}; color:{score_color};">
+                                                GRADE: {report.get('overall_grade', 'C')}
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div class="score-meta">
+                                    <div style="text-align: right;">
                                         <div class="ticker-badge">{ticker_val}</div>
-                                        <div style="color:#6b7280; font-size:0.85rem;">{datetime.now().strftime('%B %d, %Y')}</div>
-                                    </div>
-                                </div>
-                                <div class="report-grid">
-                                    <div class="report-item" style="border-left-color: #3b82f6;">
-                                        <span class="report-label" style="color:#3b82f6;">Technical Analysis</span>
-                                        {report['tech']}
-                                    </div>
-                                    <div class="report-item" style="border-left-color: #f59e0b;">
-                                        <span class="report-label" style="color:#f59e0b;">Psychology</span>
-                                        {report['psych']}
-                                    </div>
-                                    <div class="report-item" style="border-left-color: #ef4444;">
-                                        <span class="report-label" style="color:#ef4444;">Risk Assessment</span>
-                                        {report['risk']}
-                                    </div>
-                                    <div class="report-item" style="border-left-color: #10b981;">
-                                        <span class="report-label" style="color:#10b981;">Corrective Action</span>
-                                        {report['fix']}
+                                        <div style="color:#6b7280; font-size:0.85rem; margin-top: 8px;">{datetime.now().strftime('%B %d, %Y • %H:%M')}</div>
                                     </div>
                                 </div>
                             </div>
                             """, unsafe_allow_html=True)
+                            
+                            # QUALITY METRICS DASHBOARD
+                            st.markdown('<div class="glass-panel animate-slide-up" style="animation-delay: 0.1s;">', unsafe_allow_html=True)
+                            st.markdown('<div class="section-title">📊 Performance Breakdown</div>', unsafe_allow_html=True)
+                            
+                            # Create three columns for metrics
+                            met_col1, met_col2, met_col3 = st.columns(3)
+                            
+                            metrics_data = [
+                                ("Entry Quality", report.get('entry_quality', 50), met_col1),
+                                ("Exit Quality", report.get('exit_quality', 50), met_col2),
+                                ("Risk Management", report.get('risk_score', 50), met_col3)
+                            ]
+                            
+                            for metric_name, metric_value, col in metrics_data:
+                                with col:
+                                    # Determine metric color
+                                    if metric_value >= 80:
+                                        met_color = "#10b981"
+                                    elif metric_value >= 60:
+                                        met_color = "#3b82f6"
+                                    elif metric_value >= 40:
+                                        met_color = "#f59e0b"
+                                    else:
+                                        met_color = "#ef4444"
+                                    
+                                    st.markdown(f"""
+                                    <div style="text-align: center; padding: 20px;">
+                                        <div class="metric-circle" style="background: rgba(255,255,255,0.03);">
+                                            <div style="font-size: 2rem; font-weight: 700; color: {met_color}; font-family: 'JetBrains Mono', monospace;">
+                                                {metric_value}
+                                            </div>
+                                            <div style="font-size: 0.7rem; color: #6b7280; text-transform: uppercase; letter-spacing: 1px;">
+                                                /100
+                                            </div>
+                                        </div>
+                                        <div style="margin-top: 16px; font-size: 0.9rem; font-weight: 600; color: #e5e7eb;">
+                                            {metric_name}
+                                        </div>
+                                        <div class="progress-bar-container" style="margin-top: 12px;">
+                                            <div class="progress-bar" style="width: {metric_value}%; background: linear-gradient(90deg, {met_color}, {met_color}80);"></div>
+                                        </div>
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                            
+                            st.markdown('</div>', unsafe_allow_html=True)
+                            
+                            # BEHAVIORAL TAGS WITH ANIMATION
+                            if report.get('tags'):
+                                st.markdown('<div class="glass-panel animate-slide-right" style="animation-delay: 0.2s;">', unsafe_allow_html=True)
+                                st.markdown('<div class="section-title">🏷️ Behavioral Patterns Detected</div>', unsafe_allow_html=True)
+                                
+                                tags_html = '<div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px;">'
+                                for tag in report['tags']:
+                                    # Color code tags
+                                    if any(word in tag.lower() for word in ['fomo', 'revenge', 'emotional', 'panic', 'tilt']):
+                                        tag_color = "#ef4444"
+                                        tag_bg = "rgba(239, 68, 68, 0.15)"
+                                    elif any(word in tag.lower() for word in ['disciplined', 'good', 'excellent', 'strong']):
+                                        tag_color = "#10b981"
+                                        tag_bg = "rgba(16, 185, 129, 0.15)"
+                                    else:
+                                        tag_color = "#f59e0b"
+                                        tag_bg = "rgba(245, 158, 11, 0.15)"
+                                    
+                                    tags_html += f'''
+                                    <div style="
+                                        background: {tag_bg};
+                                        border: 1px solid {tag_color}40;
+                                        padding: 10px 18px;
+                                        border-radius: 10px;
+                                        color: {tag_color};
+                                        font-weight: 600;
+                                        font-size: 0.85rem;
+                                        letter-spacing: 0.5px;
+                                        transition: all 0.3s ease;
+                                        cursor: default;
+                                    ">{tag}</div>
+                                    '''
+                                tags_html += '</div>'
+                                st.markdown(tags_html, unsafe_allow_html=True)
+                                st.markdown('</div>', unsafe_allow_html=True)
+                            
+                            # VISUALIZATION CHART
+                            st.markdown('<div class="glass-panel animate-fade-in" style="animation-delay: 0.3s;">', unsafe_allow_html=True)
+                            st.markdown('<div class="section-title">📈 Performance Radar</div>', unsafe_allow_html=True)
+                            
+                            # Create radar chart data
+                            chart_data = pd.DataFrame({
+                                'Metric': ['Entry\nQuality', 'Exit\nQuality', 'Risk\nManagement', 'Overall\nScore'],
+                                'Score': [
+                                    report.get('entry_quality', 50),
+                                    report.get('exit_quality', 50),
+                                    report.get('risk_score', 50),
+                                    report['score']
+                                ]
+                            })
+                            
+                            # Create bar chart with custom colors
+                            bars = alt.Chart(chart_data).mark_bar(
+                                cornerRadiusEnd=8,
+                                size=40
+                            ).encode(
+                                x=alt.X('Metric:N',
+                                    axis=alt.Axis(
+                                        title=None,
+                                        labelColor='#e5e7eb',
+                                        labelFontSize=12,
+                                        labelAngle=0
+                                    )
+                                ),
+                                y=alt.Y('Score:Q',
+                                    scale=alt.Scale(domain=[0, 100]),
+                                    axis=alt.Axis(
+                                        title='Score',
+                                        titleColor='#9ca3af',
+                                        labelColor='#9ca3af',
+                                        grid=True,
+                                        gridColor='#ffffff10'
+                                    )
+                                ),
+                                color=alt.Color('Score:Q',
+                                    scale=alt.Scale(
+                                        domain=[0, 40, 60, 80, 100],
+                                        range=['#ef4444', '#f59e0b', '#3b82f6', '#10b981', '#10b981']
+                                    ),
+                                    legend=None
+                                ),
+                                tooltip=[
+                                    alt.Tooltip('Metric:N', title='Category'),
+                                    alt.Tooltip('Score:Q', title='Score')
+                                ]
+                            ).properties(
+                                height=300
+                            ).configure_view(
+                                strokeWidth=0,
+                                fill='transparent'
+                            ).configure(
+                                background='transparent'
+                            )
+                            
+                            st.altair_chart(bars, use_container_width=True)
+                            st.markdown('</div>', unsafe_allow_html=True)
+                            
+                            # DETAILED ANALYSIS SECTIONS
+                            col_left, col_right = st.columns(2)
+                            
+                            with col_left:
+                                # TECHNICAL ANALYSIS
+                                st.markdown('<div class="result-card animate-slide-up" style="animation-delay: 0.4s;">', unsafe_allow_html=True)
+                                st.markdown("""
+                                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                                    <div style="font-size: 1.8rem;">⚙️</div>
+                                    <div style="font-size: 1rem; font-weight: 700; color: #3b82f6; text-transform: uppercase; letter-spacing: 1px;">
+                                        Technical Analysis
+                                    </div>
+                                </div>
+                                """, unsafe_allow_html=True)
+                                st.markdown(f"""
+                                <div style="color: #d1d5db; line-height: 1.8; font-size: 0.92rem;">
+                                    {report['tech']}
+                                </div>
+                                """, unsafe_allow_html=True)
+                                st.markdown('</div>', unsafe_allow_html=True)
+                                
+                                # RISK ASSESSMENT
+                                st.markdown('<div class="result-card animate-slide-up" style="animation-delay: 0.6s;">', unsafe_allow_html=True)
+                                st.markdown("""
+                                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                                    <div style="font-size: 1.8rem;">⚠️</div>
+                                    <div style="font-size: 1rem; font-weight: 700; color: #f59e0b; text-transform: uppercase; letter-spacing: 1px;">
+                                        Risk Assessment
+                                    </div>
+                                </div>
+                                """, unsafe_allow_html=True)
+                                st.markdown(f"""
+                                <div style="color: #d1d5db; line-height: 1.8; font-size: 0.92rem;">
+                                    {report['risk']}
+                                </div>
+                                """, unsafe_allow_html=True)
+                                st.markdown('</div>', unsafe_allow_html=True)
+                            
+                            with col_right:
+                                # PSYCHOLOGICAL ANALYSIS
+                                st.markdown('<div class="result-card animate-slide-up" style="animation-delay: 0.5s;">', unsafe_allow_html=True)
+                                st.markdown("""
+                                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                                    <div style="font-size: 1.8rem;">🧠</div>
+                                    <div style="font-size: 1rem; font-weight: 700; color: #8b5cf6; text-transform: uppercase; letter-spacing: 1px;">
+                                        Psychology Profile
+                                    </div>
+                                </div>
+                                """, unsafe_allow_html=True)
+                                st.markdown(f"""
+                                <div style="color: #d1d5db; line-height: 1.8; font-size: 0.92rem;">
+                                    {report['psych']}
+                                </div>
+                                """, unsafe_allow_html=True)
+                                st.markdown('</div>', unsafe_allow_html=True)
+                                
+                                # ACTION PLAN
+                                st.markdown('<div class="result-card animate-slide-up" style="animation-delay: 0.7s;">', unsafe_allow_html=True)
+                                st.markdown("""
+                                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                                    <div style="font-size: 1.8rem;">🎯</div>
+                                    <div style="font-size: 1rem; font-weight: 700; color: #10b981; text-transform: uppercase; letter-spacing: 1px;">
+                                        Action Plan
+                                    </div>
+                                </div>
+                                """, unsafe_allow_html=True)
+                                st.markdown(f"""
+                                <div style="color: #d1d5db; line-height: 1.8; font-size: 0.92rem;">
+                                    {report['fix']}
+                                </div>
+                                """, unsafe_allow_html=True)
+                                st.markdown('</div>', unsafe_allow_html=True)
+                            
+                            # KEY INSIGHTS - STRENGTH & CRITICAL ERROR
+                            if report.get('strength') != 'N/A' or report.get('critical_error') != 'N/A':
+                                st.markdown('<div class="glass-panel animate-slide-up" style="animation-delay: 0.8s;">', unsafe_allow_html=True)
+                                
+                                ins_col1, ins_col2 = st.columns(2)
+                                
+                                with ins_col1:
+                                    if report.get('strength') != 'N/A':
+                                        st.markdown(f"""
+                                        <div style="
+                                            background: rgba(16, 185, 129, 0.1);
+                                            border-left: 4px solid #10b981;
+                                            padding: 20px;
+                                            border-radius: 0 12px 12px 0;
+                                        ">
+                                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                                                <div style="font-size: 1.5rem;">💪</div>
+                                                <div style="font-size: 0.85rem; font-weight: 700; color: #10b981; text-transform: uppercase; letter-spacing: 1px;">
+                                                    What Went Well
+                                                </div>
+                                            </div>
+                                            <div style="color: #d1d5db; line-height: 1.7; font-size: 0.9rem;">
+                                                {report['strength']}
+                                            </div>
+                                        </div>
+                                        """, unsafe_allow_html=True)
+                                
+                                with ins_col2:
+                                    if report.get('critical_error') != 'N/A':
+                                        st.markdown(f"""
+                                        <div style="
+                                            background: rgba(239, 68, 68, 0.1);
+                                            border-left: 4px solid #ef4444;
+                                            padding: 20px;
+                                            border-radius: 0 12px 12px 0;
+                                        ">
+                                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                                                <div style="font-size: 1.5rem;">⛔</div>
+                                                <div style="font-size: 0.85rem; font-weight: 700; color: #ef4444; text-transform: uppercase; letter-spacing: 1px;">
+                                                    Critical Error
+                                                </div>
+                                            </div>
+                                            <div style="color: #d1d5db; line-height: 1.7; font-size: 0.9rem;">
+                                                {report['critical_error']}
+                                            </div>
+                                        </div>
+                                        """, unsafe_allow_html=True)
+                                
+                                st.markdown('</div>', unsafe_allow_html=True)
+                            
                     except Exception as e:
-                        st.error(f"Analysis Failed: {e}")
+                        st.error(f"⚠️ Analysis Failed: {e}")
+                        st.info("💡 Tip: Ensure your image is clear and contains visible price action or trade data.")
 
         # --- TAB 2: DASHBOARD ---
         with main_tab2:
