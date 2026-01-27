@@ -309,28 +309,15 @@ st.markdown("""
         transform: translateY(-2px);
     }
     
-    /* Navigation buttons in header */
-    button[key="nav_analyze"],
-    button[key="nav_data_vault"],
-    button[key="nav_pricing"] {
-        background: transparent !important;
-        border: none !important;
-        color: #9ca3af !important;
-        font-size: 0.85rem !important;
-        font-weight: 600 !important;
-        text-transform: uppercase !important;
-        letter-spacing: 0.5px !important;
-        padding: 10px 20px !important;
-        border-radius: 8px !important;
-        box-shadow: none !important;
-    }
-    
-    button[key="nav_analyze"]:hover,
-    button[key="nav_data_vault"]:hover,
-    button[key="nav_pricing"]:hover {
-        background: rgba(255, 255, 255, 0.05) !important;
-        color: #f8fafc !important;
-        transform: none !important;
+    /* Hide navigation helper buttons */
+    button[key="nav_analyze_btn"],
+    button[key="nav_vault_btn"],
+    button[key="nav_pricing_btn"] {
+        opacity: 0;
+        height: 0px;
+        padding: 0;
+        margin: 0;
+        position: absolute;
     }
 
     /* --- INPUTS --- */
@@ -577,20 +564,28 @@ else:
         """, unsafe_allow_html=True)
     
     with header_col2:
+        current_page = st.session_state.get("current_page", "analyze")
+        
         nav_col1, nav_col2, nav_col3 = st.columns(3)
         
         with nav_col1:
-            if st.button("ANALYZE", key="nav_analyze", use_container_width=True):
+            analyze_style = 'color: #fca5a5; background: rgba(220, 38, 38, 0.1); border-bottom: 2px solid #dc2626;' if current_page == "analyze" else ''
+            st.markdown(f'<div style="text-align: center;"><div style="padding: 10px 20px; {analyze_style} font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af; border-radius: 8px; cursor: pointer;">ANALYZE</div></div>', unsafe_allow_html=True)
+            if st.button(".", key="nav_analyze_btn", label_visibility="hidden"):
                 st.session_state["current_page"] = "analyze"
                 st.rerun()
         
         with nav_col2:
-            if st.button("DATA VAULT", key="nav_data_vault", use_container_width=True):
+            vault_style = 'color: #fca5a5; background: rgba(220, 38, 38, 0.1); border-bottom: 2px solid #dc2626;' if current_page == "data_vault" else ''
+            st.markdown(f'<div style="text-align: center;"><div style="padding: 10px 20px; {vault_style} font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af; border-radius: 8px; cursor: pointer;">DATA VAULT</div></div>', unsafe_allow_html=True)
+            if st.button(".", key="nav_vault_btn", label_visibility="hidden"):
                 st.session_state["current_page"] = "data_vault"
                 st.rerun()
         
         with nav_col3:
-            if st.button("PRICING", key="nav_pricing", use_container_width=True):
+            pricing_style = 'color: #fca5a5; background: rgba(220, 38, 38, 0.1); border-bottom: 2px solid #dc2626;' if current_page == "pricing" else ''
+            st.markdown(f'<div style="text-align: center;"><div style="padding: 10px 20px; {pricing_style} font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af; border-radius: 8px; cursor: pointer;">PRICING</div></div>', unsafe_allow_html=True)
+            if st.button(".", key="nav_pricing_btn", label_visibility="hidden"):
                 st.session_state["current_page"] = "pricing"
                 st.rerun()
     
