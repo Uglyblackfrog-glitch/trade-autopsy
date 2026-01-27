@@ -316,32 +316,6 @@ st.markdown("""
         box-shadow: 0 6px 24px rgba(220, 38, 38, 0.35);
         transform: translateY(-2px);
     }
-    
-    /* Navigation buttons - clean minimal style */
-    button[key="nav_btn_analyze"],
-    button[key="nav_btn_vault"],
-    button[key="nav_btn_pricing"] {
-        background: transparent !important;
-        border: none !important;
-        color: #9ca3af !important;
-        font-size: 0.85rem !important;
-        font-weight: 600 !important;
-        text-transform: uppercase !important;
-        letter-spacing: 0.5px !important;
-        padding: 10px 20px !important;
-        border-radius: 8px !important;
-        box-shadow: none !important;
-        transition: all 0.3s ease !important;
-    }
-    
-    button[key="nav_btn_analyze"]:hover,
-    button[key="nav_btn_vault"]:hover,
-    button[key="nav_btn_pricing"]:hover {
-        background: rgba(255, 255, 255, 0.05) !important;
-        color: #f8fafc !important;
-        transform: none !important;
-        box-shadow: none !important;
-    }
 
     /* --- INPUTS --- */
     .stTextInput input, .stNumberInput input, .stTextArea textarea, .stSelectbox select {
@@ -574,82 +548,6 @@ else:
         st.session_state["current_page"] = "analyze"
     
     current_page = st.session_state.get("current_page", "analyze")
-    
-    # --- CLEAN HEADER USING STREAMLIT ---
-    header_col1, header_col2, header_col3 = st.columns([2, 6, 2])
-    
-    with header_col1:
-        st.markdown("""
-        <div style="display: flex; align-items: center; gap: 12px; padding: 8px 0;">
-            <span style="font-size: 1.8rem; filter: drop-shadow(0 0 12px rgba(220, 38, 38, 0.4));">🩸</span>
-            <div>
-                <span style="font-weight: 800; font-size: 1.3rem; color: #f8fafc; letter-spacing: -0.02em;">STOCK</span><span style="font-weight: 800; font-size: 1.3rem; background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">POSTMORTEM</span><span style="font-size: 1.1rem; color: #6b7280;">.AI</span>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with header_col2:
-        # Add CSS for active state
-        if current_page == "analyze":
-            st.markdown("""
-            <style>
-            button[key="nav_btn_analyze"] {
-                background: rgba(220, 38, 38, 0.1) !important;
-                color: #fca5a5 !important;
-                border-bottom: 2px solid #dc2626 !important;
-            }
-            </style>
-            """, unsafe_allow_html=True)
-        elif current_page == "data_vault":
-            st.markdown("""
-            <style>
-            button[key="nav_btn_vault"] {
-                background: rgba(220, 38, 38, 0.1) !important;
-                color: #fca5a5 !important;
-                border-bottom: 2px solid #dc2626 !important;
-            }
-            </style>
-            """, unsafe_allow_html=True)
-        elif current_page == "pricing":
-            st.markdown("""
-            <style>
-            button[key="nav_btn_pricing"] {
-                background: rgba(220, 38, 38, 0.1) !important;
-                color: #fca5a5 !important;
-                border-bottom: 2px solid #dc2626 !important;
-            }
-            </style>
-            """, unsafe_allow_html=True)
-        
-        # Check if navigation was clicked
-        nav_cols = st.columns([1, 1, 1])
-        
-        with nav_cols[0]:
-            if st.button("ANALYZE", key="nav_btn_analyze", help="Go to Analyze"):
-                st.session_state["current_page"] = "analyze"
-                st.rerun()
-        
-        with nav_cols[1]:
-            if st.button("DATA VAULT", key="nav_btn_vault", help="Go to Data Vault"):
-                st.session_state["current_page"] = "data_vault"
-                st.rerun()
-        
-        with nav_cols[2]:
-            if st.button("PRICING", key="nav_btn_pricing", help="Go to Pricing"):
-                st.session_state["current_page"] = "pricing"
-                st.rerun()
-    
-    with header_col3:
-        with st.popover("👤 " + current_user, use_container_width=True):
-            st.markdown(f"**Operator:** {current_user}")
-            st.caption("Access Level: PRO")
-            st.markdown("---")
-            if st.button("🔴 DISCONNECT", type="primary", use_container_width=True):
-                logout()
-    
-    st.markdown("""
-    <div style="height: 1px; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent); margin: 20px 0 32px 0;"></div>
-    """, unsafe_allow_html=True)
     
     # --- PAGE ROUTING ---
     if st.session_state["current_page"] == "data_vault":
