@@ -86,6 +86,12 @@ st.markdown("""
         color: #f8fafc; 
         line-height: 1.6;
     }
+    
+    /* --- REMOVE TOP PADDING --- */
+    .block-container {
+        padding-top: 2rem !important;
+        padding-bottom: 3rem !important;
+    }
 
     /* --- HIDE SIDEBAR & STREAMLIT ELEMENTS --- */
     [data-testid="stSidebar"] { display: none; }
@@ -569,7 +575,7 @@ else:
     """, unsafe_allow_html=True)
 
     # TABS
-    main_tab1, main_tab2 = st.tabs(["🔎 FORENSIC AUDIT", "📊 PERFORMANCE METRICS"])
+    main_tab1, main_tab2, main_tab3 = st.tabs(["🔎 FORENSIC AUDIT", "📊 PERFORMANCE METRICS", "🗄️ DATA VAULT"])
 
     # --- TAB 1: AUDIT (INPUT) ---
     with main_tab1:
@@ -1007,5 +1013,160 @@ else:
                 <div style="font-size: 3rem; margin-bottom: 16px; opacity: 0.3;">📊</div>
                 <div style="font-size: 1.1rem; color: #9ca3af; margin-bottom: 8px;">No Performance Data Yet</div>
                 <div style="font-size: 0.9rem; color: #6b7280;">Complete your first forensic audit to see metrics here.</div>
+                """, unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+
+    # --- TAB 3: DATA VAULT (ALL ACTIVITY) ---
+    with main_tab3:
+        if supabase:
+            hist = supabase.table("trades").select("*").eq("user_id", current_user).order("created_at", desc=True).execute()
+            
+            if hist.data:
+                df = pd.DataFrame(hist.data)
+                df['created_at'] = pd.to_datetime(df['created_at'])
+                
+                # Summary Stats at top
+                total_audits = len(df)
+                avg_score = df['score'].mean()
+                best_score = df['score'].max()
+                worst_score = df['score'].min()
+                
+                st.markdown(f"""
+                <div class="kpi-container">
+                    <div class="kpi-card">
+                        <div class="kpi-val">{total_audits}</div>
+                        <div class="kpi-label">Total Records</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-val">{int(avg_score)}</div>
+                        <div class="kpi-label">Lifetime Avg</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-val" style="color: #10b981;">{int(best_score)}</div>
+                        <div class="kpi-label">Best Score</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-val" style="color: #ef4444;">{int(worst_score)}</div>
+                        <div class="kpi-label">Worst Score</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Filter and Search
+                st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
+                st.markdown('<div class="section-title">Filter & Search</div>', unsafe_allow_html=True)
+                
+                col_search1, col_search2, col_search3 = st.columns([2, 1, 1])
+                
+                with col_search1:
+                    search_ticker = st.text_input("Search by Ticker", placeholder="e.g., SPY, AAPL", label_visibility="collapsed")
+                
+                with col_search2:
+                    score_filter = st.selectbox("Score Filter", ["All", "Excellent (80+)", "Good (60-80)", "Fair (40-60)", "Poor (<40)"], label_visibility="collapsed")
+                
+                with col_search3:
+                    sort_order = st.selectbox("Sort By", ["Newest First", "Oldest First", "Highest Score", "Lowest Score"], label_visibility="collapsed")
+                
+                st.markdown('</div>', unsafe_allow_html=True)
+                
+                # Apply filters
+                filtered_df = df.copy()
+                
+                if search_ticker:
+                    filtered_df = filtered_df[filtered_df['ticker'].str.contains(search_ticker, case=False, na=False)]
+                
+                if score_filter == "Excellent (80+)":
+                    filtered_df = filtered_df[filtered_df['score'] >= 80]
+                elif score_filter == "Good (60-80)":
+                    filtered_df = filtered_df[(filtered_df['score'] >= 60) & (filtered_df['score'] < 80)]
+                elif score_filter == "Fair (40-60)":
+                    filtered_df = filtered_df[(filtered_df['score'] >= 40) & (filtered_df['score'] < 60)]
+                elif score_filter == "Poor (<40)":
+                    filtered_df = filtered_df[filtered_df['score'] < 40]
+                
+                if sort_order == "Oldest First":
+                    filtered_df = filtered_df.sort_values('created_at', ascending=True)
+                elif sort_order == "Highest Score":
+                    filtered_df = filtered_df.sort_values('score', ascending=False)
+                elif sort_order == "Lowest Score":
+                    filtered_df = filtered_df.sort_values('score', ascending=True)
+                else:  # Newest First (default)
+                    filtered_df = filtered_df.sort_values('created_at', ascending=False)
+                
+                # Main Data Table
+                st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
+                st.markdown(f'<div class="section-title">Complete Audit History ({len(filtered_df)} records)</div>', unsafe_allow_html=True)
+                
+                # Prepare table data
+                table_df = filtered_df[['created_at', 'ticker', 'score', 'mistake_tags', 'technical_analysis', 'psych_analysis']].copy()
+                table_df.columns = ['Date', 'Ticker', 'Score', 'Error Tags', 'Technical Notes', 'Psychology Notes']
+                
+                # Format tags
+                table_df['Error Tags'] = table_df['Error Tags'].apply(
+                    lambda x: ', '.join(x[:3]) if len(x) > 0 else 'None'
+                )
+                
+                # Truncate long text
+                table_df['Technical Notes'] = table_df['Technical Notes'].apply(
+                    lambda x: (x[:80] + '...') if len(str(x)) > 80 else x
+                )
+                table_df['Psychology Notes'] = table_df['Psychology Notes'].apply(
+                    lambda x: (x[:80] + '...') if len(str(x)) > 80 else x
+                )
+                
+                st.dataframe(
+                    table_df,
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "Score": st.column_config.ProgressColumn(
+                            "Score",
+                            min_value=0,
+                            max_value=100,
+                            format="%d"
+                        ),
+                        "Date": st.column_config.DatetimeColumn(
+                            "Date",
+                            format="MMM DD, YYYY HH:mm"
+                        ),
+                        "Ticker": st.column_config.TextColumn(
+                            "Ticker",
+                            width="small"
+                        ),
+                        "Error Tags": st.column_config.TextColumn(
+                            "Error Tags",
+                            width="medium"
+                        ),
+                        "Technical Notes": st.column_config.TextColumn(
+                            "Technical",
+                            width="large"
+                        ),
+                        "Psychology Notes": st.column_config.TextColumn(
+                            "Psychology",
+                            width="large"
+                        )
+                    },
+                    height=600
+                )
+                
+                # Export option
+                st.markdown('<div style="margin-top: 16px;"></div>', unsafe_allow_html=True)
+                csv = filtered_df.to_csv(index=False)
+                st.download_button(
+                    label="📥 Export to CSV",
+                    data=csv,
+                    file_name=f"stockpostmortem_data_{current_user}_{datetime.now().strftime('%Y%m%d')}.csv",
+                    mime="text/csv",
+                    use_container_width=False
+                )
+                
+                st.markdown('</div>', unsafe_allow_html=True)
+                
+            else:
+                st.markdown('<div class="glass-panel" style="text-align: center; padding: 60px;">', unsafe_allow_html=True)
+                st.markdown("""
+                <div style="font-size: 3rem; margin-bottom: 16px; opacity: 0.3;">🗄️</div>
+                <div style="font-size: 1.1rem; color: #9ca3af; margin-bottom: 8px;">Data Vault Empty</div>
+                <div style="font-size: 0.9rem; color: #6b7280;">Your audit history will appear here once you start analyzing trades.</div>
                 """, unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
