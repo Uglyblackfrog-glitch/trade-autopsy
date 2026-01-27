@@ -94,171 +94,6 @@ st.markdown("""
     footer { visibility: hidden; }
     header { visibility: hidden; }
     
-    /* --- CUSTOM HEADER/NAV BAR --- */
-    .custom-header {
-        position: sticky;
-        top: 0;
-        z-index: 1000;
-        background: rgba(10, 10, 10, 0.85);
-        backdrop-filter: blur(20px) saturate(180%);
-        -webkit-backdrop-filter: blur(20px) saturate(180%);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-        padding: 16px 0;
-        margin-bottom: 40px;
-    }
-    
-    .nav-container {
-        max-width: 1400px;
-        margin: 0 auto;
-        padding: 0 32px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-    
-    .nav-logo {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        font-size: 1.5rem;
-        font-weight: 800;
-        letter-spacing: -0.02em;
-        cursor: pointer;
-        transition: all 0.3s ease;
-    }
-    
-    .nav-logo:hover {
-        transform: translateY(-1px);
-    }
-    
-    .logo-icon {
-        font-size: 1.8rem;
-        filter: drop-shadow(0 0 12px rgba(220, 38, 38, 0.4));
-    }
-    
-    .logo-text {
-        color: #f8fafc;
-    }
-    
-    .logo-accent {
-        background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-    }
-    
-    .logo-tld {
-        color: #9ca3af;
-        font-size: 1.3rem;
-    }
-    
-    .nav-menu {
-        display: flex;
-        gap: 4px;
-        align-items: center;
-    }
-    
-    .nav-item {
-        padding: 10px 20px;
-        color: #9ca3af;
-        font-size: 0.9rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        cursor: pointer;
-        border-radius: 8px;
-        transition: all 0.3s ease;
-        position: relative;
-    }
-    
-    .nav-item:hover {
-        color: #f8fafc;
-        background: rgba(255, 255, 255, 0.05);
-    }
-    
-    .nav-item.active {
-        color: #fca5a5;
-        background: rgba(220, 38, 38, 0.1);
-    }
-    
-    .nav-item.active::after {
-        content: '';
-        position: absolute;
-        bottom: 0;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 50%;
-        height: 2px;
-        background: linear-gradient(90deg, transparent, #dc2626, transparent);
-    }
-    
-    .nav-dropdown {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-    }
-    
-    .dropdown-arrow {
-        font-size: 0.7rem;
-        opacity: 0.7;
-        transition: transform 0.3s ease;
-    }
-    
-    .nav-item:hover .dropdown-arrow {
-        transform: translateY(2px);
-    }
-    
-    .nav-cta {
-        background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
-        color: white !important;
-        padding: 12px 28px;
-        border-radius: 10px;
-        font-weight: 700;
-        margin-left: 16px;
-        box-shadow: 0 4px 16px rgba(220, 38, 38, 0.3);
-        transition: all 0.3s ease;
-    }
-    
-    .nav-cta:hover {
-        background: linear-gradient(135deg, #b91c1c 0%, #7f1d1d 100%);
-        box-shadow: 0 6px 24px rgba(220, 38, 38, 0.45);
-        transform: translateY(-2px);
-    }
-    
-    .user-menu {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 8px 16px;
-        background: rgba(255, 255, 255, 0.05);
-        border-radius: 10px;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        border: 1px solid rgba(255, 255, 255, 0.08);
-    }
-    
-    .user-menu:hover {
-        background: rgba(255, 255, 255, 0.08);
-        border-color: rgba(220, 38, 38, 0.3);
-    }
-    
-    .user-avatar {
-        width: 32px;
-        height: 32px;
-        background: linear-gradient(135deg, #dc2626, #991b1b);
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1rem;
-    }
-    
-    .user-name {
-        font-size: 0.9rem;
-        font-weight: 600;
-        color: #f8fafc;
-    }
-    
     /* --- REFINED GLASSMORPHISM --- */
     .glass-panel {
         background: rgba(15, 15, 15, 0.65);
@@ -693,43 +528,45 @@ if not st.session_state["authenticated"]:
 else:
     current_user = st.session_state["user"]
     
-    # --- PROFESSIONAL HEADER/NAV BAR ---
-    st.markdown(f"""
-    <div class="custom-header">
-        <div class="nav-container">
-            <div class="nav-logo">
-                <span class="logo-icon">🩸</span>
-                <div>
-                    <span class="logo-text">STOCK</span><span class="logo-accent">POSTMORTEM</span><span class="logo-tld">.AI</span>
-                </div>
-            </div>
-            
-            <div class="nav-menu">
-                <div class="nav-item active">
-                    <div class="nav-dropdown">
-                        ANALYZE
-                        <span class="dropdown-arrow">▼</span>
-                    </div>
-                </div>
-                <div class="nav-item">DATA VAULT</div>
-                <div class="nav-item">PRICING</div>
-            </div>
-            
-            <div style="display: flex; align-items: center; gap: 20px;">
+    # --- CLEAN HEADER USING STREAMLIT ---
+    header_col1, header_col2, header_col3 = st.columns([2, 6, 2])
+    
+    with header_col1:
+        st.markdown("""
+        <div style="display: flex; align-items: center; gap: 12px; padding: 8px 0;">
+            <span style="font-size: 1.8rem; filter: drop-shadow(0 0 12px rgba(220, 38, 38, 0.4));">🩸</span>
+            <div>
+                <span style="font-weight: 800; font-size: 1.3rem; color: #f8fafc; letter-spacing: -0.02em;">STOCK</span><span style="font-weight: 800; font-size: 1.3rem; background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">POSTMORTEM</span><span style="font-size: 1.1rem; color: #6b7280;">.AI</span>
             </div>
         </div>
-    </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
     
-    # User menu with popover
-    col1, col2, col3 = st.columns([6, 1, 1])
-    with col3:
+    with header_col2:
+        st.markdown("""
+        <div style="display: flex; justify-content: center; align-items: center; gap: 8px; padding: 8px 0;">
+            <div style="padding: 10px 20px; color: #fca5a5; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; background: rgba(220, 38, 38, 0.1); border-radius: 8px; border-bottom: 2px solid #dc2626;">
+                ANALYZE
+            </div>
+            <div style="padding: 10px 20px; color: #9ca3af; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; cursor: pointer;">
+                DATA VAULT
+            </div>
+            <div style="padding: 10px 20px; color: #9ca3af; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; cursor: pointer;">
+                PRICING
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with header_col3:
         with st.popover("👤 " + current_user, use_container_width=True):
             st.markdown(f"**Operator:** {current_user}")
             st.caption("Access Level: PRO")
             st.markdown("---")
             if st.button("🔴 DISCONNECT", type="primary", use_container_width=True):
                 logout()
+    
+    st.markdown("""
+    <div style="height: 1px; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent); margin: 20px 0 32px 0;"></div>
+    """, unsafe_allow_html=True)
 
     # TABS
     main_tab1, main_tab2 = st.tabs(["🔎 FORENSIC AUDIT", "📊 PERFORMANCE METRICS"])
