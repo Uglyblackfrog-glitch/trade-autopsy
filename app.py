@@ -13,8 +13,8 @@ from datetime import datetime
 # 0. AUTHENTICATION & CONFIG
 # ==========================================
 st.set_page_config(
-    page_title="StockPostmortem.ai", 
-    page_icon="🩸", 
+    page_title="Trade Autopsy", 
+    page_icon="⚡", 
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -31,14 +31,6 @@ if "authenticated" not in st.session_state:
     st.session_state["user"] = None
     st.session_state["current_page"] = "analyze"
 
-# Check for URL parameters
-try:
-    params = st.query_params
-    if "page" in params:
-        st.session_state["current_page"] = params["page"]
-except:
-    pass
-
 def check_login(username, password):
     if username in USERS and USERS[username] == password:
         st.session_state["authenticated"] = True
@@ -50,6 +42,11 @@ def check_login(username, password):
 def logout():
     st.session_state["authenticated"] = False
     st.session_state["user"] = None
+    st.session_state["current_page"] = "analyze"
+    st.rerun()
+
+def navigate_to(page):
+    st.session_state["current_page"] = page
     st.rerun()
 
 # ==========================================
@@ -73,12 +70,12 @@ if st.session_state["authenticated"]:
         st.stop()
 
 # ==========================================
-# 2. PREMIUM DARK THEME CSS
+# 2. HYPER-PREMIUM DARK THEME CSS
 # ==========================================
 st.markdown("""
 <style>
     /* --- PREMIUM FONTS --- */
-    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
     
     * {
         margin: 0;
@@ -86,23 +83,48 @@ st.markdown("""
         box-sizing: border-box;
     }
     
-    /* --- DARK PREMIUM BACKGROUND --- */
+    /* --- HYPER DARK BACKGROUND --- */
     body, .stApp { 
         background: #0a0a0f !important;
         background-image: 
-            radial-gradient(ellipse at 10% 0%, rgba(16, 185, 129, 0.08) 0%, transparent 40%),
-            radial-gradient(ellipse at 90% 100%, rgba(59, 130, 246, 0.08) 0%, transparent 40%),
-            radial-gradient(ellipse at 50% 50%, rgba(139, 92, 246, 0.04) 0%, transparent 50%);
-        font-family: 'Space Grotesk', -apple-system, sans-serif !important; 
+            radial-gradient(ellipse at 15% 15%, rgba(16, 185, 129, 0.12) 0%, transparent 35%),
+            radial-gradient(ellipse at 85% 85%, rgba(59, 130, 246, 0.12) 0%, transparent 35%),
+            radial-gradient(ellipse at 50% 50%, rgba(139, 92, 246, 0.06) 0%, transparent 50%);
+        font-family: 'Rajdhani', sans-serif !important; 
         color: #e5e7eb; 
-        line-height: 1.7;
+        line-height: 1.65;
+        overflow-x: hidden;
+    }
+    
+    /* --- ANIMATED GRID BACKGROUND --- */
+    body::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-image: 
+            linear-gradient(rgba(16, 185, 129, 0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(16, 185, 129, 0.03) 1px, transparent 1px);
+        background-size: 50px 50px;
+        pointer-events: none;
+        z-index: 0;
+        animation: gridMove 20s linear infinite;
+    }
+    
+    @keyframes gridMove {
+        0% { transform: translate(0, 0); }
+        100% { transform: translate(50px, 50px); }
     }
     
     /* --- CONTAINER SPACING --- */
     .block-container {
-        padding-top: 1.5rem !important;
+        padding-top: 0rem !important;
         padding-bottom: 2rem !important;
-        max-width: 1400px !important;
+        max-width: 1600px !important;
+        position: relative;
+        z-index: 1;
     }
 
     /* --- HIDE STREAMLIT ELEMENTS --- */
@@ -112,213 +134,383 @@ st.markdown("""
     footer { visibility: hidden; }
     header { visibility: hidden; }
     
-    /* --- PREMIUM NAVIGATION BAR --- */
-    .premium-navbar {
-        background: rgba(15, 15, 20, 0.8);
-        backdrop-filter: blur(20px) saturate(180%);
-        -webkit-backdrop-filter: blur(20px) saturate(180%);
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        border-radius: 16px;
-        padding: 16px 28px;
-        margin-bottom: 32px;
+    /* --- HYPER PREMIUM HEADER NAVIGATION --- */
+    .hyper-header {
+        background: rgba(10, 10, 15, 0.85);
+        backdrop-filter: blur(30px) saturate(200%);
+        -webkit-backdrop-filter: blur(30px) saturate(200%);
+        border-bottom: 1px solid rgba(16, 185, 129, 0.2);
+        padding: 20px 40px;
         display: flex;
         justify-content: space-between;
         align-items: center;
+        position: sticky;
+        top: 0;
+        z-index: 1000;
         box-shadow: 
-            0 8px 32px rgba(0, 0, 0, 0.4),
-            inset 0 1px 0 rgba(255, 255, 255, 0.03);
+            0 8px 32px rgba(0, 0, 0, 0.6),
+            inset 0 1px 0 rgba(16, 185, 129, 0.1);
+        animation: headerSlideDown 0.6s cubic-bezier(0.23, 1, 0.32, 1);
     }
     
-    .nav-brand {
+    @keyframes headerSlideDown {
+        from {
+            transform: translateY(-100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+    
+    .header-brand {
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 16px;
     }
     
-    .nav-logo {
+    .header-logo {
+        font-size: 2.2rem;
+        filter: drop-shadow(0 0 20px rgba(16, 185, 129, 0.6));
+        animation: pulse 2s ease-in-out infinite;
+    }
+    
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); filter: drop-shadow(0 0 20px rgba(16, 185, 129, 0.6)); }
+        50% { transform: scale(1.05); filter: drop-shadow(0 0 30px rgba(16, 185, 129, 0.8)); }
+    }
+    
+    .header-title {
+        font-family: 'Orbitron', sans-serif;
         font-size: 1.8rem;
-        filter: drop-shadow(0 0 16px rgba(16, 185, 129, 0.4));
-    }
-    
-    .nav-title {
-        font-size: 1.4rem;
-        font-weight: 700;
-        background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%);
+        font-weight: 800;
+        background: linear-gradient(135deg, #10b981 0%, #3b82f6 50%, #8b5cf6 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
-        letter-spacing: -0.02em;
-    }
-    
-    .nav-subtitle {
-        font-size: 0.7rem;
-        color: #6b7280;
+        letter-spacing: 1px;
         text-transform: uppercase;
-        letter-spacing: 2px;
-        font-weight: 600;
+        animation: titleGlow 3s ease-in-out infinite;
     }
     
-    .nav-menu {
+    @keyframes titleGlow {
+        0%, 100% { filter: drop-shadow(0 0 10px rgba(16, 185, 129, 0.3)); }
+        50% { filter: drop-shadow(0 0 20px rgba(59, 130, 246, 0.5)); }
+    }
+    
+    .header-nav {
         display: flex;
         gap: 8px;
+        align-items: center;
     }
     
-    /* --- PREMIUM GLASS PANELS --- */
-    .glass-panel {
-        background: rgba(15, 15, 20, 0.75);
-        backdrop-filter: blur(24px) saturate(200%);
-        -webkit-backdrop-filter: blur(24px) saturate(200%);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 24px;
-        padding: 36px;
-        margin-bottom: 24px;
-        box-shadow: 
-            0 12px 40px rgba(0, 0, 0, 0.5),
-            inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    .nav-button {
+        background: transparent;
+        border: 1px solid rgba(16, 185, 129, 0.2);
+        color: #9ca3af;
+        padding: 12px 28px;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        cursor: pointer;
         transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        font-family: 'Rajdhani', sans-serif;
         position: relative;
         overflow: hidden;
+    }
+    
+    .nav-button::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.2), transparent);
+        transition: left 0.5s ease;
+    }
+    
+    .nav-button:hover {
+        background: rgba(16, 185, 129, 0.1);
+        border-color: rgba(16, 185, 129, 0.5);
+        color: #10b981;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(16, 185, 129, 0.3);
+    }
+    
+    .nav-button:hover::before {
+        left: 100%;
+    }
+    
+    .nav-button-active {
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.25) 0%, rgba(59, 130, 246, 0.25) 100%);
+        border-color: rgba(16, 185, 129, 0.6);
+        color: #10b981;
+        box-shadow: 
+            0 0 30px rgba(16, 185, 129, 0.4),
+            inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+    
+    .user-badge {
+        background: rgba(16, 185, 129, 0.15);
+        padding: 10px 20px;
+        border-radius: 10px;
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: #10b981;
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        animation: fadeIn 0.8s ease;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateX(20px); }
+        to { opacity: 1; transform: translateX(0); }
+    }
+    
+    /* --- HYPER GLASS PANELS --- */
+    .glass-panel {
+        background: rgba(10, 10, 15, 0.7);
+        backdrop-filter: blur(30px) saturate(200%);
+        -webkit-backdrop-filter: blur(30px) saturate(200%);
+        border: 1px solid rgba(16, 185, 129, 0.15);
+        border-radius: 20px;
+        padding: 40px;
+        margin-bottom: 28px;
+        margin-top: 28px;
+        box-shadow: 
+            0 16px 48px rgba(0, 0, 0, 0.6),
+            inset 0 1px 0 rgba(16, 185, 129, 0.1);
+        transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+        position: relative;
+        overflow: hidden;
+        animation: panelSlideUp 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+    }
+    
+    @keyframes panelSlideUp {
+        from {
+            transform: translateY(30px);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
     }
     
     .glass-panel::before {
         content: '';
         position: absolute;
         top: 0;
-        left: 0;
-        right: 0;
-        height: 1px;
-        background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.5), transparent);
-        opacity: 0;
-        transition: opacity 0.4s ease;
+        left: -100%;
+        width: 100%;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.8), rgba(59, 130, 246, 0.8), transparent);
+        animation: scanLine 3s ease-in-out infinite;
+    }
+    
+    @keyframes scanLine {
+        0% { left: -100%; }
+        100% { left: 100%; }
     }
     
     .glass-panel:hover {
-        border-color: rgba(255, 255, 255, 0.12);
+        border-color: rgba(16, 185, 129, 0.4);
         box-shadow: 
-            0 16px 48px rgba(0, 0, 0, 0.6),
-            inset 0 1px 0 rgba(255, 255, 255, 0.08);
-        transform: translateY(-2px);
+            0 20px 60px rgba(0, 0, 0, 0.7),
+            0 0 40px rgba(16, 185, 129, 0.2),
+            inset 0 1px 0 rgba(16, 185, 129, 0.15);
+        transform: translateY(-4px);
     }
     
-    .glass-panel:hover::before {
-        opacity: 1;
-    }
-    
-    /* --- PREMIUM KPI CARDS --- */
+    /* --- HYPER KPI CARDS --- */
     .kpi-container {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-        gap: 20px;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 24px;
         margin-bottom: 32px;
     }
     
     .kpi-card {
-        background: linear-gradient(135deg, rgba(20, 20, 28, 0.9) 0%, rgba(10, 10, 15, 0.95) 100%);
-        backdrop-filter: blur(16px);
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        padding: 32px 28px;
-        border-radius: 20px;
+        background: linear-gradient(135deg, rgba(15, 15, 20, 0.95) 0%, rgba(10, 10, 15, 0.98) 100%);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(16, 185, 129, 0.2);
+        padding: 36px 32px;
+        border-radius: 18px;
         text-align: center;
-        transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+        transition: all 0.6s cubic-bezier(0.23, 1, 0.32, 1);
         position: relative;
         overflow: hidden;
+        animation: cardPopIn 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+    }
+    
+    @keyframes cardPopIn {
+        from {
+            transform: scale(0.9);
+            opacity: 0;
+        }
+        to {
+            transform: scale(1);
+            opacity: 1;
+        }
     }
     
     .kpi-card::after {
         content: '';
         position: absolute;
         inset: 0;
-        background: radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.15), transparent 70%);
+        background: radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.2), transparent 70%);
         opacity: 0;
-        transition: opacity 0.5s ease;
+        transition: opacity 0.6s ease;
     }
     
-    .kpi-card:hover {
-        border-color: rgba(16, 185, 129, 0.4);
-        transform: translateY(-8px) scale(1.02);
-        box-shadow: 
-            0 20px 60px -12px rgba(16, 185, 129, 0.3),
-            0 0 0 1px rgba(16, 185, 129, 0.2);
-    }
-    
-    .kpi-card:hover::after {
-        opacity: 1;
-    }
-    
-    .kpi-val { 
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 3rem; 
-        font-weight: 700; 
-        background: linear-gradient(135deg, #ffffff 0%, #10b981 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        margin-bottom: 10px;
-        letter-spacing: -0.03em;
-        position: relative;
-        z-index: 1;
-    }
-    
-    .kpi-label { 
-        color: #9ca3af; 
-        font-size: 0.7rem; 
-        text-transform: uppercase; 
-        letter-spacing: 2.5px; 
-        font-weight: 600;
-        position: relative;
-        z-index: 1;
-    }
-
-    /* --- PREMIUM LOGIN --- */
-    .login-container {
-        max-width: 480px;
-        margin: 10vh auto;
-        padding: 56px;
-        background: rgba(15, 15, 20, 0.9);
-        backdrop-filter: blur(24px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 32px;
-        box-shadow: 
-            0 24px 80px rgba(0, 0, 0, 0.6),
-            inset 0 1px 0 rgba(255, 255, 255, 0.08);
-        text-align: center;
-        position: relative;
-        overflow: hidden;
-    }
-    
-    .login-container::before {
+    .kpi-card::before {
         content: '';
         position: absolute;
         top: -50%;
         left: -50%;
         width: 200%;
         height: 200%;
-        background: radial-gradient(circle, rgba(16, 185, 129, 0.1) 0%, transparent 70%);
-        animation: rotate 20s linear infinite;
+        background: conic-gradient(
+            from 0deg,
+            transparent,
+            rgba(16, 185, 129, 0.3),
+            transparent 30%
+        );
+        opacity: 0;
+        transition: opacity 0.6s ease;
+        animation: rotate 4s linear infinite;
     }
     
     @keyframes rotate {
-        0% { transform: rotate(0deg); }
         100% { transform: rotate(360deg); }
     }
     
-    .login-logo {
-        font-size: 4rem;
-        margin-bottom: 20px;
-        filter: drop-shadow(0 0 24px rgba(16, 185, 129, 0.4));
+    .kpi-card:hover {
+        border-color: rgba(16, 185, 129, 0.6);
+        transform: translateY(-12px) scale(1.03);
+        box-shadow: 
+            0 24px 72px -12px rgba(16, 185, 129, 0.4),
+            0 0 60px rgba(16, 185, 129, 0.2),
+            inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+    
+    .kpi-card:hover::after,
+    .kpi-card:hover::before {
+        opacity: 1;
+    }
+    
+    .kpi-val { 
+        font-family: 'Orbitron', monospace;
+        font-size: 3.5rem; 
+        font-weight: 800; 
+        background: linear-gradient(135deg, #ffffff 0%, #10b981 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 12px;
+        letter-spacing: -0.02em;
+        position: relative;
+        z-index: 1;
+        animation: numberFlicker 3s ease-in-out infinite;
+    }
+    
+    @keyframes numberFlicker {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.95; }
+    }
+    
+    .kpi-label { 
+        color: #9ca3af; 
+        font-size: 0.75rem; 
+        text-transform: uppercase; 
+        letter-spacing: 3px; 
+        font-weight: 700;
         position: relative;
         z-index: 1;
     }
 
+    /* --- PREMIUM LOGIN --- */
+    .login-container {
+        max-width: 500px;
+        margin: 8vh auto;
+        padding: 64px;
+        background: rgba(10, 10, 15, 0.95);
+        backdrop-filter: blur(30px);
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        border-radius: 24px;
+        box-shadow: 
+            0 32px 96px rgba(0, 0, 0, 0.7),
+            0 0 60px rgba(16, 185, 129, 0.2),
+            inset 0 1px 0 rgba(16, 185, 129, 0.1);
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+        animation: loginSlideIn 0.8s cubic-bezier(0.23, 1, 0.32, 1);
+    }
+    
+    @keyframes loginSlideIn {
+        from {
+            transform: translateY(-50px);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+    
+    .login-container::before {
+        content: '';
+        position: absolute;
+        top: -100%;
+        left: -100%;
+        width: 300%;
+        height: 300%;
+        background: conic-gradient(
+            from 0deg,
+            transparent,
+            rgba(16, 185, 129, 0.1),
+            transparent 30%,
+            transparent 60%,
+            rgba(59, 130, 246, 0.1),
+            transparent 90%
+        );
+        animation: rotateGradient 8s linear infinite;
+    }
+    
+    @keyframes rotateGradient {
+        100% { transform: rotate(360deg); }
+    }
+    
+    .login-logo {
+        font-size: 5rem;
+        margin-bottom: 24px;
+        filter: drop-shadow(0 0 30px rgba(16, 185, 129, 0.6));
+        position: relative;
+        z-index: 1;
+        animation: logoFloat 3s ease-in-out infinite;
+    }
+    
+    @keyframes logoFloat {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-10px); }
+    }
+
     /* --- SECTION TITLES --- */
     .section-title {
-        font-size: 0.95rem;
-        font-weight: 700;
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1.1rem;
+        font-weight: 800;
         color: #f8fafc;
-        margin-bottom: 28px;
+        margin-bottom: 32px;
         display: flex;
         align-items: center;
-        gap: 14px;
+        gap: 16px;
         text-transform: uppercase;
         letter-spacing: 2px;
     }
@@ -326,76 +518,101 @@ st.markdown("""
     .section-title::before {
         content: '';
         display: block;
-        width: 4px;
-        height: 24px;
+        width: 5px;
+        height: 28px;
         background: linear-gradient(180deg, #10b981 0%, #3b82f6 100%);
         border-radius: 3px;
-        box-shadow: 0 0 16px rgba(16, 185, 129, 0.5);
+        box-shadow: 0 0 20px rgba(16, 185, 129, 0.6);
+        animation: pulse 2s ease-in-out infinite;
     }
 
     /* --- REPORT GRID --- */
     .report-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 20px;
-        margin-top: 32px;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 24px;
+        margin-top: 36px;
     }
     
     .report-item {
-        background: rgba(255, 255, 255, 0.03);
-        border-left: 4px solid rgba(100, 100, 100, 0.4);
-        padding: 24px;
+        background: rgba(255, 255, 255, 0.02);
+        border-left: 4px solid rgba(100, 100, 100, 0.3);
+        padding: 28px;
         border-radius: 0 16px 16px 0;
-        transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
-        font-size: 0.92rem;
+        transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+        font-size: 0.95rem;
         line-height: 1.8;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .report-item::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        height: 100%;
+        width: 4px;
+        background: currentColor;
+        opacity: 0;
+        transition: opacity 0.5s ease;
     }
     
     .report-item:hover {
-        background: rgba(255, 255, 255, 0.06);
+        background: rgba(255, 255, 255, 0.05);
         border-left-color: currentColor;
-        transform: translateX(4px);
+        transform: translateX(8px);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+    
+    .report-item:hover::before {
+        opacity: 1;
     }
     
     .report-label {
-        font-weight: 700;
-        font-size: 0.75rem;
+        font-weight: 800;
+        font-size: 0.8rem;
         text-transform: uppercase;
-        letter-spacing: 1.5px;
-        margin-bottom: 14px;
+        letter-spacing: 2px;
+        margin-bottom: 16px;
         display: block;
     }
 
-    /* --- PREMIUM TABS --- */
+    /* --- HYPER TABS --- */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 12px;
-        background: rgba(20, 20, 28, 0.5);
-        border-radius: 16px;
-        padding: 8px;
-        margin-bottom: 32px;
-        border: 1px solid rgba(255, 255, 255, 0.06);
+        gap: 16px;
+        background: transparent;
+        border-radius: 0;
+        padding: 0;
+        margin-bottom: 36px;
+        border-bottom: 2px solid rgba(16, 185, 129, 0.2);
     }
     
     .stTabs [data-baseweb="tab"] {
         background: transparent;
-        border-radius: 12px;
-        color: #9ca3af;
-        font-weight: 600;
-        padding: 14px 28px;
-        transition: all 0.3s ease;
-        font-size: 0.9rem;
-        letter-spacing: 0.5px;
+        border-radius: 0;
+        color: #6b7280;
+        font-weight: 700;
+        padding: 16px 32px;
+        transition: all 0.4s ease;
+        font-size: 1rem;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        font-family: 'Rajdhani', sans-serif;
+        border: none;
+        border-bottom: 3px solid transparent;
     }
     
     .stTabs [data-baseweb="tab"]:hover {
-        background: rgba(255, 255, 255, 0.06);
-        color: #f8fafc;
+        color: #10b981;
+        border-bottom-color: rgba(16, 185, 129, 0.5);
     }
     
     .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(59, 130, 246, 0.2) 100%) !important;
+        background: transparent !important;
         color: #10b981 !important;
-        box-shadow: 0 0 24px rgba(16, 185, 129, 0.3);
+        border-bottom-color: #10b981 !important;
+        box-shadow: 0 8px 24px rgba(16, 185, 129, 0.3);
     }
     
     .stTabs [data-baseweb="tab-panel"] {
@@ -403,95 +620,127 @@ st.markdown("""
     }
     
     /* --- RADIO BUTTONS --- */
-    .stRadio {
-        background: transparent !important;
-    }
-    
     .stRadio > div {
-        background: transparent !important;
-        padding: 0 !important;
+        background: rgba(10, 10, 15, 0.6) !important;
+        border: 1px solid rgba(16, 185, 129, 0.2) !important;
+        border-radius: 14px !important;
+        padding: 12px !important;
+        display: flex !important;
+        gap: 12px !important;
     }
     
     .stRadio > label {
         display: none !important;
     }
+    
+    .stRadio label {
+        background: transparent !important;
+        border: 1px solid rgba(16, 185, 129, 0.2) !important;
+        color: #9ca3af !important;
+        padding: 12px 24px !important;
+        border-radius: 10px !important;
+        transition: all 0.3s ease !important;
+        font-weight: 600 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 1px !important;
+    }
+    
+    .stRadio label:hover {
+        background: rgba(16, 185, 129, 0.1) !important;
+        border-color: rgba(16, 185, 129, 0.5) !important;
+        color: #10b981 !important;
+    }
 
-    /* --- PREMIUM BUTTONS --- */
+    /* --- HYPER BUTTONS --- */
     .stButton button {
         background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-        border: 1px solid rgba(16, 185, 129, 0.4);
-        border-radius: 14px;
+        border: 1px solid rgba(16, 185, 129, 0.5);
+        border-radius: 12px;
         color: white;
-        font-weight: 600;
-        padding: 14px 32px;
+        font-weight: 700;
+        padding: 16px 40px;
         transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
         box-shadow: 
-            0 4px 20px rgba(16, 185, 129, 0.3),
+            0 8px 24px rgba(16, 185, 129, 0.4),
             inset 0 1px 0 rgba(255, 255, 255, 0.2);
-        letter-spacing: 0.5px;
-        font-size: 0.9rem;
+        letter-spacing: 1.5px;
+        font-size: 0.95rem;
+        text-transform: uppercase;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .stButton button::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+        transition: left 0.6s ease;
     }
     
     .stButton button:hover {
         background: linear-gradient(135deg, #059669 0%, #047857 100%);
         box-shadow: 
-            0 8px 32px rgba(16, 185, 129, 0.5),
-            inset 0 1px 0 rgba(255, 255, 255, 0.25);
-        transform: translateY(-3px);
+            0 12px 40px rgba(16, 185, 129, 0.6),
+            inset 0 1px 0 rgba(255, 255, 255, 0.3);
+        transform: translateY(-4px) scale(1.02);
+    }
+    
+    .stButton button:hover::before {
+        left: 100%;
     }
 
-    /* --- PREMIUM INPUTS --- */
+    /* --- HYPER INPUTS --- */
     .stTextInput input, .stNumberInput input, .stTextArea textarea, .stSelectbox select {
-        background: rgba(20, 20, 28, 0.7) !important;
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        background: rgba(15, 15, 20, 0.8) !important;
+        border: 1px solid rgba(16, 185, 129, 0.2) !important;
         border-radius: 12px !important;
         color: #f8fafc !important;
-        padding: 14px 18px !important;
+        padding: 16px 20px !important;
         font-size: 0.95rem !important;
-        transition: all 0.3s ease !important;
+        transition: all 0.4s ease !important;
+        font-family: 'Rajdhani', sans-serif !important;
     }
     
     .stTextInput input:focus, .stNumberInput input:focus, .stTextArea textarea:focus, .stSelectbox select:focus {
-        border-color: rgba(16, 185, 129, 0.5) !important;
-        box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15) !important;
-        background: rgba(20, 20, 28, 0.9) !important;
+        border-color: rgba(16, 185, 129, 0.6) !important;
+        box-shadow: 
+            0 0 0 4px rgba(16, 185, 129, 0.15),
+            0 8px 24px rgba(16, 185, 129, 0.2) !important;
+        background: rgba(15, 15, 20, 0.95) !important;
     }
 
-    /* --- PREMIUM FILE UPLOADER --- */
-    [data-testid="stFileUploader"] {
-        background: transparent !important;
-    }
-    
-    [data-testid="stFileUploader"] > div {
-        background: transparent !important;
-        border: none !important;
-    }
-    
+    /* --- HYPER FILE UPLOADER --- */
     [data-testid="stFileUploader"] section {
-        background: rgba(15, 15, 20, 0.7) !important;
-        backdrop-filter: blur(16px);
+        background: rgba(10, 10, 15, 0.8) !important;
+        backdrop-filter: blur(20px);
         border: 2px dashed rgba(16, 185, 129, 0.4) !important;
-        border-radius: 24px !important;
-        padding: 72px 48px !important;
-        transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1) !important;
+        border-radius: 20px !important;
+        padding: 80px 60px !important;
+        transition: all 0.6s cubic-bezier(0.23, 1, 0.32, 1) !important;
         position: relative;
+        overflow: hidden;
     }
     
     [data-testid="stFileUploader"] section::before {
         content: '';
         position: absolute;
         inset: 0;
-        border-radius: 24px;
-        background: radial-gradient(circle at 50% 50%, rgba(16, 185, 129, 0.1), transparent 70%);
+        background: radial-gradient(circle at 50% 50%, rgba(16, 185, 129, 0.15), transparent 70%);
         opacity: 0;
-        transition: opacity 0.5s ease;
+        transition: opacity 0.6s ease;
     }
     
     [data-testid="stFileUploader"] section:hover {
-        border-color: rgba(16, 185, 129, 0.7) !important;
-        background: rgba(20, 20, 28, 0.8) !important;
-        transform: translateY(-4px);
-        box-shadow: 0 12px 48px rgba(16, 185, 129, 0.25);
+        border-color: rgba(16, 185, 129, 0.8) !important;
+        background: rgba(15, 15, 20, 0.95) !important;
+        transform: translateY(-8px) scale(1.02);
+        box-shadow: 
+            0 16px 56px rgba(16, 185, 129, 0.3),
+            inset 0 1px 0 rgba(16, 185, 129, 0.2);
     }
     
     [data-testid="stFileUploader"] section:hover::before {
@@ -501,56 +750,57 @@ st.markdown("""
     [data-testid="stFileUploader"] section button {
         background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
         border: none !important;
-        border-radius: 14px !important;
+        border-radius: 12px !important;
         color: white !important;
-        font-weight: 600 !important;
-        padding: 16px 36px !important;
+        font-weight: 700 !important;
+        padding: 18px 44px !important;
         font-size: 0.95rem !important;
         transition: all 0.4s ease !important;
-        box-shadow: 0 4px 20px rgba(16, 185, 129, 0.3) !important;
-        margin-top: 24px !important;
+        box-shadow: 0 8px 24px rgba(16, 185, 129, 0.4) !important;
+        margin-top: 28px !important;
+        text-transform: uppercase !important;
+        letter-spacing: 1.5px !important;
     }
     
     [data-testid="stFileUploader"] section button:hover {
         background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
-        box-shadow: 0 8px 32px rgba(16, 185, 129, 0.5) !important;
-        transform: translateY(-2px);
+        box-shadow: 0 12px 40px rgba(16, 185, 129, 0.6) !important;
+        transform: translateY(-3px) scale(1.05);
     }
     
     .upload-icon {
-        font-size: 4rem;
-        margin-bottom: 28px;
+        font-size: 5rem;
+        margin-bottom: 32px;
         display: block;
-        opacity: 0.9;
-        animation: float 3s ease-in-out infinite;
-        filter: drop-shadow(0 0 20px rgba(16, 185, 129, 0.3));
+        filter: drop-shadow(0 0 30px rgba(16, 185, 129, 0.5));
+        animation: iconFloat 3s ease-in-out infinite;
     }
     
-    @keyframes float {
-        0%, 100% { transform: translateY(0px); }
-        50% { transform: translateY(-12px); }
+    @keyframes iconFloat {
+        0%, 100% { transform: translateY(0px) rotate(0deg); }
+        50% { transform: translateY(-15px) rotate(5deg); }
     }
     
     .upload-text {
-        font-size: 1.5rem;
+        font-size: 1.6rem;
         font-weight: 700;
         color: #f8fafc;
-        margin-bottom: 14px;
+        margin-bottom: 16px;
         letter-spacing: -0.01em;
     }
     
     .upload-subtext {
-        font-size: 0.92rem;
+        font-size: 0.95rem;
         color: #9ca3af;
         line-height: 1.7;
     }
 
     /* --- DATAFRAME --- */
     .stDataFrame {
-        background: rgba(15, 15, 20, 0.7);
+        background: rgba(10, 10, 15, 0.8);
         border-radius: 16px;
         overflow: hidden;
-        border: 1px solid rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(16, 185, 129, 0.15);
     }
 
     /* --- SCORE DISPLAY --- */
@@ -558,15 +808,21 @@ st.markdown("""
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 32px;
+        margin-bottom: 40px;
     }
     
     .score-value {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 5.5rem;
-        font-weight: 800;
+        font-family: 'Orbitron', monospace;
+        font-size: 6.5rem;
+        font-weight: 900;
         line-height: 1;
         letter-spacing: -0.04em;
+        animation: scoreFlicker 2s ease-in-out infinite;
+    }
+    
+    @keyframes scoreFlicker {
+        0%, 100% { opacity: 1; text-shadow: 0 0 30px currentColor; }
+        50% { opacity: 0.95; text-shadow: 0 0 40px currentColor; }
     }
     
     .score-meta {
@@ -574,46 +830,43 @@ st.markdown("""
     }
     
     .ticker-badge {
-        background: rgba(16, 185, 129, 0.15);
-        padding: 10px 20px;
-        border-radius: 10px;
+        background: rgba(16, 185, 129, 0.2);
+        padding: 12px 24px;
+        border-radius: 12px;
         display: inline-block;
-        font-weight: 600;
-        font-size: 0.95rem;
-        letter-spacing: 1px;
-        margin-bottom: 10px;
-        border: 1px solid rgba(16, 185, 129, 0.3);
+        font-weight: 700;
+        font-size: 1rem;
+        letter-spacing: 2px;
+        margin-bottom: 12px;
+        border: 1px solid rgba(16, 185, 129, 0.4);
+        text-transform: uppercase;
     }
 
-    /* --- UTILITY CLASSES --- */
-    .divider {
-        height: 1px;
-        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-        margin: 32px 0;
-    }
-    
-    .accent-text {
-        color: #10b981;
-        font-weight: 600;
-    }
-    
     /* --- CUSTOM SCROLLBAR --- */
     ::-webkit-scrollbar {
-        width: 10px;
-        height: 10px;
+        width: 12px;
+        height: 12px;
     }
     
     ::-webkit-scrollbar-track {
-        background: rgba(20, 20, 28, 0.5);
+        background: rgba(15, 15, 20, 0.6);
     }
     
     ::-webkit-scrollbar-thumb {
-        background: rgba(16, 185, 129, 0.3);
-        border-radius: 5px;
+        background: rgba(16, 185, 129, 0.4);
+        border-radius: 6px;
+        border: 2px solid rgba(15, 15, 20, 0.6);
     }
     
     ::-webkit-scrollbar-thumb:hover {
-        background: rgba(16, 185, 129, 0.5);
+        background: rgba(16, 185, 129, 0.6);
+    }
+    
+    /* --- REMOVE UNNECESSARY BOXES/CONTAINERS --- */
+    [data-testid="stVerticalBlock"] > div:empty,
+    [data-testid="stHorizontalBlock"] > div:empty,
+    div[class*="stMarkdown"]:empty {
+        display: none !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -685,9 +938,9 @@ def generate_insights(df):
 if not st.session_state["authenticated"]:
     st.markdown("""
     <div class="login-container">
-        <div class="login-logo">🩸</div>
-        <h1 style="margin: 0 0 10px 0; font-size: 2.2rem; font-weight: 800; letter-spacing: -0.02em; position: relative; z-index: 1;">StockPostmortem</h1>
-        <p style="color: #6b7280; font-size: 0.8rem; margin-bottom: 48px; letter-spacing: 3px; text-transform: uppercase; position: relative; z-index: 1;">Algorithmic Behavioral Forensics</p>
+        <div class="login-logo">⚡</div>
+        <h1 style="margin: 0 0 12px 0; font-size: 2.5rem; font-weight: 900; letter-spacing: 2px; position: relative; z-index: 1; font-family: 'Orbitron', sans-serif; text-transform: uppercase; background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Trade Autopsy</h1>
+        <p style="color: #6b7280; font-size: 0.85rem; margin-bottom: 52px; letter-spacing: 4px; text-transform: uppercase; position: relative; z-index: 1; font-weight: 600;">Algorithmic Behavioral Forensics</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -703,41 +956,41 @@ if not st.session_state["authenticated"]:
 # --- DASHBOARD VIEW ---
 else:
     current_user = st.session_state["user"]
-    
-    # Initialize current_page if not exists
-    if "current_page" not in st.session_state:
-        st.session_state["current_page"] = "analyze"
-    
     current_page = st.session_state.get("current_page", "analyze")
     
-    # --- PREMIUM NAVIGATION BAR ---
+    # --- HYPER PREMIUM HEADER ---
+    analyze_active = "nav-button-active" if current_page == "analyze" else ""
+    vault_active = "nav-button-active" if current_page == "data_vault" else ""
+    pricing_active = "nav-button-active" if current_page == "pricing" else ""
+    
     st.markdown(f"""
-    <div class="premium-navbar">
-        <div class="nav-brand">
-            <div class="nav-logo">🩸</div>
+    <div class="hyper-header">
+        <div class="header-brand">
+            <div class="header-logo">⚡</div>
             <div>
-                <div class="nav-title">StockPostmortem</div>
-                <div class="nav-subtitle">Behavioral Trading Analytics</div>
+                <div class="header-title">Trade Autopsy</div>
             </div>
         </div>
-        <div style="display: flex; align-items: center; gap: 12px;">
-            <div style="
-                background: rgba(16, 185, 129, 0.15);
-                padding: 8px 16px;
-                border-radius: 10px;
-                font-size: 0.85rem;
-                font-weight: 600;
-                color: #10b981;
-                border: 1px solid rgba(16, 185, 129, 0.3);
-            ">
-                {current_user}
-            </div>
+        <div class="header-nav">
+            <div class="user-badge">{current_user}</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
     
+    # Navigation buttons
+    col_nav1, col_nav2, col_nav3, col_nav4 = st.columns([1, 1, 1, 8])
+    with col_nav1:
+        if st.button("ANALYZE", key="nav_analyze", use_container_width=True):
+            navigate_to("analyze")
+    with col_nav2:
+        if st.button("DATA VAULT", key="nav_vault", use_container_width=True):
+            navigate_to("data_vault")
+    with col_nav3:
+        if st.button("PRICING", key="nav_pricing", use_container_width=True):
+            navigate_to("pricing")
+    
     # --- PAGE ROUTING ---
-    if st.session_state["current_page"] == "data_vault":
+    if current_page == "data_vault":
         # DATA VAULT PAGE
         if supabase:
             hist = supabase.table("trades").select("*").eq("user_id", current_user).order("created_at", desc=True).execute()
@@ -746,11 +999,10 @@ else:
                 df = pd.DataFrame(hist.data)
                 df['created_at'] = pd.to_datetime(df['created_at'])
                 
-                # Main Data Table
                 st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
                 st.markdown(f'<div class="section-title">Complete Audit History ({len(df)} records)</div>', unsafe_allow_html=True)
                 
-                # Filter and Search
+                # Filters
                 col_search1, col_search2, col_search3 = st.columns([2, 1, 1])
                 
                 with col_search1:
@@ -761,8 +1013,6 @@ else:
                 
                 with col_search3:
                     sort_order = st.selectbox("Sort By", ["Newest First", "Oldest First", "Highest Score", "Lowest Score"], label_visibility="collapsed")
-                
-                st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
                 
                 # Apply filters
                 filtered_df = df.copy()
@@ -788,16 +1038,14 @@ else:
                 else:
                     filtered_df = filtered_df.sort_values('created_at', ascending=False)
                 
-                # Prepare table data
+                # Table
                 table_df = filtered_df[['created_at', 'ticker', 'score', 'mistake_tags', 'technical_analysis', 'psych_analysis']].copy()
                 table_df.columns = ['Date', 'Ticker', 'Score', 'Error Tags', 'Technical Notes', 'Psychology Notes']
                 
-                # Format tags
                 table_df['Error Tags'] = table_df['Error Tags'].apply(
                     lambda x: ', '.join(x[:3]) if len(x) > 0 else 'None'
                 )
                 
-                # Truncate long text
                 table_df['Technical Notes'] = table_df['Technical Notes'].apply(
                     lambda x: (x[:80] + '...') if len(str(x)) > 80 else x
                 )
@@ -810,73 +1058,47 @@ else:
                     use_container_width=True,
                     hide_index=True,
                     column_config={
-                        "Score": st.column_config.ProgressColumn(
-                            "Score",
-                            min_value=0,
-                            max_value=100,
-                            format="%d"
-                        ),
-                        "Date": st.column_config.DatetimeColumn(
-                            "Date",
-                            format="MMM DD, YYYY HH:mm"
-                        ),
-                        "Ticker": st.column_config.TextColumn(
-                            "Ticker",
-                            width="small"
-                        ),
-                        "Error Tags": st.column_config.TextColumn(
-                            "Error Tags",
-                            width="medium"
-                        ),
-                        "Technical Notes": st.column_config.TextColumn(
-                            "Technical",
-                            width="large"
-                        ),
-                        "Psychology Notes": st.column_config.TextColumn(
-                            "Psychology",
-                            width="large"
-                        )
+                        "Score": st.column_config.ProgressColumn("Score", min_value=0, max_value=100, format="%d"),
+                        "Date": st.column_config.DatetimeColumn("Date", format="MMM DD, YYYY HH:mm"),
+                        "Ticker": st.column_config.TextColumn("Ticker", width="small"),
+                        "Error Tags": st.column_config.TextColumn("Error Tags", width="medium"),
+                        "Technical Notes": st.column_config.TextColumn("Technical", width="large"),
+                        "Psychology Notes": st.column_config.TextColumn("Psychology", width="large")
                     },
                     height=600
                 )
                 
-                # Export option
-                st.markdown('<div style="margin-top: 20px;"></div>', unsafe_allow_html=True)
                 csv = filtered_df.to_csv(index=False)
                 st.download_button(
-                    label="📥 Export to CSV",
+                    label="📥 EXPORT TO CSV",
                     data=csv,
-                    file_name=f"stockpostmortem_data_{current_user}_{datetime.now().strftime('%Y%m%d')}.csv",
-                    mime="text/csv",
-                    use_container_width=False
+                    file_name=f"trade_autopsy_data_{current_user}_{datetime.now().strftime('%Y%m%d')}.csv",
+                    mime="text/csv"
                 )
                 
                 st.markdown('</div>', unsafe_allow_html=True)
                 
             else:
-                st.markdown('<div class="glass-panel" style="text-align: center; padding: 80px;">', unsafe_allow_html=True)
+                st.markdown('<div class="glass-panel" style="text-align: center; padding: 100px;">', unsafe_allow_html=True)
                 st.markdown("""
-                <div style="font-size: 3.5rem; margin-bottom: 20px; opacity: 0.4;">🗄️</div>
-                <div style="font-size: 1.2rem; color: #9ca3af; margin-bottom: 10px; font-weight: 600;">Data Vault Empty</div>
-                <div style="font-size: 0.95rem; color: #6b7280;">Your audit history will appear here once you start analyzing trades.</div>
+                <div style="font-size: 4rem; margin-bottom: 24px; opacity: 0.4;">🗄️</div>
+                <div style="font-size: 1.3rem; color: #9ca3af; margin-bottom: 12px; font-weight: 700;">Data Vault Empty</div>
+                <div style="font-size: 1rem; color: #6b7280;">Your audit history will appear here once you start analyzing trades.</div>
                 """, unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
     
-    elif st.session_state["current_page"] == "pricing":
-        # PRICING PAGE
-        st.markdown('<div class="glass-panel" style="text-align: center; padding: 80px;">', unsafe_allow_html=True)
+    elif current_page == "pricing":
+        st.markdown('<div class="glass-panel" style="text-align: center; padding: 100px;">', unsafe_allow_html=True)
         st.markdown("""
-        <div style="font-size: 3.5rem; margin-bottom: 20px; opacity: 0.4;">💳</div>
-        <div style="font-size: 1.2rem; color: #9ca3af; margin-bottom: 10px; font-weight: 600;">Pricing Information</div>
-        <div style="font-size: 0.95rem; color: #6b7280;">Pricing details coming soon.</div>
+        <div style="font-size: 4rem; margin-bottom: 24px; opacity: 0.4;">💳</div>
+        <div style="font-size: 1.3rem; color: #9ca3af; margin-bottom: 12px; font-weight: 700;">Pricing Information</div>
+        <div style="font-size: 1rem; color: #6b7280;">Pricing details coming soon.</div>
         """, unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
     
-    else:  # analyze page (default)
-        # TABS
+    else:  # analyze page
         main_tab1, main_tab2 = st.tabs(["🔎 FORENSIC AUDIT", "📊 PERFORMANCE METRICS"])
 
-        # --- TAB 1: AUDIT (INPUT) ---
         with main_tab1:
             c_mode = st.radio("Input Vector", ["Text Parameters", "Chart Vision"], horizontal=True, label_visibility="collapsed")
         
@@ -889,25 +1111,17 @@ else:
                 st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
                 st.markdown('<div class="section-title">Chart Analysis</div>', unsafe_allow_html=True)
                 st.markdown("""
-                <div style="text-align: center; margin-bottom: 24px;">
+                <div style="text-align: center; margin-bottom: 28px;">
                     <div class="upload-icon">📊</div>
                     <div class="upload-text">Drop your P&L or Chart screenshot here</div>
                     <div class="upload-subtext">Supports PNG, JPG (Max 10MB). Your data is encrypted and deleted after analysis.</div>
                 </div>
                 """, unsafe_allow_html=True)
             
-                uploaded_file = st.file_uploader(
-                    "Upload Chart Screenshot", 
-                    type=["png", "jpg"], 
-                    label_visibility="collapsed",
-                    key="chart_upload"
-                )
+                uploaded_file = st.file_uploader("Upload Chart Screenshot", type=["png", "jpg"], label_visibility="collapsed", key="chart_upload")
             
                 if uploaded_file:
-                    st.markdown('<div style="margin-top: 32px;">', unsafe_allow_html=True)
                     st.image(uploaded_file, use_column_width=True)
-                    st.markdown('</div>', unsafe_allow_html=True)
-                    st.markdown('<div style="height: 24px;"></div>', unsafe_allow_html=True)
                     if st.button("RUN OPTICAL ANALYSIS", type="primary", use_container_width=True):
                         image = Image.open(uploaded_file)
                         buf = io.BytesIO()
@@ -930,18 +1144,12 @@ else:
                     with col_b: setup_type = st.selectbox("Setup", ["Trend", "Reversal", "Breakout"])
                     with col_c: emotion = st.selectbox("State", ["Neutral", "FOMO", "Revenge", "Tilt"])
                 
-                    st.markdown('<div style="height: 12px;"></div>', unsafe_allow_html=True)
-                
                     col_d, col_e, col_f = st.columns(3)
                     with col_d: entry = st.number_input("Entry", 0.0, step=0.01)
                     with col_e: exit_price = st.number_input("Exit", 0.0, step=0.01)
                     with col_f: stop = st.number_input("Stop", 0.0, step=0.01)
                 
-                    st.markdown('<div style="height: 12px;"></div>', unsafe_allow_html=True)
-                
-                    notes = st.text_area("Execution Notes", height=120, placeholder="Describe your decision-making process, entry hesitation, stop management...")
-                
-                    st.markdown('<div style="height: 16px;"></div>', unsafe_allow_html=True)
+                    notes = st.text_area("Execution Notes", height=140, placeholder="Describe your decision-making process, entry hesitation, stop management...")
                 
                     if st.form_submit_button("EXECUTE AUDIT", type="primary", use_container_width=True):
                         ticker_val = ticker
@@ -954,7 +1162,6 @@ else:
                         ready_to_run = True
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            # RESULTS AREA
             if ready_to_run and supabase:
                 with st.spinner("🧠 AI Forensic Analysis in progress..."):
                     try:
@@ -975,12 +1182,12 @@ else:
                             <div class="glass-panel" style="border-top: 3px solid {score_color}">
                                 <div class="score-container">
                                     <div>
-                                        <div style="color:#6b7280; letter-spacing:3px; font-size:0.7rem; text-transform: uppercase; margin-bottom: 10px; font-weight: 600;">AUDIT SCORE</div>
+                                        <div style="color:#6b7280; letter-spacing:3px; font-size:0.75rem; text-transform: uppercase; margin-bottom: 12px; font-weight: 700;">AUDIT SCORE</div>
                                         <div class="score-value" style="color:{score_color}">{report['score']}</div>
                                     </div>
                                     <div class="score-meta">
                                         <div class="ticker-badge">{ticker_val}</div>
-                                        <div style="color:#6b7280; font-size:0.85rem;">{datetime.now().strftime('%B %d, %Y')}</div>
+                                        <div style="color:#6b7280; font-size:0.9rem;">{datetime.now().strftime('%B %d, %Y')}</div>
                                     </div>
                                 </div>
                                 <div class="report-grid">
@@ -1006,7 +1213,6 @@ else:
                     except Exception as e:
                         st.error(f"Analysis Failed: {e}")
 
-        # --- TAB 2: DASHBOARD ---
         with main_tab2:
             if supabase:
                 hist = supabase.table("trades").select("*").eq("user_id", current_user).order("created_at", desc=True).execute()
@@ -1015,21 +1221,16 @@ else:
                     df = pd.DataFrame(hist.data)
                     df['created_at'] = pd.to_datetime(df['created_at'])
                 
-                    # METRICS CALC
+                    # Metrics
                     avg_score = df['score'].mean()
                     total_trades = len(df)
                     all_tags = [tag for sublist in df['mistake_tags'] for tag in sublist]
-                    top_mistake = pd.Series(all_tags).mode()[0] if all_tags else "None"
-                
-                    # Calculate win rate (scores > 60 = good trades)
                     win_rate = len(df[df['score'] > 60]) / len(df) * 100 if len(df) > 0 else 0
-                
-                    # Recent trend (last 5 vs previous 5)
                     recent_avg = df.head(5)['score'].mean() if len(df) >= 5 else avg_score
                     prev_avg = df.iloc[5:10]['score'].mean() if len(df) >= 10 else avg_score
                     trend = "↗" if recent_avg > prev_avg else "↘" if recent_avg < prev_avg else "→"
                 
-                    # 1. KPI ROW
+                    # KPI Cards
                     st.markdown(f"""
                     <div class="kpi-container">
                         <div class="kpi-card">
@@ -1045,100 +1246,48 @@ else:
                             <div class="kpi-label">Total Audits</div>
                         </div>
                         <div class="kpi-card">
-                            <div class="kpi-val" style="font-size:2.5rem;">{trend}</div>
+                            <div class="kpi-val" style="font-size:3rem;">{trend}</div>
                             <div class="kpi-label">Recent Trend</div>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
 
-                    # 2. MAIN CHART - Full Width
+                    # Performance Chart
                     st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
                     st.markdown('<div class="section-title">Performance Evolution</div>', unsafe_allow_html=True)
                 
                     chart_data = df[['created_at', 'score']].sort_values('created_at').reset_index(drop=True)
                     chart_data['index'] = range(len(chart_data))
                 
-                    # Create base chart
                     base = alt.Chart(chart_data).encode(
                         x=alt.X('index:Q', 
-                            axis=alt.Axis(
-                                title='Trade Sequence',
-                                grid=False,
-                                labelColor='#6b7280',
-                                titleColor='#9ca3af',
-                                labelFontSize=11,
-                                titleFontSize=12
-                            )
+                            axis=alt.Axis(title='Trade Sequence', grid=False, labelColor='#6b7280', titleColor='#9ca3af', labelFontSize=11, titleFontSize=12)
                         )
                     )
                 
-                    # Reference lines
-                    good_line = alt.Chart(pd.DataFrame({'y': [70]})).mark_rule(
-                        strokeDash=[5, 5],
-                        color='#10b981',
-                        opacity=0.3
-                    ).encode(y='y:Q')
+                    good_line = alt.Chart(pd.DataFrame({'y': [70]})).mark_rule(strokeDash=[5, 5], color='#10b981', opacity=0.3).encode(y='y:Q')
+                    bad_line = alt.Chart(pd.DataFrame({'y': [40]})).mark_rule(strokeDash=[5, 5], color='#ef4444', opacity=0.3).encode(y='y:Q')
                 
-                    bad_line = alt.Chart(pd.DataFrame({'y': [40]})).mark_rule(
-                        strokeDash=[5, 5],
-                        color='#ef4444',
-                        opacity=0.3
-                    ).encode(y='y:Q')
-                
-                    # Main line with gradient
                     line = base.mark_line(
                         color='#3b82f6', 
                         strokeWidth=3,
-                        point=alt.OverlayMarkDef(
-                            filled=True,
-                            size=80,
-                            color='#3b82f6',
-                            strokeWidth=2,
-                            stroke='#1e40af'
-                        )
+                        point=alt.OverlayMarkDef(filled=True, size=80, color='#3b82f6', strokeWidth=2, stroke='#1e40af')
                     ).encode(
-                        y=alt.Y('score:Q', 
-                            scale=alt.Scale(domain=[0, 100]),
-                            axis=alt.Axis(
-                                title='Quality Score',
-                                grid=True,
-                                gridColor='rgba(255,255,255,0.04)',
-                                labelColor='#6b7280',
-                                titleColor='#9ca3af',
-                                labelFontSize=11,
-                                titleFontSize=12
-                            )
-                        ),
-                        tooltip=[
-                            alt.Tooltip('index:Q', title='Trade #'),
-                            alt.Tooltip('score:Q', title='Score'),
-                            alt.Tooltip('created_at:T', title='Date', format='%b %d, %Y')
-                        ]
+                        y=alt.Y('score:Q', scale=alt.Scale(domain=[0, 100]), axis=alt.Axis(title='Quality Score', grid=True, gridColor='rgba(255,255,255,0.04)', labelColor='#6b7280', titleColor='#9ca3af', labelFontSize=11, titleFontSize=12)),
+                        tooltip=[alt.Tooltip('index:Q', title='Trade #'), alt.Tooltip('score:Q', title='Score'), alt.Tooltip('created_at:T', title='Date', format='%b %d, %Y')]
                     )
                 
-                    area = base.mark_area(
-                        color='#3b82f6', 
-                        opacity=0.1,
-                        line=False
-                    ).encode(y='score:Q')
+                    area = base.mark_area(color='#3b82f6', opacity=0.1, line=False).encode(y='score:Q')
                 
-                    chart = (good_line + bad_line + area + line).properties(
-                        height=320
-                    ).configure_view(
-                        strokeWidth=0,
-                        fill='transparent'
-                    ).configure(
-                        background='transparent'
-                    )
+                    chart = (good_line + bad_line + area + line).properties(height=320).configure_view(strokeWidth=0, fill='transparent').configure(background='transparent')
                 
                     st.altair_chart(chart, use_container_width=True)
                     st.markdown('</div>', unsafe_allow_html=True)
 
-                    # 3. TWO COLUMN LAYOUT
+                    # Two columns
                     col_left, col_right = st.columns([1.5, 1])
                 
                     with col_left:
-                        # MISTAKE BREAKDOWN with Bar Chart
                         st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
                         st.markdown('<div class="section-title">Error Pattern Analysis</div>', unsafe_allow_html=True)
                     
@@ -1146,47 +1295,12 @@ else:
                             tag_counts = pd.Series(all_tags).value_counts().head(6).reset_index()
                             tag_counts.columns = ['Mistake', 'Count']
                         
-                            # Horizontal bar chart
-                            bar_chart = alt.Chart(tag_counts).mark_bar(
-                                cornerRadiusEnd=6,
-                                height=28
-                            ).encode(
-                                x=alt.X('Count:Q',
-                                    axis=alt.Axis(
-                                        title=None,
-                                        grid=False,
-                                        labelColor='#6b7280',
-                                        labelFontSize=11
-                                    )
-                                ),
-                                y=alt.Y('Mistake:N',
-                                    sort='-x',
-                                    axis=alt.Axis(
-                                        title=None,
-                                        labelColor='#e5e7eb',
-                                        labelFontSize=12,
-                                        labelPadding=10
-                                    )
-                                ),
-                                color=alt.Color('Count:Q',
-                                    scale=alt.Scale(
-                                        scheme='redyellowblue',
-                                        reverse=True
-                                    ),
-                                    legend=None
-                                ),
-                                tooltip=[
-                                    alt.Tooltip('Mistake:N', title='Error Type'),
-                                    alt.Tooltip('Count:Q', title='Occurrences')
-                                ]
-                            ).properties(
-                                height=280
-                            ).configure_view(
-                                strokeWidth=0,
-                                fill='transparent'
-                            ).configure(
-                                background='transparent'
-                            )
+                            bar_chart = alt.Chart(tag_counts).mark_bar(cornerRadiusEnd=6, height=28).encode(
+                                x=alt.X('Count:Q', axis=alt.Axis(title=None, grid=False, labelColor='#6b7280', labelFontSize=11)),
+                                y=alt.Y('Mistake:N', sort='-x', axis=alt.Axis(title=None, labelColor='#e5e7eb', labelFontSize=12, labelPadding=10)),
+                                color=alt.Color('Count:Q', scale=alt.Scale(scheme='redyellowblue', reverse=True), legend=None),
+                                tooltip=[alt.Tooltip('Mistake:N', title='Error Type'), alt.Tooltip('Count:Q', title='Occurrences')]
+                            ).properties(height=280).configure_view(strokeWidth=0, fill='transparent').configure(background='transparent')
                         
                             st.altair_chart(bar_chart, use_container_width=True)
                         else:
@@ -1195,46 +1309,34 @@ else:
                         st.markdown('</div>', unsafe_allow_html=True)
 
                     with col_right:
-                        # AI INSIGHTS
+                        # AI Insights
                         st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
                         st.markdown('<div class="section-title">AI Insights</div>', unsafe_allow_html=True)
                     
                         insights = generate_insights(df)
                     
-                        for i, insight in enumerate(insights):
-                            # Parse emoji and content
+                        for insight in insights:
                             parts = insight.split(' ', 1)
                             emoji = parts[0] if len(parts) > 0 else ''
                             content = parts[1] if len(parts) > 1 else insight
                         
                             st.markdown(f"""
-                            <div style='
-                                background: rgba(255, 255, 255, 0.03);
-                                border-left: 4px solid #10b981;
-                                padding: 20px;
-                                border-radius: 0 12px 12px 0;
-                                margin-bottom: 18px;
-                                transition: all 0.3s ease;
-                            '>
-                                <div style='font-size: 1.6rem; margin-bottom: 10px;'>{emoji}</div>
-                                <div style='font-size: 0.92rem; line-height: 1.7; color: #d1d5db;'>
-                                    {content}
-                                </div>
+                            <div style='background: rgba(255, 255, 255, 0.03); border-left: 4px solid #10b981; padding: 22px; border-radius: 0 12px 12px 0; margin-bottom: 20px; transition: all 0.3s ease;'>
+                                <div style='font-size: 1.8rem; margin-bottom: 12px;'>{emoji}</div>
+                                <div style='font-size: 0.95rem; line-height: 1.8; color: #d1d5db;'>{content}</div>
                             </div>
                             """, unsafe_allow_html=True)
                     
                         st.markdown('</div>', unsafe_allow_html=True)
                     
-                        # SCORE DISTRIBUTION
+                        # Score Distribution
                         st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
                         st.markdown('<div class="section-title">Score Distribution</div>', unsafe_allow_html=True)
                     
-                        # Create score ranges
                         score_ranges = pd.cut(df['score'], bins=[0, 40, 60, 80, 100], labels=['Poor (0-40)', 'Fair (40-60)', 'Good (60-80)', 'Excellent (80-100)'])
                         dist_data = score_ranges.value_counts().reset_index()
                         dist_data.columns = ['Range', 'Count']
                     
-                        # Color mapping
                         color_map = {
                             'Poor (0-40)': '#ef4444',
                             'Fair (40-60)': '#f59e0b',
@@ -1249,71 +1351,44 @@ else:
                             color = color_map.get(range_name, '#6b7280')
                         
                             st.markdown(f"""
-                            <div style='margin-bottom: 22px;'>
-                                <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;'>
-                                    <span style='font-size: 0.88rem; color: #9ca3af; font-weight: 600;'>{range_name}</span>
-                                    <span style='font-size: 0.88rem; color: #e5e7eb; font-family: "JetBrains Mono", monospace;'>{count} ({int(percentage)}%)</span>
+                            <div style='margin-bottom: 24px;'>
+                                <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;'>
+                                    <span style='font-size: 0.9rem; color: #9ca3af; font-weight: 700;'>{range_name}</span>
+                                    <span style='font-size: 0.9rem; color: #e5e7eb; font-family: "JetBrains Mono", monospace;'>{count} ({int(percentage)}%)</span>
                                 </div>
-                                <div style='
-                                    width: 100%;
-                                    height: 10px;
-                                    background: rgba(255, 255, 255, 0.05);
-                                    border-radius: 5px;
-                                    overflow: hidden;
-                                '>
-                                    <div style='
-                                        width: {percentage}%;
-                                        height: 100%;
-                                        background: {color};
-                                        border-radius: 5px;
-                                        transition: width 0.6s ease;
-                                    '></div>
+                                <div style='width: 100%; height: 12px; background: rgba(255, 255, 255, 0.05); border-radius: 6px; overflow: hidden;'>
+                                    <div style='width: {percentage}%; height: 100%; background: {color}; border-radius: 6px; transition: width 0.6s ease;'></div>
                                 </div>
                             </div>
                             """, unsafe_allow_html=True)
                     
                         st.markdown('</div>', unsafe_allow_html=True)
 
-                    # 4. RECENT TRADES TABLE
+                    # Recent Activity
                     st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
                     st.markdown('<div class="section-title">Recent Activity</div>', unsafe_allow_html=True)
                 
                     table_df = df.head(10)[['created_at', 'ticker', 'score', 'mistake_tags']].copy()
                     table_df.columns = ['Time', 'Asset', 'Score', 'Primary Errors']
-                
-                    # Format tags to show only first 2
-                    table_df['Primary Errors'] = table_df['Primary Errors'].apply(
-                        lambda x: ', '.join(x[:2]) if len(x) > 0 else 'None'
-                    )
+                    table_df['Primary Errors'] = table_df['Primary Errors'].apply(lambda x: ', '.join(x[:2]) if len(x) > 0 else 'None')
                 
                     st.dataframe(
                         table_df, 
                         use_container_width=True, 
                         hide_index=True,
                         column_config={
-                            "Score": st.column_config.ProgressColumn(
-                                "Quality Score", 
-                                min_value=0, 
-                                max_value=100, 
-                                format="%d"
-                            ),
-                            "Time": st.column_config.DatetimeColumn(
-                                "Time", 
-                                format="MMM DD, HH:mm"
-                            ),
-                            "Asset": st.column_config.TextColumn(
-                                "Asset",
-                                width="small"
-                            )
+                            "Score": st.column_config.ProgressColumn("Quality Score", min_value=0, max_value=100, format="%d"),
+                            "Time": st.column_config.DatetimeColumn("Time", format="MMM DD, HH:mm"),
+                            "Asset": st.column_config.TextColumn("Asset", width="small")
                         }
                     )
                     st.markdown('</div>', unsafe_allow_html=True)
                 
                 else:
-                    st.markdown('<div class="glass-panel" style="text-align: center; padding: 80px;">', unsafe_allow_html=True)
+                    st.markdown('<div class="glass-panel" style="text-align: center; padding: 100px;">', unsafe_allow_html=True)
                     st.markdown("""
-                    <div style="font-size: 3.5rem; margin-bottom: 20px; opacity: 0.4;">📊</div>
-                    <div style="font-size: 1.2rem; color: #9ca3af; margin-bottom: 10px; font-weight: 600;">No Performance Data Yet</div>
-                    <div style="font-size: 0.95rem; color: #6b7280;">Complete your first forensic audit to see metrics here.</div>
+                    <div style="font-size: 4rem; margin-bottom: 24px; opacity: 0.4;">📊</div>
+                    <div style="font-size: 1.3rem; color: #9ca3af; margin-bottom: 12px; font-weight: 700;">No Performance Data Yet</div>
+                    <div style="font-size: 1rem; color: #6b7280;">Complete your first forensic audit to see metrics here.</div>
                     """, unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
