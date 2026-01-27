@@ -317,201 +317,30 @@ st.markdown("""
         transform: translateY(-2px);
     }
     
-    /* --- HEADER STYLES --- */
-    .header-bar {
-        background: #1a1d24;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-        position: sticky;
-        top: 0;
-        z-index: 1000;
-        margin: -2rem -3rem 2rem -3rem;
-        padding: 0 48px;
-    }
-    
-    .header-content {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        height: 72px;
-        max-width: 1600px;
-        margin: 0 auto;
-    }
-    
-    .header-logo {
-        font-family: 'Inter', sans-serif;
-        font-size: 1.25rem;
-        font-weight: 800;
-        letter-spacing: -0.02em;
-        flex-shrink: 0;
-    }
-    
-    .header-nav-items {
-        display: flex;
-        align-items: center;
-        gap: 48px;
-        flex: 1;
-        justify-content: center;
-    }
-    
-    .nav-item {
-        color: #9ca3af;
-        font-size: 0.875rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        transition: color 0.3s ease;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        gap: 4px;
-    }
-    
-    .nav-item:hover {
-        color: #ffffff;
-    }
-    
-    .nav-item-active {
-        color: #ffffff !important;
-    }
-    
-    .dropdown-arrow {
-        font-size: 0.65rem;
-        opacity: 0.7;
-    }
-    
-    .get-started-btn {
-        background: #dc2626;
-        color: #ffffff;
-        border: none;
-        border-radius: 50px;
-        padding: 12px 32px;
-        font-size: 0.95rem;
-        font-weight: 700;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
-        flex-shrink: 0;
-    }
-    
-    .get-started-btn:hover {
-        background: #b91c1c;
-        box-shadow: 0 6px 16px rgba(220, 38, 38, 0.4);
-        transform: translateY(-1px);
-    }
-    
-    .get-started-btn:active {
-        transform: translateY(0);
-    }
-    
-    /* User Dropdown Menu */
-    .user-dropdown {
-        display: none;
-        position: absolute;
-        top: calc(100% + 8px);
-        right: 0;
-        background: #1a1d24;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 12px;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-        z-index: 1001;
-        min-width: 220px;
-    }
-    
-    .user-dropdown-header {
-        padding: 16px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    }
-    
-    .disconnect-btn {
-        width: calc(100% - 16px);
-        background: #dc2626;
-        color: white;
-        border: none;
-        padding: 10px;
-        border-radius: 8px;
-        font-weight: 600;
-        cursor: pointer;
-        margin: 8px;
-        transition: background 0.3s ease;
-    }
-    
-    .disconnect-btn:hover {
-        background: #b91c1c;
-    }
-    
-    /* --- HEADER NAVIGATION --- */
-    .header-nav {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0;
-        background: rgba(15, 15, 15, 0.4);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        border-radius: 12px;
-        padding: 6px;
-    }
-    
-    /* --- NAVIGATION BUTTONS - CLEAN GLASS MORPHISM --- */
+    /* Navigation buttons - clean minimal style */
     button[key="nav_btn_analyze"],
     button[key="nav_btn_vault"],
     button[key="nav_btn_pricing"] {
         background: transparent !important;
         border: none !important;
-        color: rgba(255, 255, 255, 0.6) !important;
-        font-size: 0.75rem !important;
+        color: #9ca3af !important;
+        font-size: 0.85rem !important;
         font-weight: 600 !important;
         text-transform: uppercase !important;
-        letter-spacing: 1px !important;
-        padding: 12px 32px !important;
+        letter-spacing: 0.5px !important;
+        padding: 10px 20px !important;
         border-radius: 8px !important;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-        position: relative !important;
         box-shadow: none !important;
-        margin: 0 4px !important;
-        min-height: 44px !important;
+        transition: all 0.3s ease !important;
     }
     
     button[key="nav_btn_analyze"]:hover,
     button[key="nav_btn_vault"]:hover,
     button[key="nav_btn_pricing"]:hover {
-        background: rgba(255, 255, 255, 0.03) !important;
-        color: rgba(255, 255, 255, 0.9) !important;
+        background: rgba(255, 255, 255, 0.05) !important;
+        color: #f8fafc !important;
         transform: none !important;
         box-shadow: none !important;
-    }
-    
-    /* Active state with subtle red underline glow */
-    button[key="nav_btn_analyze"]::after,
-    button[key="nav_btn_vault"]::after,
-    button[key="nav_btn_pricing"]::after {
-        content: '';
-        position: absolute;
-        bottom: 6px;
-        left: 25%;
-        right: 25%;
-        height: 2px;
-        background: transparent;
-        border-radius: 2px;
-        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    
-    button[key="nav_btn_analyze"]:hover::after,
-    button[key="nav_btn_vault"]:hover::after,
-    button[key="nav_btn_pricing"]:hover::after {
-        background: linear-gradient(90deg, 
-            rgba(220, 38, 38, 0) 0%, 
-            rgba(220, 38, 38, 0.4) 50%, 
-            rgba(220, 38, 38, 0) 100%);
-    }
-    
-    /* Remove all red backgrounds from buttons */
-    div[data-testid="column"] button[key^="nav_btn"] {
-        background: transparent !important;
-    }
-    
-    div[data-testid="column"] button[key^="nav_btn"]:hover {
-        background: rgba(255, 255, 255, 0.03) !important;
     }
 
     /* --- INPUTS --- */
@@ -651,25 +480,6 @@ st.markdown("""
         color: #fca5a5;
         font-weight: 600;
     }
-    
-    /* --- HIDE UNNECESSARY BOXES --- */
-    [data-testid="stVerticalBlock"] > [data-testid="stVerticalBlock"] {
-        background: transparent !important;
-        border: none !important;
-        padding: 0 !important;
-    }
-    
-    /* Clean up radio button container */
-    .stRadio > div {
-        background: transparent !important;
-        border: none !important;
-    }
-    
-    /* Clean up form containers */
-    [data-testid="stForm"] {
-        background: transparent !important;
-        border: none !important;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -758,99 +568,84 @@ if not st.session_state["authenticated"]:
 # --- DASHBOARD VIEW ---
 else:
     current_user = st.session_state["user"]
+    
+    # Initialize current_page if not exists
+    if "current_page" not in st.session_state:
+        st.session_state["current_page"] = "analyze"
+    
     current_page = st.session_state.get("current_page", "analyze")
     
-    # --- CLEAN HEADER WITHOUT ARTIFACTS ---
+    # --- CLEAN HEADER USING STREAMLIT ---
+    header_col1, header_col2, header_col3 = st.columns([2, 6, 2])
     
-    # First, hide ALL streamlit buttons that might appear
-    st.markdown("""
-    <style>
-        /* Aggressively hide all button rows */
-        .stButton, button, .row-widget {
-            display: none !important;
-            visibility: hidden !important;
-            height: 0 !important;
-            width: 0 !important;
-            position: absolute !important;
-            left: -9999px !important;
-        }
-        
-        /* Show only our custom header button */
-        .get-started-btn {
-            display: block !important;
-            visibility: visible !important;
-            position: relative !important;
-            left: auto !important;
-            width: auto !important;
-            height: auto !important;
-        }
-    </style>
-    """, unsafe_allow_html=True)
-    
-    # Render the clean header
-    st.markdown(f"""
-    <div class="header-bar">
-        <div class="header-content">
-            <!-- Logo -->
-            <div class="header-logo">
-                <span style="color: #ffffff;">STOCK</span><span style="color: #dc2626;">POSTMORTEM</span><span style="color: #9ca3af;">.AI</span>
-            </div>
-            
-            <!-- Navigation -->
-            <div class="header-nav-items">
-                <div class="nav-item {'nav-item-active' if current_page == 'analyze' else ''}" onclick="window.location.href='?page=analyze'">
-                    ANALYZE {'<span class="dropdown-arrow">▼</span>' if current_page == 'analyze' else ''}
-                </div>
-                <div class="nav-item {'nav-item-active' if current_page == 'data_vault' else ''}" onclick="window.location.href='?page=data_vault'">
-                    DATA VAULT
-                </div>
-                <div class="nav-item {'nav-item-active' if current_page == 'pricing' else ''}" onclick="window.location.href='?page=pricing'">
-                    PRICING
-                </div>
-            </div>
-            
-            <!-- Get Started Button with Dropdown -->
-            <div style="position: relative;">
-                <button class="get-started-btn" onclick="toggleUserMenu(event)">
-                    Get Started
-                </button>
-                <div id="user-dropdown" class="user-dropdown">
-                    <div class="user-dropdown-header">
-                        <strong>Operator:</strong> {current_user}<br>
-                        <small style="color: #9ca3af;">Access Level: PRO</small>
-                    </div>
-                    <button class="disconnect-btn" onclick="window.location.href='?logout=true'">
-                        🔴 DISCONNECT
-                    </button>
-                </div>
+    with header_col1:
+        st.markdown("""
+        <div style="display: flex; align-items: center; gap: 12px; padding: 8px 0;">
+            <span style="font-size: 1.8rem; filter: drop-shadow(0 0 12px rgba(220, 38, 38, 0.4));">🩸</span>
+            <div>
+                <span style="font-weight: 800; font-size: 1.3rem; color: #f8fafc; letter-spacing: -0.02em;">STOCK</span><span style="font-weight: 800; font-size: 1.3rem; background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">POSTMORTEM</span><span style="font-size: 1.1rem; color: #6b7280;">.AI</span>
             </div>
         </div>
-    </div>
+        """, unsafe_allow_html=True)
     
-    <script>
-    function toggleUserMenu(event) {{
-        event.stopPropagation();
-        const menu = document.getElementById('user-dropdown');
-        menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
-    }}
+    with header_col2:
+        # Add CSS for active state
+        if current_page == "analyze":
+            st.markdown("""
+            <style>
+            button[key="nav_btn_analyze"] {
+                background: rgba(220, 38, 38, 0.1) !important;
+                color: #fca5a5 !important;
+                border-bottom: 2px solid #dc2626 !important;
+            }
+            </style>
+            """, unsafe_allow_html=True)
+        elif current_page == "data_vault":
+            st.markdown("""
+            <style>
+            button[key="nav_btn_vault"] {
+                background: rgba(220, 38, 38, 0.1) !important;
+                color: #fca5a5 !important;
+                border-bottom: 2px solid #dc2626 !important;
+            }
+            </style>
+            """, unsafe_allow_html=True)
+        elif current_page == "pricing":
+            st.markdown("""
+            <style>
+            button[key="nav_btn_pricing"] {
+                background: rgba(220, 38, 38, 0.1) !important;
+                color: #fca5a5 !important;
+                border-bottom: 2px solid #dc2626 !important;
+            }
+            </style>
+            """, unsafe_allow_html=True)
+        
+        # Check if navigation was clicked
+        nav_cols = st.columns([1, 1, 1])
+        
+        with nav_cols[0]:
+            if st.button("ANALYZE", key="nav_btn_analyze", help="Go to Analyze"):
+                st.session_state["current_page"] = "analyze"
+                st.rerun()
+        
+        with nav_cols[1]:
+            if st.button("DATA VAULT", key="nav_btn_vault", help="Go to Data Vault"):
+                st.session_state["current_page"] = "data_vault"
+                st.rerun()
+        
+        with nav_cols[2]:
+            if st.button("PRICING", key="nav_btn_pricing", help="Go to Pricing"):
+                st.session_state["current_page"] = "pricing"
+                st.rerun()
     
-    document.addEventListener('click', function(event) {{
-        const menu = document.getElementById('user-dropdown');
-        const btn = document.querySelector('.get-started-btn');
-        if (!menu.contains(event.target) && event.target !== btn) {{
-            menu.style.display = 'none';
-        }}
-    }});
-    </script>
-    """, unsafe_allow_html=True)
-    
-    # Handle logout via query parameter
-    try:
-        params = st.query_params
-        if "logout" in params and params["logout"] == "true":
-            logout()
-    except:
-        pass
+    with header_col3:
+        with st.popover("👤 " + current_user, use_container_width=True):
+            st.markdown(f"**Operator:** {current_user}")
+            st.caption("Access Level: PRO")
+            st.markdown("---")
+            if st.button("🔴 DISCONNECT", type="primary", use_container_width=True):
+                logout()
     
     st.markdown("""
     <div style="height: 1px; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent); margin: 20px 0 32px 0;"></div>
