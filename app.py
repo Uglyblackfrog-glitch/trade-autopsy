@@ -317,30 +317,71 @@ st.markdown("""
         transform: translateY(-2px);
     }
     
-    /* Navigation buttons - clean minimal style */
+    /* --- HEADER NAVIGATION --- */
+    .header-nav {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        background: rgba(15, 15, 15, 0.3);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 12px;
+        padding: 4px;
+    }
+    
+    /* --- NAVIGATION BUTTONS - AESTHETIC TRANSPARENT --- */
     button[key="nav_btn_analyze"],
     button[key="nav_btn_vault"],
     button[key="nav_btn_pricing"] {
         background: transparent !important;
         border: none !important;
-        color: #9ca3af !important;
-        font-size: 0.85rem !important;
+        color: rgba(255, 255, 255, 0.7) !important;
+        font-size: 0.8rem !important;
         font-weight: 600 !important;
         text-transform: uppercase !important;
         letter-spacing: 0.5px !important;
         padding: 10px 20px !important;
         border-radius: 8px !important;
-        box-shadow: none !important;
         transition: all 0.3s ease !important;
+        position: relative !important;
+        box-shadow: none !important;
+        margin: 0 !important;
+        min-height: 40px !important;
     }
     
     button[key="nav_btn_analyze"]:hover,
     button[key="nav_btn_vault"]:hover,
     button[key="nav_btn_pricing"]:hover {
-        background: rgba(255, 255, 255, 0.05) !important;
-        color: #f8fafc !important;
+        background: rgba(255, 255, 255, 0.03) !important;
+        color: rgba(255, 255, 255, 0.9) !important;
         transform: none !important;
         box-shadow: none !important;
+    }
+    
+    /* Active state styling */
+    button.nav-active {
+        color: rgba(255, 255, 255, 0.95) !important;
+        background: rgba(255, 255, 255, 0.02) !important;
+    }
+    
+    button.nav-active::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 20%;
+        right: 20%;
+        height: 2px;
+        background: linear-gradient(90deg, 
+            rgba(220, 38, 38, 0) 0%, 
+            rgba(220, 38, 38, 0.8) 50%, 
+            rgba(220, 38, 38, 0) 100%);
+        border-radius: 2px;
+        animation: pulse-glow 2s ease-in-out infinite;
+    }
+    
+    @keyframes pulse-glow {
+        0%, 100% { opacity: 0.7; }
+        50% { opacity: 1; }
     }
 
     /* --- INPUTS --- */
@@ -568,14 +609,9 @@ if not st.session_state["authenticated"]:
 # --- DASHBOARD VIEW ---
 else:
     current_user = st.session_state["user"]
-    
-    # Initialize current_page if not exists
-    if "current_page" not in st.session_state:
-        st.session_state["current_page"] = "analyze"
-    
     current_page = st.session_state.get("current_page", "analyze")
     
-    # --- CLEAN HEADER USING STREAMLIT ---
+    # --- AESTHETIC HEADER WITH TRANSPARENT BUTTONS ---
     header_col1, header_col2, header_col3 = st.columns([2, 6, 2])
     
     with header_col1:
@@ -589,58 +625,62 @@ else:
         """, unsafe_allow_html=True)
     
     with header_col2:
-        # Add CSS for active state
-        if current_page == "analyze":
-            st.markdown("""
-            <style>
+        # Navigation container
+        st.markdown('<div class="header-nav">', unsafe_allow_html=True)
+        
+        # Create columns for navigation buttons
+        nav_col1, nav_col2, nav_col3 = st.columns(3)
+        
+        # Define active state CSS for each button
+        active_css = """
+        <style>
             button[key="nav_btn_analyze"] {
-                background: rgba(220, 38, 38, 0.1) !important;
-                color: #fca5a5 !important;
-                border-bottom: 2px solid #dc2626 !important;
+                color: rgba(255, 255, 255, 0.95) !important;
+                background: rgba(255, 255, 255, 0.02) !important;
             }
-            </style>
-            """, unsafe_allow_html=True)
+            button[key="nav_btn_analyze"]::after {
+                content: '';
+                position: absolute;
+                bottom: 0;
+                left: 20%;
+                right: 20%;
+                height: 2px;
+                background: linear-gradient(90deg, 
+                    rgba(220, 38, 38, 0) 0%, 
+                    rgba(220, 38, 38, 0.8) 50%, 
+                    rgba(220, 38, 38, 0) 100%);
+                border-radius: 2px;
+                animation: pulse-glow 2s ease-in-out infinite;
+            }
+        </style>
+        """
+        
+        if current_page == "analyze":
+            st.markdown(active_css.replace("nav_btn_analyze", "nav_btn_analyze"), unsafe_allow_html=True)
         elif current_page == "data_vault":
-            st.markdown("""
-            <style>
-            button[key="nav_btn_vault"] {
-                background: rgba(220, 38, 38, 0.1) !important;
-                color: #fca5a5 !important;
-                border-bottom: 2px solid #dc2626 !important;
-            }
-            </style>
-            """, unsafe_allow_html=True)
+            st.markdown(active_css.replace("nav_btn_analyze", "nav_btn_vault"), unsafe_allow_html=True)
         elif current_page == "pricing":
-            st.markdown("""
-            <style>
-            button[key="nav_btn_pricing"] {
-                background: rgba(220, 38, 38, 0.1) !important;
-                color: #fca5a5 !important;
-                border-bottom: 2px solid #dc2626 !important;
-            }
-            </style>
-            """, unsafe_allow_html=True)
+            st.markdown(active_css.replace("nav_btn_analyze", "nav_btn_pricing"), unsafe_allow_html=True)
         
-        # Check if navigation was clicked
-        nav_cols = st.columns([1, 1, 1])
-        
-        with nav_cols[0]:
-            if st.button("ANALYZE", key="nav_btn_analyze", help="Go to Analyze"):
+        with nav_col1:
+            if st.button("📊 ANALYZE", key="nav_btn_analyze", help="Go to Analyze"):
                 st.session_state["current_page"] = "analyze"
                 st.rerun()
         
-        with nav_cols[1]:
-            if st.button("DATA VAULT", key="nav_btn_vault", help="Go to Data Vault"):
+        with nav_col2:
+            if st.button("🗄️ VAULT", key="nav_btn_vault", help="Go to Data Vault"):
                 st.session_state["current_page"] = "data_vault"
                 st.rerun()
         
-        with nav_cols[2]:
-            if st.button("PRICING", key="nav_btn_pricing", help="Go to Pricing"):
+        with nav_col3:
+            if st.button("💳 PRICING", key="nav_btn_pricing", help="Go to Pricing"):
                 st.session_state["current_page"] = "pricing"
                 st.rerun()
+        
+        st.markdown('</div>', unsafe_allow_html=True)
     
     with header_col3:
-        with st.popover("👤 " + current_user, use_container_width=True):
+        with st.popover(f"👤 {current_user}", use_container_width=True):
             st.markdown(f"**Operator:** {current_user}")
             st.caption("Access Level: PRO")
             st.markdown("---")
