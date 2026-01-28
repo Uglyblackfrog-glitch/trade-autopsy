@@ -1376,7 +1376,7 @@ else:
 
         # --- TAB 1: IMPROVED CHART VISION ANALYSIS ---
         with main_tab1:
-            c_mode = st.radio("Input Vector", ["Text Parameters", "Chart Vision"], horizontal=True, label_visibility="collapsed")
+            c_mode = st.radio("Input Vector", ["Text Parameters", "Chart Vision", "Portfolio Analysis"], horizontal=True, label_visibility="collapsed")
         
             prompt = ""
             img_b64 = None
@@ -1444,11 +1444,68 @@ else:
                             manual_context += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
                         
                         # MASSIVELY IMPROVED PROMPT
-                        prompt = f"""CRITICAL INSTRUCTIONS: You are looking at a REAL trading screenshot. You must EXTRACT and READ the actual text visible on the screen.
+                        prompt = f"""CRITICAL INSTRUCTIONS: Analyze this trading/portfolio screenshot.
+
+FIRST: IDENTIFY WHAT YOU'RE LOOKING AT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Look carefully at the image and determine:
+
+1. Is this a PORTFOLIO view (multiple stocks listed) or SINGLE CHART?
+2. If portfolio: How many stocks/positions are visible?
+3. If portfolio: What is the TOTAL P&L shown at top?
+4. If portfolio: What is the TOTAL percentage gain/loss?
+5. If single chart: Proceed with normal chart analysis
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+IF THIS IS A PORTFOLIO SCREENSHOT:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Read the TOTAL/OVERALL P&L at the top (usually labeled "Total P/L", "Unrealised P/L", "Portfolio Value", etc.)
+
+Analyze the PORTFOLIO as a whole, not individual stocks.
+
+Identify:
+- Total number of positions
+- Largest losses (list top 3-5 by % or amount)
+- Any position showing >100% loss (red flag for leverage/options/error)
+- Overall portfolio drawdown percentage
+- Risk concentration issues
+
+PORTFOLIO OUTPUT FORMAT:
+
+[SCORE] <0-100 based on OVERALL portfolio health>
+
+[OVERALL_GRADE] <F if total loss>20%, D if >10%, C if >5%, etc.>
+
+[ENTRY_QUALITY] <Average entry quality across visible positions>
+
+[EXIT_QUALITY] <Exit discipline assessment based on how losses were managed>
+
+[RISK_SCORE] <0-100 based on PORTFOLIO-LEVEL risk management>
+
+[TAGS] <Portfolio_Crisis, Overleveraged, No_Stops, Concentration_Risk, Multiple_Catastrophic_Positions, etc.>
+
+[TECH] PORTFOLIO ANALYSIS: Total P/L: [EXACT total P/L] ([EXACT %]). Number of positions: [count]. Current value: [amount]. Invested: [amount]. Top losses: [list 3-5 worst positions with their %]. Critical observations about portfolio structure and risk concentration.
+
+[PSYCH] PORTFOLIO PSYCHOLOGY: [Analyze the decision-making that led to multiple simultaneous losses. Look for patterns: averaging down? holding losers? FOMO buying? lack of selling discipline?]
+
+[RISK] PORTFOLIO RISK ASSESSMENT: [Analyze diversification, position sizing across portfolio, stop loss discipline, drawdown management, any positions >100% loss (leverage red flags)]
+
+[FIX] PORTFOLIO RECOVERY PLAN:
+1. [Immediate crisis management - which positions to close NOW]
+2. [Risk reduction strategy - position sizing going forward]
+3. [Rehabilitation timeline and rules]
+
+[STRENGTH] [What's working in the portfolio, if anything]
+
+[CRITICAL_ERROR] [The biggest portfolio-level mistake - usually lack of risk management, no stops, or concentration]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+IF THIS IS A SINGLE CHART (not portfolio):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 {manual_context}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-STEP 1: READ THE VISIBLE TEXT ON SCREEN (Character by character if needed)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Look at the TOP RIGHT corner of the trading interface. You will see:
 - "P/L: [some amount]" - This is the profit/loss. READ IT EXACTLY.
@@ -1460,9 +1517,7 @@ Look at the TOP LEFT. You will see the ticker symbol (e.g., "AAPL", "GLIT", "SPY
 
 Look at the RIGHT SIDE Y-AXIS. You will see price levels. What are the numbers? (e.g., $100, $200, $300?)
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-STEP 2: SEVERITY ASSESSMENT
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SEVERITY ASSESSMENT:
 
 Based on the P/L you read:
 
@@ -1472,74 +1527,239 @@ IF loss > 10% of account → MAJOR PROBLEM (Score: 15-30)
 IF loss < 5% of account → Poor trade (Score: 30-50)
 IF profit > 0% → Grade normally (Score: 50-100)
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-STEP 3: ANALYSIS USING REAL DATA ONLY
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Use ONLY the prices you see on the Y-axis of the chart.
-Do NOT invent prices like $445, $435, $451, etc. unless you ACTUALLY SEE them on the axis.
-
-OUTPUT FORMAT:
+SINGLE TRADE OUTPUT FORMAT:
 
 [SCORE] <Use severity guide above>
 
 [OVERALL_GRADE] <F if loss>50%, D if loss>30%, C if loss>10%, etc.>
 
-[ENTRY_QUALITY] <0-100, but if catastrophic loss, likely 0-10>
+[ENTRY_QUALITY] <0-100>
 
 [EXIT_QUALITY] <0-100>
 
-[RISK_SCORE] <0-100, MUST be 0-5 if account destroyed>
+[RISK_SCORE] <0-100>
 
-[TAGS] <If massive loss: Account_Destroyed, Overleveraged, No_Risk_Management, Catastrophic_Loss>
+[TAGS] <Based on single trade behavior>
 
-[TECH] Ticker: [EXACT ticker you read]. P&L: [EXACT P&L you read] ([EXACT % you read]). Chart price range: [ACTUAL lowest price] to [ACTUAL highest price on Y-axis]. [Then analyze the visible price action using these real numbers only]
+[TECH] Ticker: [EXACT ticker]. P&L: [EXACT P&L] ([EXACT %]). Chart price range: [ACTUAL prices on Y-axis]. [Analysis of price action]
 
-[PSYCH] If P&L shows >50% profit on massive position: "CRITICAL RISK MANAGEMENT FAILURE: This trader GAINED [exact %] on this position, but risked catastrophic amount of capital. This is gambling, not trading - getting lucky once doesn't make it smart. Next similar trade could destroy the entire account. Despite the profit, this represents complete breakdown of discipline and understanding of position sizing. The emotional high from this win is dangerous - it will lead to revenge gambling when the inevitable loss comes." 
+[PSYCH] [Single trade psychology analysis]
 
-If P&L shows >50% loss: "CRITICAL PSYCHOLOGICAL EMERGENCY: This trader has LOST [exact %] of their account in this position. This represents catastrophic risk-taking and complete breakdown of discipline. All trading must cease immediately for psychological recovery." 
+[RISK] [Single trade risk analysis]
 
-Otherwise analyze normally.
+[FIX] [Specific improvements for this trade]
 
-[RISK] If P&L shows >50% profit on massive position: "CATASTROPHIC POSITION SIZING DESPITE PROFITABLE OUTCOME: Risked [exact %] of entire account on single trade. While this gamble paid off with +[exact %] profit, this is NOT sustainable trading. Professional traders risk 1-2% per trade maximum. One bad trade with this sizing = account destruction. The win has created false confidence in a fatally flawed approach. This trader is on borrowed time."
+[STRENGTH] [What went well]
 
-If P&L shows >50% loss: "ACCOUNT DESTRUCTION EVENT: [exact %] of capital lost on single position. This violates every risk management principle. Position sizing was suicidal. No stop loss or ignored stop. This is not trading - this is gambling with rent money." 
-
-Otherwise analyze normally.
-
-[FIX] If P&L shows >50% profit on massive position:
-1. DO NOT REPEAT THIS TRADE SIZE - you got lucky, not skilled. Maximum 2% risk per trade going forward
-2. Take your winnings and immediately reduce all position sizes to professional levels (1-2% account risk)
-3. Study proper position sizing and risk management before next trade - Kelly Criterion, Fixed Fractional, etc.
-4. Understand: One similar-sized losing trade will destroy you. This was gambling, not trading.
-
-If P&L shows >50% loss:
-1. STOP ALL TRADING IMMEDIATELY - no exceptions, no "just one more trade"
-2. Mandatory 60-day break from markets to reset psychology
-3. When resuming: 0.25% risk per trade maximum, paper trade for 30 days first
-4. Seek professional help if this was emotionally driven
-
-Otherwise give normal improvement advice.
-
-[STRENGTH] Even in total disaster, find something (e.g., "Closed position before going to zero" or "Chart shows trader is still alive to learn from this")
-
-[CRITICAL_ERROR] If >50% profit on massive position: "Gambled [X%] of entire account on single position without proper risk management. Despite the profitable outcome, this approach guarantees eventual account destruction. The biggest mistake is believing this was skill rather than luck."
-
-If >50% loss: "Bet [X%] of entire account on single position without proper stop loss. Account preservation is lesson #1 of trading - failed completely."
+[CRITICAL_ERROR] [Biggest mistake in this trade]
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 CRITICAL REMINDERS:
-1. READ the P/L text in top right corner - use EXACT numbers
-2. READ the ticker in top left - use EXACT symbol  
-3. If P/L is RED and shows -50% or more, this is CATASTROPHIC (score 0-5)
-4. Do NOT use example prices from prompts ($445, etc) - use actual Y-axis values
-5. Match your tone to the severity: 60% loss needs emergency intervention, not "minor adjustments"
+1. FIRST determine if this is PORTFOLIO or SINGLE TRADE
+2. If portfolio with multiple losses, this is likely a SEVERE crisis
+3. Any position showing >100% loss needs immediate investigation
+4. Portfolio losses of >20% = catastrophic failure
+5. Use EXACT numbers you see on screen, no hallucinations
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
                         
                         ready_to_run = True
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            else:
+            elif c_mode == "Portfolio Analysis":
+                st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
+                st.markdown('<div class="section-title">📊 Portfolio Health Analysis</div>', unsafe_allow_html=True)
+                st.markdown("""
+                <div style="text-align: center; margin-bottom: 24px;">
+                    <div class="upload-icon">📂</div>
+                    <div class="upload-text">Upload Your Portfolio Screenshot or PDF</div>
+                    <div class="upload-subtext">Supports PNG, JPG, PDF. We'll analyze your entire portfolio health, risk metrics, and provide restructuring recommendations.</div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+                portfolio_file = st.file_uploader(
+                    "Upload Portfolio Screenshot or PDF", 
+                    type=["png", "jpg", "jpeg", "pdf"], 
+                    label_visibility="collapsed",
+                    key="portfolio_upload"
+                )
+            
+                if portfolio_file:
+                    # Display preview based on file type
+                    if portfolio_file.type == "application/pdf":
+                        st.info("📄 PDF uploaded. Analysis will extract portfolio data from PDF.")
+                    else:
+                        st.markdown('<div style="margin-top: 32px;">', unsafe_allow_html=True)
+                        st.image(portfolio_file, use_column_width=True)
+                        st.markdown('</div>', unsafe_allow_html=True)
+                    
+                    # Manual portfolio data input (recommended for accuracy)
+                    st.markdown('<div style="height: 24px;"></div>', unsafe_allow_html=True)
+                    with st.expander("📝 Manual Portfolio Data (Recommended for Best Results)", expanded=True):
+                        st.markdown("**Provide your portfolio details for most accurate analysis:**")
+                        
+                        col_p1, col_p2 = st.columns(2)
+                        with col_p1:
+                            portfolio_total_invested = st.number_input("Total Invested Amount", min_value=0.0, step=1000.0, format="%.2f", help="Total capital invested")
+                            portfolio_current_value = st.number_input("Current Portfolio Value", min_value=0.0, step=1000.0, format="%.2f", help="Current market value")
+                            portfolio_num_positions = st.number_input("Number of Positions", min_value=1, max_value=200, value=10, help="How many stocks/assets in portfolio")
+                        
+                        with col_p2:
+                            portfolio_largest_loss = st.text_input("Largest Single Loss", placeholder="e.g., AAPL -₹50,000 (-45%)", help="Your worst performing position")
+                            portfolio_largest_gain = st.text_input("Largest Single Gain", placeholder="e.g., TSLA +₹30,000 (+60%)", help="Your best performing position")
+                            portfolio_crisis_stocks = st.text_input("Stocks in Crisis (>30% loss)", placeholder="e.g., ADANIPOWER, AARTIIND", help="Comma-separated list")
+                        
+                        portfolio_description = st.text_area(
+                            "Additional Portfolio Context", 
+                            height=100, 
+                            placeholder="Describe your portfolio: sectors, strategy, time horizon, any leveraged positions, margin usage, etc.",
+                            help="More context = better analysis"
+                        )
+                    
+                    st.markdown('<div style="height: 24px;"></div>', unsafe_allow_html=True)
+                    
+                    if st.button("🔬 ANALYZE PORTFOLIO HEALTH", type="primary", use_container_width=True):
+                        # Calculate portfolio metrics
+                        total_pnl = portfolio_current_value - portfolio_total_invested if portfolio_total_invested > 0 else 0
+                        total_pnl_pct = (total_pnl / portfolio_total_invested * 100) if portfolio_total_invested > 0 else 0
+                        
+                        # Prepare image if not PDF
+                        img_b64 = None
+                        if portfolio_file.type != "application/pdf":
+                            image = Image.open(portfolio_file)
+                            max_size = (1920, 1080)
+                            image.thumbnail(max_size, Image.Resampling.LANCZOS)
+                            buf = io.BytesIO()
+                            image.save(buf, format="PNG", optimize=True)
+                            img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+                        
+                        # Build portfolio context
+                        portfolio_context = f"""
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PORTFOLIO DATA PROVIDED BY USER:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Total Invested: {portfolio_total_invested:,.2f}
+Current Value: {portfolio_current_value:,.2f}
+Total P&L: {total_pnl:,.2f} ({total_pnl_pct:+.2f}%)
+Number of Positions: {portfolio_num_positions}
+Largest Loss: {portfolio_largest_loss if portfolio_largest_loss else "Not specified"}
+Largest Gain: {portfolio_largest_gain if portfolio_largest_gain else "Not specified"}
+Crisis Stocks (>30% loss): {portfolio_crisis_stocks if portfolio_crisis_stocks else "None specified"}
+
+Additional Context:
+{portfolio_description if portfolio_description else "No additional context provided"}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+USE THIS INFORMATION AS GROUND TRUTH. Analyze based on these provided values.
+"""
+                        
+                        # PORTFOLIO-SPECIFIC PROMPT
+                        portfolio_prompt = f"""You are analyzing a COMPLETE INVESTMENT PORTFOLIO. This is NOT a single trade - this is portfolio-level risk assessment.
+
+{portfolio_context}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PORTFOLIO ANALYSIS FRAMEWORK:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. PORTFOLIO HEALTH ASSESSMENT:
+   - Overall portfolio P&L and percentage
+   - Drawdown severity (current loss from peak)
+   - Number of positions (diversification vs. over-diversification)
+   - Win/loss ratio across portfolio
+   - Concentration risk (any position >10% of portfolio?)
+
+2. RISK MANAGEMENT EVALUATION:
+   - Are stop losses in place across positions?
+   - Position sizing discipline (should be 1-5% per position)
+   - Correlation risk (positions moving together?)
+   - Sector concentration
+   - Any leveraged/margin positions (red flag)
+   - Positions with >50% losses (likely beyond recovery)
+
+3. PORTFOLIO STRUCTURE ANALYSIS:
+   - Too many positions? (>20 = likely over-diversified)
+   - Too few? (<5 = concentration risk)
+   - Balance between growth/value/defensive
+   - Sector diversification
+   - Market cap diversification
+
+4. CRISIS IDENTIFICATION:
+   - Any positions showing >100% loss (leverage/margin emergency)
+   - Multiple positions >50% down (poor exit discipline)
+   - Portfolio drawdown >30% (severe crisis)
+   - Evidence of averaging down into losers
+   - Revenge trading patterns
+
+5. PSYCHOLOGICAL ASSESSMENT:
+   - Holding losers, cutting winners? (common retail mistake)
+   - Evidence of FOMO buying at tops
+   - Lack of selling discipline
+   - Emotional attachment to positions
+   - Hope-based investing vs. risk management
+
+SEVERITY LEVELS FOR PORTFOLIOS:
+
+Portfolio Drawdown >50%: CATASTROPHIC (Score 0-5)
+Portfolio Drawdown 30-50%: SEVERE CRISIS (Score 5-15)
+Portfolio Drawdown 20-30%: MAJOR PROBLEM (Score 15-30)
+Portfolio Drawdown 10-20%: CONCERNING (Score 30-50)
+Portfolio Drawdown 5-10%: MINOR ISSUE (Score 50-70)
+Portfolio Drawdown <5%: ACCEPTABLE (Score 70-100)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OUTPUT FORMAT:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[SCORE] <0-100 based on portfolio drawdown severity>
+
+[OVERALL_GRADE] <F if >30% loss, D if 20-30%, C if 10-20%, B if 5-10%, A if <5%>
+
+[ENTRY_QUALITY] <Average entry quality across portfolio - rate the timing of buys>
+
+[EXIT_QUALITY] <Exit discipline - are stop losses used? Or holding losers?>
+
+[RISK_SCORE] <0-100 portfolio-level risk management quality>
+
+[TAGS] <Portfolio_Crisis, Overleveraged, No_Stops, Concentration_Risk, Too_Many_Positions, Sector_Concentration, Multiple_Losers, No_Exit_Plan, Hope_Based_Investing, etc.>
+
+[TECH] PORTFOLIO TECHNICAL ANALYSIS: Total P&L: {total_pnl:,.2f} ({total_pnl_pct:+.2f}%). Portfolio has {portfolio_num_positions} positions. [Analyze diversification, concentration, position sizing. List top 3-5 problem positions. Identify sector exposure risks. Comment on portfolio structure.]
+
+[PSYCH] PORTFOLIO PSYCHOLOGY PROFILE: [Analyze the decision-making patterns across the portfolio. Are they holding losers and cutting winners? Evidence of FOMO? Revenge trading? Lack of selling discipline? Emotional attachment to positions? This should be behavioral analysis of their OVERALL trading psychology based on portfolio patterns.]
+
+[RISK] PORTFOLIO RISK ASSESSMENT: [Analyze portfolio-level risk: position sizing discipline, stop loss usage across positions, concentration risk, correlation risk, drawdown management, any leverage/margin red flags. If portfolio loss >30%, this is CATASTROPHIC. If any position shows >100% loss, this is margin/leverage emergency.]
+
+[FIX] PORTFOLIO RESTRUCTURING PLAN:
+1. IMMEDIATE ACTIONS: [What needs to happen in next 24-48 hours - close crisis positions, investigate leverage, stop opening new positions]
+2. SHORT TERM (1-4 weeks): [Which positions to close/reduce, how to implement stops, position sizing rules]
+3. LONG TERM (1-6 months): [Portfolio rebuild strategy, education needs, risk management framework, psychological reset]
+
+[STRENGTH] [What's working in the portfolio, if anything. Even in disasters, find something - e.g., "Diversification across sectors prevents total loss" or "At least closed some positions before -100%"]
+
+[CRITICAL_ERROR] [The biggest portfolio-level mistake. Usually: no stop losses, concentration risk, averaging down losers, lack of exit plan, emotional position holding, or taking on leverage without understanding it]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CRITICAL PORTFOLIO-SPECIFIC RULES:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. If portfolio drawdown >30%: This is CATASTROPHIC portfolio failure, score MUST be 0-10
+2. If any position shows >100% loss: LEVERAGE/MARGIN EMERGENCY - flag immediately
+3. If >20 positions: Likely over-diversification - too many positions to manage properly
+4. If multiple positions >50% loss: Exit discipline failure - holding losers too long
+5. Portfolio analysis is about RISK MANAGEMENT, not individual stock picking
+6. Focus on position sizing, diversification, stop losses, and exit discipline
+7. A portfolio can have some winners but still fail due to poor risk management
+8. Recovery from >30% drawdown typically takes 12-24+ months minimum
+
+REMEMBER: This is PORTFOLIO analysis, not trade analysis. Focus on overall risk management, diversification, position sizing discipline, and exit strategy across ALL positions.
+"""
+                        
+                        ready_to_run = True
+                        ticker_val = "PORTFOLIO"
+                        prompt = portfolio_prompt
+                
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            else:  # Text Parameters mode
                 # TEXT PARAMETERS (UNCHANGED)
                 st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
                 st.markdown('<div class="section-title">Case Data Input</div>', unsafe_allow_html=True)
