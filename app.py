@@ -1681,13 +1681,14 @@ BE HARSH. USE NUMBERS. BE SPECIFIC."""
                         
                         st.markdown('</div>', unsafe_allow_html=True)
                         
-                        # BEHAVIORAL TAGS
+                        # BEHAVIORAL TAGS WITH ANIMATION
                         if report.get('tags'):
                             st.markdown('<div class="glass-panel animate-slide-right" style="animation-delay: 0.2s;">', unsafe_allow_html=True)
                             st.markdown('<div class="section-title">🏷️ Behavioral Patterns Detected</div>', unsafe_allow_html=True)
                             
                             tags_html = '<div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px;">'
                             for tag in report['tags']:
+                                # Color code tags
                                 if any(word in tag.lower() for word in ['fomo', 'revenge', 'emotional', 'panic', 'tilt']):
                                     tag_color = "#ef4444"
                                     tag_bg = "rgba(239, 68, 68, 0.15)"
@@ -1698,18 +1699,7 @@ BE HARSH. USE NUMBERS. BE SPECIFIC."""
                                     tag_color = "#f59e0b"
                                     tag_bg = "rgba(245, 158, 11, 0.15)"
                                 
-                                tags_html += f'''
-                                <div style="
-                                    background: {tag_bg};
-                                    border: 1px solid {tag_color}40;
-                                    padding: 10px 18px;
-                                    border-radius: 10px;
-                                    color: {tag_color};
-                                    font-weight: 600;
-                                    font-size: 0.85rem;
-                                    letter-spacing: 0.5px;
-                                ">{tag}</div>
-                                '''
+                                tags_html += f'<div style="background: {tag_bg}; border: 1px solid {tag_color}40; padding: 10px 18px; border-radius: 10px; color: {tag_color}; font-weight: 600; font-size: 0.85rem; letter-spacing: 0.5px; transition: all 0.3s ease; cursor: default;">{tag}</div>'
                             tags_html += '</div>'
                             st.markdown(tags_html, unsafe_allow_html=True)
                             st.markdown('</div>', unsafe_allow_html=True)
@@ -1902,7 +1892,7 @@ BE HARSH. USE NUMBERS. BE SPECIFIC."""
                         - If problem persists, try the Text Parameters mode instead
                         """)
         
-        # TAB 2: PERFORMANCE METRICS (Keep all existing dashboard code unchanged)
+        # TAB 2: PERFORMANCE METRICS - COMPLETE DASHBOARD
         with main_tab2:
             if supabase:
                 hist = supabase.table("trades").select("*").eq("user_id", current_user).order("created_at", desc=True).execute()
@@ -1911,19 +1901,21 @@ BE HARSH. USE NUMBERS. BE SPECIFIC."""
                     df = pd.DataFrame(hist.data)
                     df['created_at'] = pd.to_datetime(df['created_at'])
                 
+                    # METRICS CALC
                     avg_score = df['score'].mean()
                     total_trades = len(df)
                     all_tags = [tag for sublist in df['mistake_tags'] for tag in sublist]
                     top_mistake = pd.Series(all_tags).mode()[0] if all_tags else "None"
                 
+                    # Calculate win rate (scores > 60 = good trades)
                     win_rate = len(df[df['score'] > 60]) / len(df) * 100 if len(df) > 0 else 0
                 
+                    # Recent trend (last 5 vs previous 5)
                     recent_avg = df.head(5)['score'].mean() if len(df) >= 5 else avg_score
                     prev_avg = df.iloc[5:10]['score'].mean() if len(df) >= 10 else avg_score
                     trend = "↗" if recent_avg > prev_avg else "↘" if recent_avg < prev_avg else "→"
                 
-                    # [Keep all existing dashboard visualization code from original...]
-                    # KPI cards, charts, tables etc.
+                    # 1. KPI ROW
                     st.markdown(f"""
                     <div class="kpi-container">
                         <div class="kpi-card">
@@ -1944,8 +1936,265 @@ BE HARSH. USE NUMBERS. BE SPECIFIC."""
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
+
+                    # 2. MAIN CHART - Full Width
+                    st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
+                    st.markdown('<div class="section-title">Performance Evolution</div>', unsafe_allow_html=True)
+                
+                    chart_data = df[['created_at', 'score']].sort_values('created_at').reset_index(drop=True)
+                    chart_data['index'] = range(len(chart_data))
+                
+                    # Create base chart
+                    base = alt.Chart(chart_data).encode(
+                        x=alt.X('index:Q', 
+                            axis=alt.Axis(
+                                title='Trade Sequence',
+                                grid=False,
+                                labelColor='#6b7280',
+                                titleColor='#9ca3af',
+                                labelFontSize=11,
+                                titleFontSize=12
+                            )
+                        )
+                    )
+                
+                    # Reference lines
+                    good_line = alt.Chart(pd.DataFrame({'y': [70]})).mark_rule(
+                        strokeDash=[5, 5],
+                        color='#10b981',
+                        opacity=0.3
+                    ).encode(y='y:Q')
+                
+                    bad_line = alt.Chart(pd.DataFrame({'y': [40]})).mark_rule(
+                        strokeDash=[5, 5],
+                        color='#ef4444',
+                        opacity=0.3
+                    ).encode(y='y:Q')
+                
+                    # Main line with gradient
+                    line = base.mark_line(
+                        color='#3b82f6', 
+                        strokeWidth=3,
+                        point=alt.OverlayMarkDef(
+                            filled=True,
+                            size=80,
+                            color='#3b82f6',
+                            strokeWidth=2,
+                            stroke='#1e40af'
+                        )
+                    ).encode(
+                        y=alt.Y('score:Q', 
+                            scale=alt.Scale(domain=[0, 100]),
+                            axis=alt.Axis(
+                                title='Quality Score',
+                                grid=True,
+                                gridColor='rgba(255,255,255,0.04)',
+                                labelColor='#6b7280',
+                                titleColor='#9ca3af',
+                                labelFontSize=11,
+                                titleFontSize=12
+                            )
+                        ),
+                        tooltip=[
+                            alt.Tooltip('index:Q', title='Trade #'),
+                            alt.Tooltip('score:Q', title='Score'),
+                            alt.Tooltip('created_at:T', title='Date', format='%b %d, %Y')
+                        ]
+                    )
+                
+                    area = base.mark_area(
+                        color='#3b82f6', 
+                        opacity=0.1,
+                        line=False
+                    ).encode(y='score:Q')
+                
+                    chart = (good_line + bad_line + area + line).properties(
+                        height=320
+                    ).configure_view(
+                        strokeWidth=0,
+                        fill='transparent'
+                    ).configure(
+                        background='transparent'
+                    )
+                
+                    st.altair_chart(chart, use_container_width=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
+
+                    # 3. TWO COLUMN LAYOUT
+                    col_left, col_right = st.columns([1.5, 1])
+                
+                    with col_left:
+                        # MISTAKE BREAKDOWN with Bar Chart
+                        st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
+                        st.markdown('<div class="section-title">Error Pattern Analysis</div>', unsafe_allow_html=True)
                     
-                    # [Rest of dashboard code remains unchanged...]
+                        if all_tags:
+                            tag_counts = pd.Series(all_tags).value_counts().head(6).reset_index()
+                            tag_counts.columns = ['Mistake', 'Count']
+                        
+                            # Horizontal bar chart
+                            bar_chart = alt.Chart(tag_counts).mark_bar(
+                                cornerRadiusEnd=6,
+                                height=28
+                            ).encode(
+                                x=alt.X('Count:Q',
+                                    axis=alt.Axis(
+                                        title=None,
+                                        grid=False,
+                                        labelColor='#6b7280',
+                                        labelFontSize=11
+                                    )
+                                ),
+                                y=alt.Y('Mistake:N',
+                                    sort='-x',
+                                    axis=alt.Axis(
+                                        title=None,
+                                        labelColor='#e5e7eb',
+                                        labelFontSize=12,
+                                        labelPadding=10
+                                    )
+                                ),
+                                color=alt.Color('Count:Q',
+                                    scale=alt.Scale(
+                                        scheme='redyellowblue',
+                                        reverse=True
+                                    ),
+                                    legend=None
+                                ),
+                                tooltip=[
+                                    alt.Tooltip('Mistake:N', title='Error Type'),
+                                    alt.Tooltip('Count:Q', title='Occurrences')
+                                ]
+                            ).properties(
+                                height=280
+                            ).configure_view(
+                                strokeWidth=0,
+                                fill='transparent'
+                            ).configure(
+                                background='transparent'
+                            )
+                        
+                            st.altair_chart(bar_chart, use_container_width=True)
+                        else:
+                            st.info("No error patterns detected yet.")
+                    
+                        st.markdown('</div>', unsafe_allow_html=True)
+
+                    with col_right:
+                        # AI INSIGHTS
+                        st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
+                        st.markdown('<div class="section-title">AI Insights</div>', unsafe_allow_html=True)
+                    
+                        insights = generate_insights(df)
+                    
+                        for i, insight in enumerate(insights):
+                            # Parse emoji and content
+                            parts = insight.split(' ', 1)
+                            emoji = parts[0] if len(parts) > 0 else ''
+                            content = parts[1] if len(parts) > 1 else insight
+                        
+                            st.markdown(f"""
+                            <div style='
+                                background: rgba(255, 255, 255, 0.03);
+                                border-left: 4px solid #10b981;
+                                padding: 20px;
+                                border-radius: 0 12px 12px 0;
+                                margin-bottom: 18px;
+                                transition: all 0.3s ease;
+                            '>
+                                <div style='font-size: 1.6rem; margin-bottom: 10px;'>{emoji}</div>
+                                <div style='font-size: 0.92rem; line-height: 1.7; color: #d1d5db;'>
+                                    {content}
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                    
+                        st.markdown('</div>', unsafe_allow_html=True)
+                    
+                        # SCORE DISTRIBUTION
+                        st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
+                        st.markdown('<div class="section-title">Score Distribution</div>', unsafe_allow_html=True)
+                    
+                        # Create score ranges
+                        score_ranges = pd.cut(df['score'], bins=[0, 40, 60, 80, 100], labels=['Poor (0-40)', 'Fair (40-60)', 'Good (60-80)', 'Excellent (80-100)'])
+                        dist_data = score_ranges.value_counts().reset_index()
+                        dist_data.columns = ['Range', 'Count']
+                    
+                        # Color mapping
+                        color_map = {
+                            'Poor (0-40)': '#ef4444',
+                            'Fair (40-60)': '#f59e0b',
+                            'Good (60-80)': '#3b82f6',
+                            'Excellent (80-100)': '#10b981'
+                        }
+                    
+                        for _, row in dist_data.iterrows():
+                            range_name = row['Range']
+                            count = row['Count']
+                            percentage = (count / len(df)) * 100
+                            color = color_map.get(range_name, '#6b7280')
+                        
+                            st.markdown(f"""
+                            <div style='margin-bottom: 22px;'>
+                                <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;'>
+                                    <span style='font-size: 0.88rem; color: #9ca3af; font-weight: 600;'>{range_name}</span>
+                                    <span style='font-size: 0.88rem; color: #e5e7eb; font-family: "JetBrains Mono", monospace;'>{count} ({int(percentage)}%)</span>
+                                </div>
+                                <div style='
+                                    width: 100%;
+                                    height: 10px;
+                                    background: rgba(255, 255, 255, 0.05);
+                                    border-radius: 5px;
+                                    overflow: hidden;
+                                '>
+                                    <div style='
+                                        width: {percentage}%;
+                                        height: 100%;
+                                        background: {color};
+                                        border-radius: 5px;
+                                        transition: width 0.6s ease;
+                                    '></div>
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                    
+                        st.markdown('</div>', unsafe_allow_html=True)
+
+                    # 4. RECENT TRADES TABLE
+                    st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
+                    st.markdown('<div class="section-title">Recent Activity</div>', unsafe_allow_html=True)
+                
+                    table_df = df.head(10)[['created_at', 'ticker', 'score', 'mistake_tags']].copy()
+                    table_df.columns = ['Time', 'Asset', 'Score', 'Primary Errors']
+                
+                    # Format tags to show only first 2
+                    table_df['Primary Errors'] = table_df['Primary Errors'].apply(
+                        lambda x: ', '.join(x[:2]) if len(x) > 0 else 'None'
+                    )
+                
+                    st.dataframe(
+                        table_df, 
+                        use_container_width=True, 
+                        hide_index=True,
+                        column_config={
+                            "Score": st.column_config.ProgressColumn(
+                                "Quality Score", 
+                                min_value=0, 
+                                max_value=100, 
+                                format="%d"
+                            ),
+                            "Time": st.column_config.DatetimeColumn(
+                                "Time", 
+                                format="MMM DD, HH:mm"
+                            ),
+                            "Asset": st.column_config.TextColumn(
+                                "Asset",
+                                width="small"
+                            )
+                        }
+                    )
+                    st.markdown('</div>', unsafe_allow_html=True)
+                
                 else:
                     st.markdown('<div class="glass-panel" style="text-align: center; padding: 80px;">', unsafe_allow_html=True)
                     st.markdown("""
