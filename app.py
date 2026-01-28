@@ -1405,6 +1405,16 @@ else:
                     st.markdown('<div style="margin-top: 32px;">', unsafe_allow_html=True)
                     st.image(uploaded_file, use_column_width=True)
                     st.markdown('</div>', unsafe_allow_html=True)
+                    
+                    # Manual override option
+                    st.markdown('<div style="height: 24px;"></div>', unsafe_allow_html=True)
+                    with st.expander("📝 Optional: Help AI Read Your Chart (if it struggles)"):
+                        st.markdown("If the AI generates wrong prices, you can provide key info to help:")
+                        manual_ticker = st.text_input("Ticker Symbol (e.g., GLIT, AAPL)", "", placeholder="Leave blank for auto-detect")
+                        manual_pnl = st.text_input("Your P&L shown (e.g., -$18,500 or +$2,340)", "", placeholder="Leave blank for auto-detect")
+                        manual_pnl_pct = st.text_input("Your P&L % shown (e.g., -66.2% or +15.3%)", "", placeholder="Leave blank for auto-detect")
+                        manual_price_range = st.text_input("Price range on chart (e.g., $200 to $290)", "", placeholder="Leave blank for auto-detect")
+                    
                     st.markdown('<div style="height: 24px;"></div>', unsafe_allow_html=True)
                     
                     if st.button("🧬 RUN QUANTITATIVE ANALYSIS", type="primary", use_container_width=True):
@@ -1417,61 +1427,98 @@ else:
                         image.save(buf, format="PNG", optimize=True)
                         img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
                         
+                        # Build prompt with manual overrides if provided
+                        manual_context = ""
+                        if manual_ticker or manual_pnl or manual_pnl_pct or manual_price_range:
+                            manual_context = "\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                            manual_context += "USER PROVIDED THIS INFORMATION FROM THE CHART:\n"
+                            if manual_ticker:
+                                manual_context += f"- Ticker: {manual_ticker}\n"
+                            if manual_pnl:
+                                manual_context += f"- P&L: {manual_pnl}\n"
+                            if manual_pnl_pct:
+                                manual_context += f"- P&L Percentage: {manual_pnl_pct}\n"
+                            if manual_price_range:
+                                manual_context += f"- Price Range: {manual_price_range}\n"
+                            manual_context += "USE THIS INFORMATION - IT IS CORRECT. Analyze based on these real values.\n"
+                            manual_context += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                        
                         # MASSIVELY IMPROVED PROMPT
-                        prompt = """You are Dr. Sarah Chen, PhD in Financial Mathematics from MIT, former Goldman Sachs Managing Director running a $15B quantitative fund. You've trained 500+ traders and published 50+ papers on behavioral finance.
-
-Analyze this chart with MATHEMATICAL PRECISION. Focus on NUMBERS, PERCENTAGES, PRICE LEVELS.
-
+                        prompt = f"""CRITICAL INSTRUCTIONS: You are looking at a REAL trading screenshot. You must EXTRACT and READ the actual text visible on the screen.
+{manual_context}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-CRITICAL: RESPOND IN EXACT FORMAT BELOW. NO HTML. NO CODE. NO MARKDOWN.
+STEP 1: READ THE VISIBLE TEXT ON SCREEN (Character by character if needed)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-ANALYSIS CHECKLIST:
-✓ Identify entry price, exit price, stop loss (if visible)
-✓ Calculate Risk:Reward ratio precisely
-✓ Measure entry timing efficiency (% from optimal)
-✓ Assess position size relative to account (estimate if P&L visible)
-✓ Detect emotional trading patterns (FOMO, panic, revenge)
-✓ Evaluate stop placement quality
-✓ Check trend alignment
-✓ Quantify profit/loss with percentages
+Look at the TOP RIGHT corner of the trading interface. You will see:
+- "P/L: [some amount]" - This is the profit/loss. READ IT EXACTLY.
+- "([some percentage])" - This is the percentage. READ IT EXACTLY.
 
-RESPONSE FORMAT (COPY EXACTLY):
+The P/L text is usually in RED (loss) or GREEN (profit). What do you see?
 
-[SCORE] 67
+Look at the TOP LEFT. You will see the ticker symbol (e.g., "AAPL", "GLIT", "SPY", etc.). What is it?
 
-[OVERALL_GRADE] C
+Look at the RIGHT SIDE Y-AXIS. You will see price levels. What are the numbers? (e.g., $100, $200, $300?)
 
-[ENTRY_QUALITY] 58
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 2: SEVERITY ASSESSMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-[EXIT_QUALITY] 72
+Based on the P/L you read:
 
-[RISK_SCORE] 64
+IF loss > 50% of account → CATASTROPHIC EMERGENCY (Score: 0-5)
+IF loss > 30% of account → SEVERE CRISIS (Score: 5-15)
+IF loss > 10% of account → MAJOR PROBLEM (Score: 15-30)
+IF loss < 5% of account → Poor trade (Score: 30-50)
+IF profit > 0% → Grade normally (Score: 50-100)
 
-[TAGS] Late_Entry, FOMO, Poor_RR, Acceptable_Stop, Trend_Aligned
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 3: ANALYSIS USING REAL DATA ONLY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-[TECH] Entry at $445.20 was 2.3% above optimal breakout level at $435, reducing R:R from potential 1:3 to actual 1:1.8. Stop at $440 represents 1.16% risk, technically sound at prior support. Exit at $451 captured 1.3% gain but left 2.9% on table as price reached $458. Volume spike at entry suggests late momentum chase. Position sizing appears 15-20% of account based on visible P&L.
+Use ONLY the prices you see on the Y-axis of the chart.
+Do NOT invent prices like $445, $435, $451, etc. unless you ACTUALLY SEE them on the axis.
 
-[PSYCH] Clear FOMO entry after 15min strong green candle, violating wait-for-pullback discipline. Premature exit shows profit-taking anxiety from late entry psychological pressure. No evidence of planned execution. Fear of reversal dominated decision-making. Discipline score 45/100.
+OUTPUT FORMAT:
 
-[RISK] Position estimated at 1.2% account risk - acceptable but not optimized given degraded R:R from late entry. Stop placement technically correct but didn't account for slippage cost. Maximum drawdown minimal due to good support level identification. Risk concentration acceptable for single position.
+[SCORE] <Use severity guide above>
 
-[FIX] 1. Wait for pullback to $435-437 support before entry, improving R:R by 50% and reducing emotional pressure. 2. Set predetermined targets at resistance levels $458 $465 with 25% scale-outs instead of single emotional exit. 3. Reduce position 25% when entering late to compensate for compressed R:R ratio.
+[OVERALL_GRADE] <F if loss>50%, D if loss>30%, C if loss>10%, etc.>
 
-[STRENGTH] Stop loss at technical support showed good risk-defined entry structure. Directional bias correct as price continued up post-exit.
+[ENTRY_QUALITY] <0-100, but if catastrophic loss, likely 0-10>
 
-[CRITICAL_ERROR] Emotional entry 2.3% above optimal level destroyed R:R ratio from 1:3 to 1:1.8, creating psychological pressure that forced premature exit, leaving $7/share unrealized.
+[EXIT_QUALITY] <0-100>
 
-SCORING GUIDE:
-90-100: Institutional perfection
-80-89: Very good, minor flaws  
-70-79: Good with notable issues
-60-69: Mediocre, significant problems
-40-59: Poor execution
-20-39: Very poor
-0-19: Catastrophic
+[RISK_SCORE] <0-100, MUST be 0-5 if account destroyed>
 
-Now analyze the chart."""
+[TAGS] <If massive loss: Account_Destroyed, Overleveraged, No_Risk_Management, Catastrophic_Loss>
+
+[TECH] Ticker: [EXACT ticker you read]. P&L: [EXACT P&L you read] ([EXACT % you read]). Chart price range: [ACTUAL lowest price] to [ACTUAL highest price on Y-axis]. [Then analyze the visible price action using these real numbers only]
+
+[PSYCH] If P&L shows >50% loss: "CRITICAL PSYCHOLOGICAL EMERGENCY: This trader has lost [exact %] of their account in this position. This represents catastrophic risk-taking and complete breakdown of discipline. All trading must cease immediately for psychological recovery." Otherwise analyze normally.
+
+[RISK] If P&L shows >50% loss: "ACCOUNT DESTRUCTION EVENT: [exact %] of capital lost on single position. This violates every risk management principle. Position sizing was suicidal. No stop loss or ignored stop. This is not trading - this is gambling with rent money." Otherwise analyze normally.
+
+[FIX] If P&L shows >50% loss:
+1. STOP ALL TRADING IMMEDIATELY - no exceptions, no "just one more trade"
+2. Mandatory 60-day break from markets to reset psychology
+3. When resuming: 0.25% risk per trade maximum, paper trade for 30 days first
+4. Seek professional help if this was emotionally driven
+
+Otherwise give normal improvement advice.
+
+[STRENGTH] Even in total disaster, find something (e.g., "Closed position before going to zero" or "Chart shows trader is still alive to learn from this")
+
+[CRITICAL_ERROR] If >50% loss: "Bet [X%] of entire account on single position without proper stop loss. Account preservation is lesson #1 of trading - failed completely."
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CRITICAL REMINDERS:
+1. READ the P/L text in top right corner - use EXACT numbers
+2. READ the ticker in top left - use EXACT symbol  
+3. If P/L is RED and shows -50% or more, this is CATASTROPHIC (score 0-5)
+4. Do NOT use example prices from prompts ($445, etc) - use actual Y-axis values
+5. Match your tone to the severity: 60% loss needs emergency intervention, not "minor adjustments"
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
                         
                         ready_to_run = True
                 st.markdown('</div>', unsafe_allow_html=True)
@@ -1591,11 +1638,37 @@ BE HARSH. USE NUMBERS. BE SPECIFIC."""
                         # Parse with improved validation
                         report = parse_report(raw_response)
                         
+                        # HALLUCINATION DETECTION
+                        hallucination_detected = False
+                        warning_messages = []
+                        
+                        # Check if analysis contains common hallucinated prices that appear in examples
+                        hallucinated_prices = ['$445', '$435', '$451', '$458', '$440', '$437']
+                        tech_text = report.get('tech', '').lower()
+                        
+                        if any(price in report.get('tech', '') for price in hallucinated_prices):
+                            hallucination_detected = True
+                            warning_messages.append("⚠️ AI may have hallucinated prices from examples rather than analyzing your actual chart")
+                        
+                        # Check for catastrophic loss detection
+                        if 'catastrophic' in raw_response.lower() or 'emergency' in raw_response.lower():
+                            if report['score'] > 20:
+                                # AI detected catastrophe but didn't score it correctly
+                                report['score'] = max(10, report['score'] // 5)
+                                report['overall_grade'] = 'F'
+                                report['risk_score'] = min(20, report['risk_score'])
+                                warning_messages.append("🚨 Score adjusted for catastrophic loss detected in analysis")
+                        
                         # Validate we got real analysis
                         if (report['score'] == 50 and 
                             report['entry_quality'] == 50 and 
                             report['exit_quality'] == 50):
-                            st.warning("⚠️ Analysis may be incomplete. The AI had difficulty analyzing this chart. Try:\n- Clearer chart image\n- Better lighting\n- Visible price levels and indicators")
+                            warning_messages.append("⚠️ Analysis may be incomplete. Try a clearer image with visible price levels.")
+                        
+                        # Display warnings if any
+                        if warning_messages:
+                            for msg in warning_messages:
+                                st.warning(msg)
                         
                         save_analysis(current_user, report, ticker_val)
                         
