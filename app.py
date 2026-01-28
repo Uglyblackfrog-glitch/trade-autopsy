@@ -1495,11 +1495,25 @@ OUTPUT FORMAT:
 
 [TECH] Ticker: [EXACT ticker you read]. P&L: [EXACT P&L you read] ([EXACT % you read]). Chart price range: [ACTUAL lowest price] to [ACTUAL highest price on Y-axis]. [Then analyze the visible price action using these real numbers only]
 
-[PSYCH] If P&L shows >50% loss: "CRITICAL PSYCHOLOGICAL EMERGENCY: This trader has lost [exact %] of their account in this position. This represents catastrophic risk-taking and complete breakdown of discipline. All trading must cease immediately for psychological recovery." Otherwise analyze normally.
+[PSYCH] If P&L shows >50% profit on massive position: "CRITICAL RISK MANAGEMENT FAILURE: This trader GAINED [exact %] on this position, but risked catastrophic amount of capital. This is gambling, not trading - getting lucky once doesn't make it smart. Next similar trade could destroy the entire account. Despite the profit, this represents complete breakdown of discipline and understanding of position sizing. The emotional high from this win is dangerous - it will lead to revenge gambling when the inevitable loss comes." 
 
-[RISK] If P&L shows >50% loss: "ACCOUNT DESTRUCTION EVENT: [exact %] of capital lost on single position. This violates every risk management principle. Position sizing was suicidal. No stop loss or ignored stop. This is not trading - this is gambling with rent money." Otherwise analyze normally.
+If P&L shows >50% loss: "CRITICAL PSYCHOLOGICAL EMERGENCY: This trader has LOST [exact %] of their account in this position. This represents catastrophic risk-taking and complete breakdown of discipline. All trading must cease immediately for psychological recovery." 
 
-[FIX] If P&L shows >50% loss:
+Otherwise analyze normally.
+
+[RISK] If P&L shows >50% profit on massive position: "CATASTROPHIC POSITION SIZING DESPITE PROFITABLE OUTCOME: Risked [exact %] of entire account on single trade. While this gamble paid off with +[exact %] profit, this is NOT sustainable trading. Professional traders risk 1-2% per trade maximum. One bad trade with this sizing = account destruction. The win has created false confidence in a fatally flawed approach. This trader is on borrowed time."
+
+If P&L shows >50% loss: "ACCOUNT DESTRUCTION EVENT: [exact %] of capital lost on single position. This violates every risk management principle. Position sizing was suicidal. No stop loss or ignored stop. This is not trading - this is gambling with rent money." 
+
+Otherwise analyze normally.
+
+[FIX] If P&L shows >50% profit on massive position:
+1. DO NOT REPEAT THIS TRADE SIZE - you got lucky, not skilled. Maximum 2% risk per trade going forward
+2. Take your winnings and immediately reduce all position sizes to professional levels (1-2% account risk)
+3. Study proper position sizing and risk management before next trade - Kelly Criterion, Fixed Fractional, etc.
+4. Understand: One similar-sized losing trade will destroy you. This was gambling, not trading.
+
+If P&L shows >50% loss:
 1. STOP ALL TRADING IMMEDIATELY - no exceptions, no "just one more trade"
 2. Mandatory 60-day break from markets to reset psychology
 3. When resuming: 0.25% risk per trade maximum, paper trade for 30 days first
@@ -1509,7 +1523,9 @@ Otherwise give normal improvement advice.
 
 [STRENGTH] Even in total disaster, find something (e.g., "Closed position before going to zero" or "Chart shows trader is still alive to learn from this")
 
-[CRITICAL_ERROR] If >50% loss: "Bet [X%] of entire account on single position without proper stop loss. Account preservation is lesson #1 of trading - failed completely."
+[CRITICAL_ERROR] If >50% profit on massive position: "Gambled [X%] of entire account on single position without proper risk management. Despite the profitable outcome, this approach guarantees eventual account destruction. The biggest mistake is believing this was skill rather than luck."
+
+If >50% loss: "Bet [X%] of entire account on single position without proper stop loss. Account preservation is lesson #1 of trading - failed completely."
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 CRITICAL REMINDERS:
