@@ -1756,161 +1756,197 @@ TRADER CONTEXT:
 THIS IS GROUND TRUTH DATA. Analyze based on these exact values.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
-                    
+
+# ==========================================
+# CALCULATION BLOCK (Add this before the prompt)
+# ==========================================
+total_pnl = portfolio_current_value - portfolio_total_invested
+total_pnl_pct = (total_pnl / portfolio_total_invested * 100) if portfolio_total_invested > 0 else 0
+
+# Safe defaults for missing variables (prevents crashes)
+if 'portfolio_num_positions' not in locals(): portfolio_num_positions = 0
+if 'portfolio_largest_loss' not in locals(): portfolio_largest_loss = "Not specified"
+if 'portfolio_largest_gain' not in locals(): portfolio_largest_gain = "Not specified"
                     # COMPREHENSIVE PORTFOLIO ANALYSIS PROMPT
-                    portfolio_prompt = f"""You are a Senior Portfolio Manager with 30+ years experience managing institutional portfolios. You specialize in retail portfolio risk assessment and restructuring.
+                    # ================================================================================================
+# UNIVERSAL PORTFOLIO ANALYSIS PROMPT - WORKS FOR ANY PORTFOLIO
+# ================================================================================================
 
-{portfolio_context}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-COMPREHENSIVE PORTFOLIO ANALYSIS FRAMEWORK:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-1. PORTFOLIO HEALTH ASSESSMENT:
-   Analyze the overall portfolio drawdown of {total_pnl_pct:.2f}%
-   - Is this acceptable, concerning, or catastrophic?
-   - Current value vs invested (recovery difficulty)
-   - Number of positions ({portfolio_num_positions}) - over/under diversified?
-   - Win/loss distribution based on provided positions
-
-2. RISK MANAGEMENT DEEP DIVE:
-   - Position sizing: With {portfolio_num_positions} positions, average should be ~{100/portfolio_num_positions if portfolio_num_positions > 0 else 0:.1f}% each
-   - Concentration risk: Top holdings analysis
-   - Stop loss discipline: Evidence from crisis positions
-   - Leverage assessment: {portfolio_leverage} - flag if dangerous
-   - Sector concentration: {portfolio_sectors if portfolio_sectors else "Unknown"} - any overexposure?
-
-3. CRISIS IDENTIFICATION:
-   Crisis Positions: {portfolio_crisis_stocks if portfolio_crisis_stocks else "None specified"}
-   Worst Position: {portfolio_largest_loss if portfolio_largest_loss else "Not provided"}
-   - Any positions >100% loss? (leverage emergency)
-   - Multiple positions >50% loss? (exit discipline failure)
-   - Recovery likelihood for crisis positions
-
-4. BEHAVIORAL PATTERN ANALYSIS:
-   Strategy: {portfolio_strategy}
-   Time Horizon: {portfolio_time_horizon}
-   Context: {portfolio_description[:200] if portfolio_description else "Minimal"}
-   - Holding losers too long?
-   - FOMO buying at peaks?
-   - Averaging down mistakes?
-   - Emotional vs. systematic approach?
-
-5. PORTFOLIO STRUCTURE EVALUATION:
-   - {portfolio_num_positions} positions: Is this manageable?
-   - Sector allocation quality
-   - Market cap diversification
-   - Correlation risks
-   - Appropriate for stated time horizon?
-
-SEVERITY CLASSIFICATION (CRITICAL):
-
-Drawdown >50%: CATASTROPHIC EMERGENCY (Score: 0-5, Grade: F)
-Drawdown 30-50%: SEVERE CRISIS (Score: 5-15, Grade: F)
-Drawdown 20-30%: MAJOR PROBLEM (Score: 15-30, Grade: D)
-Drawdown 10-20%: CONCERNING (Score: 30-50, Grade: C)
-Drawdown 5-10%: MINOR ISSUE (Score: 50-70, Grade: B)
-Drawdown 0-5%: ACCEPTABLE (Score: 70-85, Grade: A)
-Profit >0%: GOOD (Score: 85-100, Grade: A/S-Tier)
-
-SPECIAL CONSIDERATIONS:
-- Leverage usage increases severity by one level
-- >20 positions increases severity (over-diversification)
-- Multiple crisis stocks increases severity
-- No clear strategy increases severity
+portfolio_prompt = f"""You are Ray Dalio's chief risk analyst. Analyze this portfolio with institutional-grade precision.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-MANDATORY OUTPUT FORMAT:
+STEP 1: READ THE DATA CAREFULLY
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-[SCORE] <0-100 based on drawdown and risk factors>
+GROUND TRUTH (from user input - THIS IS ACCURATE):
+- Total Invested: ₹{portfolio_total_invested:,.0f}
+- Current Value: ₹{portfolio_current_value:,.0f}
+- Total P&L: ₹{total_pnl:,.0f} ({total_pnl_pct:.2f}%)
+- Number of Positions: {portfolio_num_positions}
+- Worst Loss: {portfolio_largest_loss if portfolio_largest_loss else "Not specified"}
+- Best Gain: {portfolio_largest_gain if portfolio_largest_gain else "Not specified"}
+- Crisis Stocks: {portfolio_crisis_stocks if portfolio_crisis_stocks else "Not specified"}
+- Top Holdings: {portfolio_top_holdings if portfolio_top_holdings else "Not specified"}
+- Sectors: {portfolio_sectors if portfolio_sectors else "Not specified"}
+- Strategy: {portfolio_strategy}
+- Time Horizon: {portfolio_time_horizon}
+- Leverage: {portfolio_leverage}
+- Context: {portfolio_description if portfolio_description else "None provided"}
 
-[OVERALL_GRADE] <F/D/C/B/A/S-Tier based on severity table>
+IF IMAGE PROVIDED: Also examine the screenshot for additional position details, but TRUST THE NUMBERS ABOVE.
 
-[ENTRY_QUALITY] <0-100: Average entry timing quality across portfolio>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 2: CALCULATE SEVERITY SCORE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-[EXIT_QUALITY] <0-100: Exit discipline - stop loss usage, holding losers?>
+Based on {total_pnl_pct:.2f}% P&L:
 
-[RISK_SCORE] <0-100: Portfolio risk management quality - MUST be 0-10 if crisis>
+SCORING FORMULA:
+- Profit (>0%): Start at 85, add up to 15 for excellent risk management
+- Loss 0% to -5%: Score 70-80 (acceptable drawdown)
+- Loss -5% to -10%: Score 50-65 (concerning)
+- Loss -10% to -20%: Score 30-45 (major problem)
+- Loss -20% to -30%: Score 15-25 (severe crisis)
+- Loss -30% to -50%: Score 5-10 (catastrophic)
+- Loss >-50%: Score 0-5 (total failure)
 
-[TAGS] <Choose 5-8 relevant tags: Portfolio_Crisis, Overleveraged, No_Stops, Concentration_Risk, Over_Diversified, Sector_Concentration, Multiple_Losers, Exit_Failure, Hope_Trading, Good_Diversification, Disciplined_Stops, etc.>
+SEVERITY ADJUSTMENTS:
+- Leverage in crisis: -10 points
+- >30 positions: -5 points (over-diversified)
+- Multiple positions >50% loss: -10 points
+- Any position >100% loss: -15 points (margin disaster)
+- No clear strategy: -5 points
+
+YOUR CALCULATED SCORE: {max(0, min(100, int(85 + (total_pnl_pct * 2) - (10 if 'Margin' in portfolio_leverage or 'Futures' in portfolio_leverage else 0) - (5 if portfolio_num_positions > 30 else 0))))}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 3: OUTPUT FORMAT (EXACT - NO DEVIATION)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[SCORE] {max(0, min(100, int(85 + (total_pnl_pct * 2) - (10 if 'Margin' in portfolio_leverage or 'Futures' in portfolio_leverage else 0) - (5 if portfolio_num_positions > 30 else 0))))}
+
+[OVERALL_GRADE] {"F" if total_pnl_pct < -20 else "D" if total_pnl_pct < -10 else "C" if total_pnl_pct < -5 else "B" if total_pnl_pct < 5 else "A"}
+
+[ENTRY_QUALITY] {max(10, min(90, int(50 + (total_pnl_pct * 1.5))))}
+
+[EXIT_QUALITY] {max(5, min(85, int(45 + (total_pnl_pct * 1.2))))}
+
+[RISK_SCORE] {max(0, min(80, int(60 + (total_pnl_pct * 1.8))))}
+
+[TAGS] {", ".join([
+    "Portfolio_Crisis" if total_pnl_pct < -20 else "",
+    "Severe_Drawdown" if total_pnl_pct < -10 else "",
+    "Over_Diversified" if portfolio_num_positions > 25 else "",
+    "Under_Diversified" if portfolio_num_positions < 5 else "",
+    "Leverage_Risk" if "Margin" in portfolio_leverage or "Futures" in portfolio_leverage else "",
+    "No_Clear_Strategy" if portfolio_strategy == "No clear strategy" else "",
+    "Multiple_Losers" if portfolio_crisis_stocks and portfolio_crisis_stocks != "None specified" else "",
+    "Concentration_Risk" if portfolio_top_holdings and any(int(re.search(r'(\d+)%', h).group(1)) > 15 for h in portfolio_top_holdings.split(',') if re.search(r'(\d+)%', h)) if portfolio_top_holdings != "Not specified" else False else "",
+    "Exit_Discipline_Failure" if total_pnl_pct < -15 else "",
+    "Good_Diversification" if 8 <= portfolio_num_positions <= 20 else "",
+    "Profitable_Portfolio" if total_pnl_pct > 0 else ""
+]).strip(", ").replace(", , ", ", ")}
 
 [TECH] PORTFOLIO STRUCTURE ANALYSIS:
 
-Portfolio Metrics: ₹{portfolio_total_invested:,.0f} invested → ₹{portfolio_current_value:,.0f} current = ₹{total_pnl:,.0f} ({total_pnl_pct:+.2f}%)
+Portfolio Performance: ₹{portfolio_total_invested:,.0f} invested → ₹{portfolio_current_value:,.0f} current value = ₹{abs(total_pnl):,.0f} {"LOSS" if total_pnl < 0 else "GAIN"} ({total_pnl_pct:.2f}%).
 
-Position Count Analysis: {portfolio_num_positions} positions. [Is this optimal? Too many to manage? Too few for diversification?]
+{"CATASTROPHIC DRAWDOWN" if total_pnl_pct < -30 else "SEVERE CRISIS" if total_pnl_pct < -20 else "MAJOR PROBLEM" if total_pnl_pct < -10 else "CONCERNING" if total_pnl_pct < -5 else "ACCEPTABLE" if total_pnl_pct < 5 else "PROFITABLE"}: {"This is an emergency-level portfolio failure requiring immediate intervention." if total_pnl_pct < -20 else "Significant structural issues detected." if total_pnl_pct < -10 else "Portfolio showing weakness but recoverable." if total_pnl_pct < 0 else "Portfolio in positive territory."}
 
-Top Holdings Impact: {portfolio_top_holdings if portfolio_top_holdings else "Not provided"}. [Concentration risk assessment]
+POSITION COUNT ANALYSIS: {portfolio_num_positions} positions. {"SEVERE OVER-DIVERSIFICATION - impossible to manage this many positions effectively. Professional fund managers with teams struggle beyond 25-30 stocks. You can't properly track " + str(portfolio_num_positions) + " positions. Recommend reducing to 8-15 core holdings." if portfolio_num_positions > 25 else "OVER-DIVERSIFIED - " + str(portfolio_num_positions) + " positions is more than optimal. Recommend consolidating to 10-15 best ideas." if portfolio_num_positions > 15 else "GOOD DIVERSIFICATION - " + str(portfolio_num_positions) + " positions is manageable and provides adequate spread." if 8 <= portfolio_num_positions <= 15 else "CONCENTRATION RISK - Only " + str(portfolio_num_positions) + " positions. Need better diversification across 8-12 holdings minimum." if portfolio_num_positions < 8 else ""}
 
-Sector Exposure: {portfolio_sectors if portfolio_sectors else "Unknown"}. [Any dangerous concentration?]
+{"TOP HOLDINGS: " + portfolio_top_holdings + ". " + ("CONCENTRATION ALERT: " + ", ".join([h.strip() for h in portfolio_top_holdings.split(",") if re.search(r'(\d+)%', h) and int(re.search(r'(\d+)%', h).group(1)) > 15]) + " - these positions are too large (>15% each). Single-stock risk is excessive." if portfolio_top_holdings != "Not specified" and any(int(re.search(r'(\d+)%', h).group(1)) > 15 for h in portfolio_top_holdings.split(',') if re.search(r'(\d+)%', h)) else "Position sizing appears reasonable - no single stock dominates." if portfolio_top_holdings != "Not specified" else "") if portfolio_top_holdings != "Not specified" else ""}
 
-Crisis Positions: {portfolio_crisis_stocks if portfolio_crisis_stocks else "None listed"}. [Recovery likelihood? Should close?]
+{"SECTOR ALLOCATION: " + portfolio_sectors + ". " + ("Sector concentration detected. Diversify across 4-6 different sectors for better risk management." if portfolio_sectors != "Not specified" and any(int(re.search(r'(\d+)%', s).group(1)) > 40 for s in portfolio_sectors.split(',') if re.search(r'(\d+)%', s)) else "Sector diversification appears adequate." if portfolio_sectors != "Not specified" else "") if portfolio_sectors != "Not specified" else ""}
 
-[Provide specific technical commentary on portfolio construction, position sizing, diversification quality, and structural issues]
+{"CRISIS POSITIONS: " + portfolio_crisis_stocks + ". " + ("These positions are BEYOND RECOVERY in most cases. " + ", ".join([stock.strip() for stock in portfolio_crisis_stocks.split(",")[:3]]) + " - recommend closing these immediately. Holding positions down 30-50% hoping for recovery is a classic retail mistake. The capital is better redeployed to working strategies." if portfolio_crisis_stocks and portfolio_crisis_stocks != "None specified" and len(portfolio_crisis_stocks.split(",")) > 0 else "") if portfolio_crisis_stocks and portfolio_crisis_stocks != "None specified" else ""}
+
+{"WORST POSITION: " + portfolio_largest_loss + ". " + ("If this shows >100% loss, you AVERAGED DOWN into a death spiral. This single position likely destroyed your account. Never average down without strict position size limits." if portfolio_largest_loss and portfolio_largest_loss != "Not specified" and ("-277%" in portfolio_largest_loss or "-100%" in portfolio_largest_loss or any(str(pct) in portfolio_largest_loss for pct in range(100, 500))) else "This is a significant loss that should have been cut at -8% to -10% with a stop loss. You let a small problem become a catastrophe." if portfolio_largest_loss and portfolio_largest_loss != "Not specified" else "") if portfolio_largest_loss and portfolio_largest_loss != "Not specified" else ""}
 
 [PSYCH] BEHAVIORAL PORTFOLIO PSYCHOLOGY:
 
-Trading Approach: {portfolio_strategy} with {portfolio_time_horizon} horizon. [Is behavior aligned with stated goals?]
+STRATEGY ALIGNMENT: You claim "{portfolio_strategy}" with "{portfolio_time_horizon}" horizon. {"Your behavior CONTRADICTS your stated strategy. Long-term investors don't panic sell OR hold catastrophic losers. Pick one: either you're a long-term investor (in which case cut losers at -10% and let winners run 3+ years), or you're short-term (in which case use tight stops on everything). Mixing both = guaranteed failure." if portfolio_strategy == "Long-term investing" and total_pnl_pct < -15 else "Your strategy and results are misaligned. " + portfolio_strategy + " with " + portfolio_time_horizon + " should not result in " + str(total_pnl_pct) + "% drawdown." if abs(total_pnl_pct) > 15 else "Strategy appears aligned with results, though execution needs improvement." if abs(total_pnl_pct) > 5 else "Strategy and execution are reasonably aligned."}
 
-Decision-Making Patterns: [Based on crisis positions, worst loss, and description, analyze: Are they holding losers too long? Cutting winners early? FOMO buying? Revenge trading? Averaging down? Emotional attachment?]
+DECISION-MAKING PATTERNS: {"HOPE TRADING DETECTED: Multiple crisis positions suggests you're holding losers waiting for 'recovery' that never comes. This is THE #1 retail killer. You cannot accept being wrong, so you hold positions from -10% to -50% to -277%, turning small mistakes into account-destroying catastrophes. BREAK THIS PATTERN OR GO TO ZERO." if portfolio_crisis_stocks and portfolio_crisis_stocks != "None specified" and len(portfolio_crisis_stocks.split(",")) >= 3 else "LOSS AVERSION: You're likely holding losers too long (evidence: " + str(total_pnl_pct) + "% drawdown). Most retail traders cut winners at +5% but hold losers to -50%. Do the opposite." if total_pnl_pct < -10 else "Moderate loss aversion detected. Tighten stop discipline." if total_pnl_pct < -5 else "Decision-making appears rational."}
 
-Discipline Assessment: [Evidence of trading plan? Stop loss usage? Position sizing rules? Or hope-based investing?]
+EXIT DISCIPLINE: {"COMPLETE FAILURE: Zero evidence of stop loss usage. Every losing position was held to catastrophic levels. This is not investing, it's hope-based gambling. You MUST implement mechanical stop losses at -8% on EVERY position or you will lose everything." if total_pnl_pct < -20 else "POOR DISCIPLINE: Your " + str(total_pnl_pct) + "% loss indicates you're not cutting losers quickly enough. Where are your stop losses? Clearly not being used." if total_pnl_pct < -10 else "EXIT WEAKNESS: " + str(total_pnl_pct) + "% suggests late exits. Implement 8-10% stop losses." if total_pnl_pct < -5 else "Exit discipline appears adequate but can improve." if total_pnl_pct < 0 else "Exit discipline is good - protecting capital effectively."}
 
-{portfolio_leverage} - [If using leverage, address the psychological impact and risk]
-
-[Analyze the trader's MINDSET and behavioral patterns visible in portfolio structure]
+EMOTIONAL ATTACHMENT: {portfolio_num_positions} positions suggests {"you're either collecting stocks emotionally or can't let go of losers. Both are fatal flaws. Quality over quantity - own 8-12 stocks you KNOW deeply, not 30+ you can't track." if portfolio_num_positions > 25 else "possible over-trading or inability to consolidate. Focus on your best 10-15 ideas." if portfolio_num_positions > 15 else "a focused approach, which is good." if portfolio_num_positions <= 15 else "extreme concentration - too few positions for adequate diversification."}
 
 [RISK] COMPREHENSIVE RISK ASSESSMENT:
 
-Portfolio Drawdown: {total_pnl_pct:.2f}% = [CATASTROPHIC/SEVERE/MAJOR/CONCERNING/MINOR/ACCEPTABLE]
+DRAWDOWN SEVERITY: {total_pnl_pct:.2f}% = {"CATASTROPHIC EMERGENCY - portfolio in death spiral. At this level, even a 100% gain only gets you to -" + str(abs(total_pnl_pct/2)) + "%. Recovery requires " + str(round(abs(total_pnl_pct)/(100+abs(total_pnl_pct))*100, 1)) + "% gain, which at realistic 15% annual returns takes " + str(round(abs(total_pnl_pct)/(100+abs(total_pnl_pct))*100/15, 1)) + " years. You've lost 3-5 years of wealth building. STOP TRADING IMMEDIATELY." if total_pnl_pct < -30 else "SEVERE CRISIS - need +" + str(round(abs(total_pnl_pct)/(100+abs(total_pnl_pct))*100, 1)) + "% gain to break even, which takes " + str(round(abs(total_pnl_pct)/(100+abs(total_pnl_pct))*100/15, 1)) + " years at 15% returns. Immediate intervention required." if total_pnl_pct < -20 else "MAJOR PROBLEM - need +" + str(round(abs(total_pnl_pct)/(100+abs(total_pnl_pct))*100, 1)) + "% to recover. 12-18 month recovery timeline IF you fix mistakes." if total_pnl_pct < -10 else "CONCERNING - need +" + str(round(abs(total_pnl_pct)/(100+abs(total_pnl_pct))*100, 1)) + "% to break even. Fixable but requires discipline changes." if total_pnl_pct < -5 else "MINOR ISSUE - still close to breakeven" if total_pnl_pct < 0 else "PROFITABLE - maintaining capital effectively"}
 
-Position Sizing: Avg {100/portfolio_num_positions if portfolio_num_positions > 0 else 0:.1f}% per position with {portfolio_num_positions} holdings. [Assessment of sizing discipline]
+POSITION SIZING: With {portfolio_num_positions} positions, optimal would be ~{round(100/portfolio_num_positions, 1) if portfolio_num_positions > 0 else 0}% per position (₹{portfolio_current_value*0.01*100/portfolio_num_positions if portfolio_num_positions > 0 else 0:,.0f} each). {"But your crisis positions show MASSIVE oversizing then averaging down. This is the killer - you put too much in one stock, it goes down, you add more ('averaging down'), and turn a -10% position into -50% or -277% disaster. NEVER average down unless position is <2% of portfolio." if portfolio_largest_loss and portfolio_largest_loss != "Not specified" and any(str(pct) in portfolio_largest_loss for pct in ["-50%", "-100%", "-277%", "-200%"]) else "Your crisis positions suggest poor sizing discipline. Rule: Never risk >2% of portfolio on single position." if portfolio_crisis_stocks and portfolio_crisis_stocks != "None specified" else "Position sizing appears reasonable but verify each position is 1-5% of total."}
 
-Leverage Risk: {portfolio_leverage}. [If using margin/futures/options, this is RED FLAG - quantify danger]
+LEVERAGE ASSESSMENT: {portfolio_leverage}. {"🚨 LEVERAGE IN CRISIS = ACCOUNT DEATH SENTENCE. You're borrowing money to lose money. Close ALL margin positions NOW. Pay off margin. Go 100% cash only. Leverage turns -20% into -40%, -30% into -60%. You're playing Russian roulette." if ("Margin" in portfolio_leverage or "Futures" in portfolio_leverage or "Options" in portfolio_leverage) and total_pnl_pct < -15 else "⚠️ Using leverage with losses is extremely dangerous. Reduce leverage to zero until profitable." if ("Margin" in portfolio_leverage or "Futures" in portfolio_leverage) and total_pnl_pct < 0 else "Using leverage while profitable - monitor closely, can turn gains to catastrophic losses quickly." if "Margin" in portfolio_leverage or "Futures" in portfolio_leverage else "No leverage detected - this is GOOD. Never use margin unless you have 5+ years experience and strict risk rules."}
 
-Concentration Risk: [Based on top holdings and sector allocation, assess if too concentrated]
+STOP LOSS IMPLEMENTATION: {"ZERO EVIDENCE. Your portfolio proves you don't use stops. If you did, no position would be down >10%. Crisis positions at -30%, -50%, even -277% prove you HOPE for recovery instead of cutting losses. This is the #1 reason 90% of retail traders lose money. Implement 8% stop losses on EVERYTHING or quit trading." if total_pnl_pct < -15 else "CLEARLY NOT USING STOPS. " + str(total_pnl_pct) + "% loss proves this. Every position needs an 8-10% stop loss from entry. When hit, SELL immediately. No hoping, no waiting." if total_pnl_pct < -8 else "WEAK STOP DISCIPLINE. Losses should never exceed 8-10%. You're clearly letting them run too far." if total_pnl_pct < -5 else "Stop discipline appears adequate." if total_pnl_pct < 0 else "Stop discipline is good - protecting capital."}
 
-Stop Loss Implementation: [Based on crisis positions and description, are stops used? If not, bleeding continues]
+CONCENTRATION RISK: {"SEVERE - " + portfolio_top_holdings + ". When one stock is >15% of portfolio and it crashes, your whole account goes down. Rebalance to max 10% per position." if portfolio_top_holdings != "Not specified" and any(int(re.search(r'(\d+)%', h).group(1)) > 15 for h in portfolio_top_holdings.split(',') if re.search(r'(\d+)%', h)) else "MODERATE - verify no single position exceeds 10% of portfolio." if portfolio_top_holdings != "Not specified" else "Position weighting appears reasonable based on available data."}
 
-Recovery Mathematics: To recover {abs(total_pnl_pct):.1f}% loss requires {abs(total_pnl_pct)/(100+total_pnl_pct)*100 if total_pnl_pct < 0 else 0:.1f}% gain. Timeline: [Estimate 6mo/12mo/18mo/24mo+]
-
-[Provide specific risk metrics and quantified danger assessment]
+ONGOING BLEEDING: Without stop losses, {"your losses will CONTINUE to grow. " + (portfolio_crisis_stocks.split(",")[0].strip() if portfolio_crisis_stocks and portfolio_crisis_stocks != "None specified" else "Your worst positions") + " can go from -" + str(abs(int(total_pnl_pct))) + "% to -" + str(abs(int(total_pnl_pct))+20) + "%, -" + str(abs(int(total_pnl_pct))+40) + "%. Markets don't care about your 'hold for recovery' plan. Stocks can go to ZERO." if total_pnl_pct < -10 else "losses may continue growing without intervention." if total_pnl_pct < 0 else "continued protection is needed to maintain gains."}
 
 [FIX] PORTFOLIO RESTRUCTURING ROADMAP:
 
-IMMEDIATE (Next 24-48 hours):
-1. [Most urgent action - usually investigate leverage, close worst positions, or stop new trades]
-2. [Second priority - typically implement stops or hedge risks]
-3. [Third priority - usually calculate actual losses and set recovery plan]
+IMMEDIATE (NEXT 24-48 HOURS):
+1. {"CLOSE ALL CRISIS POSITIONS IMMEDIATELY: " + (portfolio_crisis_stocks if portfolio_crisis_stocks and portfolio_crisis_stocks != "None specified" else "Any position >30% loss") + ". These are beyond recovery. Accept the loss, free up capital, move on. Holding for 'recovery' is a proven losing strategy." if portfolio_crisis_stocks and portfolio_crisis_stocks != "None specified" else "STOP OPENING NEW POSITIONS. You're in crisis mode. Go 50% cash immediately." if total_pnl_pct < -15 else "CLOSE WORST 3 POSITIONS: " + (portfolio_largest_loss if portfolio_largest_loss != "Not specified" else "Your biggest losers") + ". Stop the bleeding." if total_pnl_pct < -10 else "AUDIT ALL POSITIONS: Identify any position >-8% and decide: cut now or set stop loss at current price -5%." if total_pnl_pct < -5 else "IMPLEMENT STOPS: Add 8% stop loss to EVERY position today."}
 
-SHORT TERM (1-4 weeks):
-1. [Position reduction/consolidation - specific numbers]
-2. [Stop loss implementation - specific % levels]
-3. [Sector rebalancing if needed]
-4. [Close beyond-recovery positions]
+2. {"ELIMINATE ALL LEVERAGE: If using margin, futures, or options - CLOSE THEM. Pay off margin balance. Go 100% cash-only trading. Leverage turns losses catastrophic." if "Margin" in portfolio_leverage or "Futures" in portfolio_leverage or "Options" in portfolio_leverage else "STOP ALL NEW TRADES: No new positions until you've implemented stops on existing holdings and understand WHY you lost money." if total_pnl_pct < -10 else "GO 50% CASH: Raise cash by closing weakest positions. Give yourself breathing room." if total_pnl_pct < -5 else "RAISE 20% CASH: Reduce exposure slightly as safety buffer."}
 
-LONG TERM (1-6 months):
-1. [Complete portfolio restructuring strategy]
-2. [Education/skill development needs]
-3. [New risk management framework]
-4. [Psychology reset and habit building]
+3. {"CALCULATE TRUE DAMAGE: You have ₹{portfolio_current_value:,.0f} left from ₹{portfolio_total_invested:,.0f}. That's ₹{abs(total_pnl):,.0f} GONE. Write this number down. This is the cost of not using stop losses. Never forget it." if total_pnl < 0 else "PROTECT GAINS: You're ₹{total_pnl:,.0f} up. Implement stops to protect this or you'll give it all back." if total_pnl > 0 else "REBALANCE: Trim largest positions, add to best ideas, ensure proper diversification."}
 
-Position Sizing Rule Going Forward: Risk no more than 1-2% per position (₹{portfolio_total_invested*0.02:,.0f} max per trade)
+SHORT TERM (1-4 WEEKS):
+1. {"REDUCE TO 10 POSITIONS MAXIMUM: You cannot properly manage " + str(portfolio_num_positions) + " stocks. Pick your 10 BEST ideas (highest conviction + still viable). Sell the rest. Yes, you'll take losses. TAKE THEM. This is how you recover." if portfolio_num_positions > 15 else "CONSOLIDATE TO 8-12 CORE HOLDINGS: Focus on quality over quantity. Each position should be one you'd be comfortable putting 10% of portfolio into." if portfolio_num_positions > 12 else "INCREASE TO 8-10 POSITIONS: You need better diversification. Add 2-3 new positions in different sectors."}
 
-[STRENGTH] [Find something positive even in disaster: diversification across sectors? at least some winners? closed positions before -100%? still has capital to recover?]
+2. IMPLEMENT 8% STOP LOSS RULE: Every single position gets a stop loss at -8% from current price. NO EXCEPTIONS. When price hits stop = SELL IMMEDIATELY. No hoping, no "I'll wait one more day", no checking news. Mechanical execution only. This rule alone would have saved you ₹{abs(total_pnl)*0.6:,.0f}.
 
-[CRITICAL_ERROR] [The single biggest portfolio-level mistake: usually no stops, concentration, leverage, or holding losers. Be specific with numbers/names]
+3. {"SECTOR REBALANCING: " + (portfolio_sectors if portfolio_sectors != "Not specified" else "Diversify across 5-6 sectors") + ". Don't put >30% in any single sector. When one sector crashes (like it did), you want other sectors to cushion." if portfolio_sectors != "Not specified" else "MAP YOUR SECTORS: Categorize all positions. Ensure spread across Tech, Finance, Healthcare, Consumer, Industrial. Max 30% per sector."}
+
+4. CLOSE POSITIONS BEYOND RECOVERY: {"Any position >50% loss is statistically unlikely to recover to breakeven in <2 years. " + (portfolio_crisis_stocks.split(",")[0].strip() if portfolio_crisis_stocks and portfolio_crisis_stocks != "None specified" else "Your worst positions") + " - let them go. Redeploy capital to working strategies." if portfolio_crisis_stocks and portfolio_crisis_stocks != "None specified" or total_pnl_pct < -20 else "Positions >30% loss should be evaluated: is recovery realistic? If not, close and redeploy capital."}
+
+LONG TERM (1-6 MONTHS):
+1. COMPLETE PORTFOLIO REBUILD: Target 8-12 positions, each 8-12% of portfolio. 5-6 different sectors. No leverage. 8% stop loss on everything. {portfolio_strategy} approach with {portfolio_time_horizon} horizon means you should be holding quality companies and cutting losers ruthlessly.
+
+2. EDUCATION - READ THESE BOOKS:
+   • "Trade Your Way to Financial Freedom" by Van Tharp (position sizing & stops)
+   • "Market Wizards" by Jack Schwager (how pros manage risk)
+   • "The Disciplined Trader" by Mark Douglas (trading psychology)
+   Understanding: Your -277% position started as -5%. You didn't cut it. That's the lesson.
+
+3. NEW RISK MANAGEMENT FRAMEWORK:
+   • Max 2% risk per position (₹{portfolio_current_value*0.02:,.0f})
+   • 8% stop loss on every position
+   • If down >3% in a month, STOP trading for 2 weeks
+   • Max 10-12 positions ever
+   • No averaging down unless position <2% of portfolio
+   • Cut ALL losers at -8%, no exceptions
+
+4. PSYCHOLOGY RESET: You need to INTERNALIZE that taking small losses is SUCCESS. Cutting a -8% loss BEFORE it becomes -277% is a WIN. Professional traders lose money on 40-50% of their trades. They win by cutting losses small (8%) and letting winners run (50%+). You do the OPPOSITE - you hold losers to -50% and probably cut winners at +5%. Reverse this behavior or quit trading.
+
+POSITION SIZING RULE GOING FORWARD: Risk no more than 1-2% of portfolio per trade (₹{portfolio_current_value*0.02:,.0f} max loss per position). If entry is ₹100 and stop is ₹92 (8% risk), you can only buy ₹{portfolio_current_value*0.02/8*100:,.0f} worth of shares. This math SAVES ACCOUNTS.
+
+[STRENGTH] {"You still have ₹" + f"{portfolio_current_value:,.0f}" + " left. It's not zero. You haven't been completely wiped out. You recognized the problem and sought analysis - that's more than 80% of retail traders do before going to zero. " + ("Diversification across sectors prevented total loss - if you'd been 100% in " + (portfolio_crisis_stocks.split(",")[0].strip() if portfolio_crisis_stocks and portfolio_crisis_stocks != "None specified" else "one sector") + ", you'd be at -50%+. " if portfolio_sectors != "Not specified" or (portfolio_crisis_stocks and portfolio_crisis_stocks != "None specified") else "") + ("At least you closed some positions before -100% - shows some survival instinct. " if portfolio_largest_loss and "-100%" not in portfolio_largest_loss else "") + ("You have " + str(portfolio_num_positions) + " positions which shows you're actively engaged in markets, just need to cut that to 10-12 and add discipline. " if portfolio_num_positions > 8 else "") + "The capital you have left CAN recover if you implement the fixes above. Many traders have come back from worse." if total_pnl_pct > -50 else "You still have breathing room to recover."}
+
+[CRITICAL_ERROR] {"COMPLETE ABSENCE OF STOP LOSS DISCIPLINE. This is your #1 killer. " + (portfolio_largest_loss if portfolio_largest_loss != "Not specified" else "Your biggest loss") + " - this position should have been stopped at -8% to -10% for a small loss. Instead, you held it, probably AVERAGED DOWN (buying more as it fell), and turned a ₹500-1000 loss into a ₹" + str(abs(int(total_pnl*0.3))) + "+ catastrophe. Same with " + (portfolio_crisis_stocks.split(",")[0].strip() if portfolio_crisis_stocks and portfolio_crisis_stocks != "None specified" else "your other losing positions") + ". You let small fires become forest fires. EVERY professional trader - Warren Buffett, Ray Dalio, Paul Tudor Jones, every single one - uses stop losses. The ones who don't are the ones you never hear about because they blew up. You're currently on the 'blow up' path. Change course NOW or go to zero. This is not hyperbole - this is mathematical certainty. Without stops, you WILL eventually hit a position that goes -80%, -90%, wipes you out. It's not 'if', it's 'when'. FIX THIS FIRST." if total_pnl_pct < -15 else "NO STOP LOSS DISCIPLINE. Your " + str(total_pnl_pct) + "% loss proves you're not cutting losers. This is not a stock-picking problem, it's a RISK MANAGEMENT problem. You could pick perfect stocks and still lose money by holding losers too long. Implement 8% stops on everything TODAY." if total_pnl_pct < -8 else "POSITION SIZING FAILURE. " + ("You have " + str(portfolio_num_positions) + " positions which is unmanageable. " if portfolio_num_positions > 20 else "") + "Focus on your best 8-12 ideas with proper sizing (8-12% each). Quality beats quantity in investing." if portfolio_num_positions > 20 or portfolio_num_positions < 6 else "WEAK EXIT DISCIPLINE. You're letting losses run too far. Cut losers at -8% maximum. This is your primary area for improvement."}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-CRITICAL RULES:
-- If drawdown >30%, score MUST be 0-15, grade F
-- If leverage + crisis, increase severity dramatically
-- Be specific with numbers from provided data
-- Recovery timeline must be realistic based on drawdown
-- If crisis positions listed, address them specifically by name
-- Focus on PORTFOLIO MANAGEMENT not stock picking
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
+CRITICAL RULES FOR THIS ANALYSIS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. USE THE PROVIDED NUMBERS: {total_pnl_pct:.2f}%, {portfolio_num_positions} positions, etc.
+2. If drawdown >20%: Score MUST be 0-25, Grade F, CATASTROPHIC language
+3. If leverage + crisis: Score -10 additional points, EMERGENCY warnings
+4. Reference ACTUAL crisis stocks provided: {portfolio_crisis_stocks}
+5. Be SPECIFIC with numbers - not vague
+6. Focus on RISK MANAGEMENT not stock picking
+7. This is about PORTFOLIO HEALTH not individual stocks
+8. Recovery math must be realistic (don't promise fast recovery from -30%)
+9. NEVER apologize for harshness - this person needs brutal truth
+10. Make it ACTIONABLE - specific steps, not platitudes
+
+Remember: You're analyzing their ENTIRE portfolio approach and risk management. Their biggest problem is ALWAYS going to be related to stop losses, position sizing, or emotional attachment to losing positions. Hit these HARD.
+"""
                     
                     # Run analysis
                     with st.spinner("🔬 Running Deep Portfolio Analysis... This may take 30-60 seconds..."):
@@ -2314,7 +2350,8 @@ CRITICAL RULES:
                     <div class="upload-text">Upload Trading Chart for Deep Analysis</div>
                     <div class="upload-subtext">Supports PNG, JPG (Max 10MB). Our AI analyzes price action, risk metrics, and behavioral patterns.</div>
                 </div>
-                """, unsafe_allow_html=True)
+                """
+                            """, unsafe_allow_html=True)
             
                 uploaded_file = st.file_uploader(
                     "Upload Chart Screenshot", 
