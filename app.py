@@ -1757,22 +1757,22 @@ THIS IS GROUND TRUTH DATA. Analyze based on these exact values.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
 
-# ==========================================
-# CALCULATION BLOCK (Add this before the prompt)
-# ==========================================
-total_pnl = portfolio_current_value - portfolio_total_invested
-total_pnl_pct = (total_pnl / portfolio_total_invested * 100) if portfolio_total_invested > 0 else 0
-
-# Safe defaults for missing variables (prevents crashes)
-if 'portfolio_num_positions' not in locals(): portfolio_num_positions = 0
-if 'portfolio_largest_loss' not in locals(): portfolio_largest_loss = "Not specified"
-if 'portfolio_largest_gain' not in locals(): portfolio_largest_gain = "Not specified"
+                    # ==========================================
+                    # CALCULATION BLOCK (Add this before the prompt)
+                    # ==========================================
+                    # Note: total_pnl and total_pnl_pct already calculated above at line 1712-1713
+                    
+                    # Safe defaults for missing variables (prevents crashes)
+                    if 'portfolio_num_positions' not in locals(): portfolio_num_positions = 0
+                    if 'portfolio_largest_loss' not in locals(): portfolio_largest_loss = "Not specified"
+                    if 'portfolio_largest_gain' not in locals(): portfolio_largest_gain = "Not specified"
+                    
                     # COMPREHENSIVE PORTFOLIO ANALYSIS PROMPT
                     # ================================================================================================
-# UNIVERSAL PORTFOLIO ANALYSIS PROMPT - WORKS FOR ANY PORTFOLIO
-# ================================================================================================
+                    # UNIVERSAL PORTFOLIO ANALYSIS PROMPT - WORKS FOR ANY PORTFOLIO
+                    # ================================================================================================
 
-portfolio_prompt = f"""You are Ray Dalio's chief risk analyst. Analyze this portfolio with institutional-grade precision.
+                    portfolio_prompt = f"""You are Ray Dalio's chief risk analyst. Analyze this portfolio with institutional-grade precision.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 STEP 1: READ THE DATA CAREFULLY
@@ -1841,7 +1841,7 @@ STEP 3: OUTPUT FORMAT (EXACT - NO DEVIATION)
     "Leverage_Risk" if "Margin" in portfolio_leverage or "Futures" in portfolio_leverage else "",
     "No_Clear_Strategy" if portfolio_strategy == "No clear strategy" else "",
     "Multiple_Losers" if portfolio_crisis_stocks and portfolio_crisis_stocks != "None specified" else "",
-    "Concentration_Risk" if portfolio_top_holdings and any(int(re.search(r'(\d+)%', h).group(1)) > 15 for h in portfolio_top_holdings.split(',') if re.search(r'(\d+)%', h)) if portfolio_top_holdings != "Not specified" else False else "",
+    "Concentration_Risk" if (portfolio_top_holdings and portfolio_top_holdings != "Not specified" and any(int(re.search(r'(\d+)%', h).group(1)) > 15 for h in portfolio_top_holdings.split(',') if re.search(r'(\d+)%', h))) else "",
     "Exit_Discipline_Failure" if total_pnl_pct < -15 else "",
     "Good_Diversification" if 8 <= portfolio_num_positions <= 20 else "",
     "Profitable_Portfolio" if total_pnl_pct > 0 else ""
@@ -2351,7 +2351,7 @@ Remember: You're analyzing their ENTIRE portfolio approach and risk management. 
                     <div class="upload-subtext">Supports PNG, JPG (Max 10MB). Our AI analyzes price action, risk metrics, and behavioral patterns.</div>
                 </div>
                 """
-                            """, unsafe_allow_html=True)
+                , unsafe_allow_html=True)
             
                 uploaded_file = st.file_uploader(
                     "Upload Chart Screenshot", 
