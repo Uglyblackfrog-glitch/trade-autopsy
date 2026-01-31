@@ -1381,7 +1381,7 @@ def generate_insights(df):
     if not insights:
         insights.append(f"📊 Portfolio analyzed: {total_trades} trades, {avg_score:.1f}/100 avg score. Collect more data for detailed insights.")
     
-return insights
+        return insights
 
 def call_vision_api(prompt, img_b64, max_retries=2):
     """Call vision API with retry logic and better error handling"""
