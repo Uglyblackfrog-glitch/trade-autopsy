@@ -14,12 +14,17 @@ import uuid
 # ==========================================
 # PAGE CONFIG
 # ==========================================
-st.set_page_config(
-    page_title="StockPostmortem.ai",
-    page_icon="🩸",
-    layout="wide",
-    initial_sidebar_state="collapsed"
-)
+# Ideally, set_page_config should be called in the main app file,
+# but keeping it here maintains your current structure.
+try:
+    st.set_page_config(
+        page_title="StockPostmortem.ai",
+        page_icon="🩸",
+        layout="wide",
+        initial_sidebar_state="collapsed"
+    )
+except:
+    pass
 
 # ==========================================
 # USER CREDENTIALS
@@ -33,18 +38,24 @@ USERS = {
 # ==========================================
 # SESSION STATE INIT
 # ==========================================
-if "authenticated" not in st.session_state:
-    st.session_state["authenticated"] = False
-    st.session_state["user"] = None
-    st.session_state["current_page"] = "analyze"
+def init_session():
+    """
+    Initialize session state variables. 
+    IMPORTANT: This function must be called explicitly in app.py 
+    to ensure it runs on every script execution.
+    """
+    if "authenticated" not in st.session_state:
+        st.session_state["authenticated"] = False
+        st.session_state["user"] = None
+        st.session_state["current_page"] = "analyze"
 
-# Check for URL parameters
-try:
-    params = st.query_params
-    if "page" in params:
-        st.session_state["current_page"] = params["page"]
-except:
-    pass
+    # Check for URL parameters
+    try:
+        params = st.query_params
+        if "page" in params:
+            st.session_state["current_page"] = params["page"]
+    except:
+        pass
 
 # ==========================================
 # LOGIN / LOGOUT
