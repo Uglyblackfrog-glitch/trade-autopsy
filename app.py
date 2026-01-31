@@ -15,90 +15,394 @@ from pages_portfolio import render_portfolio_page
 # ==========================================
 inject_css()
 
-# ==========================================
-# LOGIN GATE
-# ==========================================
-if not st.session_state["authenticated"]:
-    st.markdown("""
-    <div class="login-container">
-        <div class="login-logo">🩸</div>
-        <h1 style="margin: 0 0 10px 0; font-size: 2.2rem; font-weight: 800; letter-spacing: -0.02em; position: relative; z-index: 1;">StockPostmortem</h1>
-        <p style="color: #6b7280; font-size: 0.8rem; margin-bottom: 48px; letter-spacing: 3px; text-transform: uppercase; position: relative; z-index: 1;">Algorithmic Behavioral Forensics</p>
-    </div>
-    """, unsafe_allow_html=True)
 
-    c1, c2, c3 = st.columns([1, 1.2, 1])
-    with c2:
-        with st.form("login_form"):
-            st.text_input("Operator ID", key="username_input", placeholder="Enter your ID")
-            st.text_input("Access Key", type="password", key="password_input", placeholder="Enter your key")
-            submitted = st.form_submit_button("INITIALIZE TERMINAL", type="primary", use_container_width=True)
-            if submitted:
-                check_login(st.session_state.username_input, st.session_state.password_input)
+# ============================================================
+# ALL PAGE / HELPER FUNCTIONS — defined BEFORE top-level routing
+# ============================================================
 
-# ==========================================
-# AUTHENTICATED DASHBOARD
-# ==========================================
-else:
-    # One-time DB/API init per session
-    if "db_initialized" not in st.session_state:
-        config.init_db_and_api()
-        st.session_state["db_initialized"] = True
+# ─────────────────────────────────────────────────────
+# PROMPT BUILDERS  (pure functions — no side effects)
+# ─────────────────────────────────────────────────────
 
-    current_user = st.session_state["user"]
+def _build_text_param_prompt(ticker, setup_type, emotion, entry, exit_price, stop, notes):
+    pnl = exit_price - entry if exit_price > 0 and entry > 0 else 0
+    pnl_pct = (pnl / entry * 100) if entry > 0 else 0
+    risk = abs(entry - stop) if stop > 0 and entry > 0 else 0
+    risk_pct = (risk / entry * 100) if entry > 0 else 0
+    reward = abs(exit_price - entry) if exit_price > 0 and entry > 0 else 0
+    rr_ratio = (reward / risk) if risk > 0 else 0
 
-    if "current_page" not in st.session_state:
-        st.session_state["current_page"] = "analyze"
+    # Determine the correct severity band from the actual numbers
+    if pnl_pct <= -50:
+        severity_note = "This is a CATASTROPHIC loss. Score MUST be 0-5. Grade MUST be F."
+    elif pnl_pct <= -30:
+        severity_note = "This is a SEVERE loss. Score MUST be 5-15. Grade MUST be F."
+    elif pnl_pct <= -10:
+        severity_note = "This is a MAJOR loss. Score MUST be 15-35. Grade MUST be D."
+    elif pnl_pct < 0:
+        severity_note = "This is a small loss. Score should be 35-55 depending on risk management quality. Grade C or D."
+    elif pnl_pct == 0:
+        severity_note = "Breakeven trade. Score 40-60 depending on execution. Grade C."
+    elif pnl_pct <= 5:
+        severity_note = "Small profit. Score 55-70 depending on how well risk was managed. Grade B or C."
+    else:
+        severity_note = "Profitable trade. Score 65-90 based on execution quality and R:R achievement. Grade A or B."
 
-    current_page = st.session_state.get("current_page", "analyze")
+    return f"""Analyze this trade using institutional-grade frameworks. Output ONLY the tagged sections below — no extra commentary.
 
-    # ── NAVBAR ──
+TRADE DATA:
+Ticker: {ticker}
+Setup Type: {setup_type}
+Emotional State at Entry: {emotion}
+Entry Price: ${entry:.2f}
+Exit Price: ${exit_price:.2f}
+Stop Loss: ${stop:.2f}
+
+CALCULATED METRICS:
+P&L: ${pnl:.2f} ({pnl_pct:+.2f}%)
+Risk (Entry to Stop): ${risk:.2f} ({risk_pct:.2f}% of entry)
+Reward (Entry to Exit): ${reward:.2f}
+Risk/Reward Ratio: {rr_ratio:.2f}:1
+Notes from trader: {notes if notes else "None provided"}
+
+SEVERITY CALIBRATION (USE THIS TO SET YOUR SCORE):
+{severity_note}
+
+SCORING RULES:
+- Score is 0-100. It measures OVERALL trade quality including P&L outcome, risk management, entry timing, and exit discipline.
+- Entry Quality (0-100): How good was the entry? Was it at support? Did the setup confirm? Was it premature?
+- Exit Quality (0-100): How was the exit managed? Did they hit their target? Did they hold too long? Did they cut losses properly?
+- Risk Score (0-100): How well was risk managed? Was the stop tight and logical? Was position sizing appropriate? Did they risk more than 2% of account?
+- A trade can have good Entry Quality but terrible Exit Quality (held a winner into a loser).
+- R:R below 1:1 on a losing trade = poor risk setup. R:R above 2:1 on a winner = excellent.
+- If stop was hit, Exit Quality should reflect whether the stop was placed correctly (good) or was too far (bad).
+- If emotional state is FOMO or Revenge, this MUST appear in tags and reduce the score.
+
+OUTPUT FORMAT — produce EXACTLY these tags, nothing else:
+
+[SCORE] {int(max(0, min(100, 50 + pnl_pct * 0.5)))}
+[OVERALL_GRADE] C
+[ENTRY_QUALITY] 50
+[EXIT_QUALITY] 50
+[RISK_SCORE] 50
+[TAGS] tag1, tag2, tag3
+
+[TECH] Technical analysis: entry timing relative to price action, stop placement logic, R:R ratio assessment ({rr_ratio:.2f}:1), setup execution quality for a {setup_type} trade. Reference the actual numbers: entry ${entry:.2f}, exit ${exit_price:.2f}, stop ${stop:.2f}, P&L {pnl_pct:+.2f}%.
+
+[PSYCH] Psychology assessment: impact of {emotion} state on this trade. Identify cognitive biases present. Was decision-making rational or emotional?
+
+[RISK] Risk management: account risk with ${risk:.2f} stop distance ({risk_pct:.2f}%), position sizing discipline, stop loss effectiveness. If stop was breached or not used, flag it.
+
+[FIX] Three specific, actionable improvements:
+1. [Entry timing fix]
+2. [Risk/exit management fix]  
+3. [Psychology/discipline fix]
+
+[STRENGTH] What was done well in this trade, if anything.
+
+[CRITICAL_ERROR] The single biggest mistake. Be specific with numbers.
+
+IMPORTANT: Replace the placeholder values above with your actual analysis. The [SCORE] line above is just a starting reference — adjust based on the severity calibration and your full assessment."""
+
+
+def _build_chart_vision_prompt(manual_context=""):
+    return f"""You are analyzing a trading screenshot. Read the image carefully and extract exact numbers.
+
+STEP 1 — IDENTIFY THE IMAGE TYPE:
+Look at the screenshot. Is this:
+A) A SINGLE TRADE chart (one ticker, candlesticks or line, entry/exit marked)
+B) A PORTFOLIO VIEW (multiple stocks listed with individual P&L)
+C) A BROKER DASHBOARD (account summary with total P&L)
+
+STEP 2 — EXTRACT EXACT NUMBERS FROM THE IMAGE:
+Read these values directly off the screen. Do NOT guess or make up numbers.
+- Ticker symbol (top left usually)
+- P&L amount (look for "P/L", "Profit/Loss", "Unrealised", "Total Return")
+- P&L percentage
+- Price range on Y-axis
+- Number of positions (if portfolio view)
+
+{manual_context}
+
+STEP 3 — DETERMINE SEVERITY FROM THE ACTUAL NUMBERS YOU READ:
+IF total loss > 50%: CATASTROPHIC. Score 0-5, Grade F.
+IF total loss 30-50%: SEVERE CRISIS. Score 5-15, Grade F.
+IF total loss 10-30%: MAJOR PROBLEM. Score 15-35, Grade D.
+IF total loss 2-10%: MINOR ISSUE. Score 35-55, Grade C.
+IF breakeven or small profit: Score 55-75, Grade B or C.
+IF solid profit >5%: Score 70-90, Grade A or B.
+
+STEP 4 — PRODUCE OUTPUT:
+Use ONLY these tagged sections. No preamble, no extra text.
+
+[SCORE] <number 0-100 based on severity from Step 3>
+[OVERALL_GRADE] <F/D/C/B/A/S-Tier>
+[ENTRY_QUALITY] <0-100>
+[EXIT_QUALITY] <0-100>
+[RISK_SCORE] <0-100>
+[TAGS] <3-6 comma-separated tags describing what you see>
+
+[TECH] Start with: "Ticker: [exact ticker]. P&L: [exact amount] ([exact %])." Then analyze: price action, entry/exit points if visible, support/resistance levels from the chart, volume if visible. If portfolio view, list the worst 3 positions with their losses.
+
+[PSYCH] Behavioral analysis: what does this trade/portfolio reveal about decision-making? Look for: holding losers, cutting winners early, overleveraging, ignoring stops, chasing entries.
+
+[RISK] Risk assessment: position sizing, stop loss usage (visible on chart?), drawdown from peak, leverage indicators. Calculate: if this loss required X% gain to recover, state that explicitly.
+
+[FIX] Three specific improvements:
+1. [What to change about entries]
+2. [What to change about exits/stops]
+3. [What to change about position sizing/risk]
+
+[STRENGTH] Anything done correctly.
+
+[CRITICAL_ERROR] The single biggest mistake visible in this image. Be specific.
+
+RULES:
+- Use ONLY numbers you actually see in the image. If you cannot read a number clearly, say "unclear" — do NOT fabricate.
+- If the user provided manual overrides above, USE those numbers as ground truth.
+- Keep output concise and factual. No fluff."""
+
+
+def _build_portfolio_context(total_invested, current_value, total_pnl, total_pnl_pct,
+                             num_positions, largest_loss, largest_gain, crisis_stocks, description):
+    return f"""PORTFOLIO DATA (GROUND TRUTH — use these exact numbers):
+Total Invested: {total_invested:,.2f}
+Current Value: {current_value:,.2f}
+Total P&L: {total_pnl:,.2f} ({total_pnl_pct:+.2f}%)
+Number of Positions: {num_positions}
+Worst Position: {largest_loss if largest_loss else "Not specified"}
+Best Position: {largest_gain if largest_gain else "Not specified"}
+Crisis Positions (>30% loss): {crisis_stocks if crisis_stocks else "None listed"}
+Additional Context: {description if description else "None provided"}"""
+
+
+def _build_inline_portfolio_prompt(portfolio_context, total_pnl, total_pnl_pct, num_positions,
+                                   largest_loss, largest_gain, crisis_stocks,
+                                   description, total_invested):
+    # Pre-calculate severity for the prompt
+    if total_pnl_pct <= -50:
+        severity = "CATASTROPHIC EMERGENCY. Score MUST be 0-5. Grade MUST be F."
+    elif total_pnl_pct <= -30:
+        severity = "SEVERE CRISIS. Score MUST be 5-15. Grade MUST be F."
+    elif total_pnl_pct <= -20:
+        severity = "MAJOR PROBLEM. Score MUST be 15-30. Grade MUST be D."
+    elif total_pnl_pct <= -10:
+        severity = "CONCERNING. Score MUST be 30-50. Grade MUST be C."
+    elif total_pnl_pct <= -5:
+        severity = "MINOR ISSUE. Score 50-65. Grade B or C."
+    elif total_pnl_pct <= 0:
+        severity = "BREAKEVEN or marginal loss. Score 55-70. Grade B or C."
+    else:
+        severity = "PROFITABLE portfolio. Score 70-90 based on risk management quality. Grade A or B."
+
+    avg_position_pct = 100 / num_positions if num_positions > 0 else 100
+    recovery_needed = (abs(total_pnl) / (total_invested + total_pnl) * 100) if (total_invested + total_pnl) > 0 and total_pnl < 0 else 0
+
+    return f"""Analyze this investment portfolio. Output ONLY the tagged sections below.
+
+{portfolio_context}
+
+SEVERITY CALIBRATION (USE THIS — it is calculated from the actual numbers):
+Portfolio drawdown: {total_pnl_pct:+.2f}%
+Severity: {severity}
+Recovery math: To recover from current value, portfolio needs to gain {recovery_needed:.1f}%.
+Average position size: {avg_position_pct:.1f}% (with {num_positions} positions).
+
+SCORING FRAMEWORK:
+- Score (0-100): Overall portfolio health. Driven primarily by drawdown severity above.
+- Entry Quality (0-100): Average quality of position entries across the portfolio. If crisis positions exist, this pulls the average down.
+- Exit Quality (0-100): Discipline in managing exits. If holding multiple big losers with no stops, this should be very low (10-25). If some positions were trimmed at losses, slightly higher.
+- Risk Score (0-100): Quality of risk management. Position sizing, diversification, stop usage, leverage. If drawdown >20%, this MUST be below 30.
+
+TAGS to choose from (pick 4-7 that apply):
+Portfolio_Crisis, Overleveraged, No_Stops, Concentration_Risk, Over_Diversified, Sector_Concentration, Multiple_Losers, Exit_Failure, Hope_Trading, Good_Diversification, Disciplined_Stops, Recovery_Possible, Capital_Destruction
+
+OUTPUT — produce EXACTLY these sections:
+
+[SCORE] <0-100>
+[OVERALL_GRADE] <F/D/C/B/A/S-Tier>
+[ENTRY_QUALITY] <0-100>
+[EXIT_QUALITY] <0-100>
+[RISK_SCORE] <0-100>
+[TAGS] <4-7 tags from list above>
+
+[TECH] Portfolio structure analysis. Start with hard numbers: "{total_pnl_pct:+.2f}% drawdown, {num_positions} positions, {total_invested:,.0f} invested, {total_invested + total_pnl:,.0f} current value." Then: Is {num_positions} positions optimal or over/under-diversified? Analyze concentration risk. Address crisis positions {crisis_stocks if crisis_stocks else "N/A"} specifically — are they recoverable or should they be cut? Best position: {largest_gain if largest_gain else "N/A"}.
+
+[PSYCH] Behavioral analysis of the portfolio. What does the position mix reveal? Evidence of: holding losers too long, cutting winners early, FOMO buying, revenge trading, averaging down, emotional attachment. Reference the actual positions to support your assessment. Strategy: {description[:150] if description else 'Not provided'}.
+
+[RISK] Risk assessment with numbers. Position sizing: average {avg_position_pct:.1f}% per position — is this disciplined? Stop loss evidence: are crisis positions still open with no exit? Concentration: any single position or sector dominating? Recovery timeline: {recovery_needed:.1f}% gain needed — realistically 6mo/12mo/24mo+? Any leverage/margin red flags?
+
+[FIX] Portfolio recovery roadmap:
+IMMEDIATE (24-48h): [Most urgent action — usually cut beyond-recovery positions or stop new trades]
+SHORT TERM (1-4 weeks): [Specific rebalancing, stop implementation, position cuts]
+LONG TERM (1-6 months): [Rebuild strategy, max position size rule: no more than {total_invested * 0.02:,.0f} per trade (2% risk)]
+
+[STRENGTH] What is working or what could have been worse. Be honest — if nothing is working, say so but find the lesson.
+
+[CRITICAL_ERROR] The single biggest portfolio-level mistake. Name specific positions or patterns. Be direct."""
+
+
+# ─────────────────────────────────────────────────────
+# RESULT DISPLAY
+# ─────────────────────────────────────────────────────
+
+def _display_audit_results(report, ticker_val):
+    """Render the animated forensic-audit result cards (shared by all 3 input modes)."""
+
+    if report['score'] >= 80:
+        score_color, grade_color = "#10b981", "rgba(16, 185, 129, 0.2)"
+    elif report['score'] >= 60:
+        score_color, grade_color = "#3b82f6", "rgba(59, 130, 246, 0.2)"
+    elif report['score'] >= 40:
+        score_color, grade_color = "#f59e0b", "rgba(245, 158, 11, 0.2)"
+    else:
+        score_color, grade_color = "#ef4444", "rgba(239, 68, 68, 0.2)"
+
+    # ── HEADER ──
     st.markdown(f"""
-    <div class="premium-navbar">
-        <div class="nav-brand">
-            <div class="nav-logo">🩸</div>
-            <div><div class="nav-title">Trade Autopsy</div></div>
-        </div>
-        <div class="nav-menu">
-            <span class="nav-link {'active' if current_page == 'analyze' else ''}" id="nav_analyze">Analyze</span>
-            <span class="nav-link {'active' if current_page == 'portfolio' else ''}" id="nav_portfolio">Portfolio</span>
-            <span class="nav-link {'active' if current_page == 'data_vault' else ''}" id="nav_vault">Data Vault</span>
-            <span class="nav-link {'active' if current_page == 'pricing' else ''}" id="nav_pricing">Pricing</span>
-        </div>
-        <div style="display: flex; align-items: center; gap: 12px;">
-            <div style="background: rgba(16, 185, 129, 0.15); padding: 8px 16px; border-radius: 10px; font-size: 0.85rem; font-weight: 600; color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">
-                {current_user}
+    <div class="glass-panel animate-scale-in" style="border-top: 3px solid {score_color}; margin-top: 32px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px;">
+            <div>
+                <div style="color:#6b7280; letter-spacing:3px; font-size:0.7rem; text-transform: uppercase; margin-bottom: 10px; font-weight: 600;">FORENSIC ANALYSIS COMPLETE</div>
+                <div style="display: flex; align-items: center; gap: 20px;">
+                    <div class="score-value" style="color:{score_color}">{report['score']}</div>
+                    <div class="grade-badge" style="background:{grade_color}; color:{score_color};">GRADE: {report.get('overall_grade', 'C')}</div>
+                </div>
+            </div>
+            <div style="text-align: right;">
+                <div class="ticker-badge">{ticker_val}</div>
+                <div style="color:#6b7280; font-size:0.85rem; margin-top: 8px;">{datetime.now().strftime('%B %d, %Y • %H:%M')}</div>
             </div>
         </div>
     </div>
-    <script>
-    document.getElementById('nav_analyze').onclick = function() {{ window.location.href = '?page=analyze'; }};
-    document.getElementById('nav_portfolio').onclick = function() {{ window.location.href = '?page=portfolio'; }};
-    document.getElementById('nav_vault').onclick = function() {{ window.location.href = '?page=data_vault'; }};
-    document.getElementById('nav_pricing').onclick = function() {{ window.location.href = '?page=pricing'; }};
-    </script>
     """, unsafe_allow_html=True)
 
-    # ==========================================
-    # PAGE ROUTING
-    # ==========================================
+    # ── METRICS ──
+    st.markdown('<div class="glass-panel animate-slide-up" style="animation-delay: 0.1s;">', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">📊 Performance Breakdown</div>', unsafe_allow_html=True)
 
-    if current_page == "portfolio":
-        render_portfolio_page(current_user)
+    met_col1, met_col2, met_col3 = st.columns(3)
+    metrics_data = [
+        ("Entry Quality", report.get('entry_quality', 50), met_col1),
+        ("Exit Quality", report.get('exit_quality', 50), met_col2),
+        ("Risk Management", report.get('risk_score', 50), met_col3)
+    ]
 
-    elif current_page == "data_vault":
-        _render_data_vault(current_user)
+    for metric_name, metric_value, col in metrics_data:
+        with col:
+            met_color = "#10b981" if metric_value >= 80 else "#3b82f6" if metric_value >= 60 else "#f59e0b" if metric_value >= 40 else "#ef4444"
+            st.markdown(f"""
+            <div style="text-align: center; padding: 20px;">
+                <div class="metric-circle" style="background: rgba(255,255,255,0.03);">
+                    <div style="font-size: 2rem; font-weight: 700; color: {met_color}; font-family: 'JetBrains Mono', monospace;">{metric_value}</div>
+                    <div style="font-size: 0.7rem; color: #6b7280; text-transform: uppercase; letter-spacing: 1px;">/100</div>
+                </div>
+                <div style="margin-top: 16px; font-size: 0.9rem; font-weight: 600; color: #e5e7eb;">{metric_name}</div>
+                <div class="progress-bar-container" style="margin-top: 12px;">
+                    <div class="progress-bar" style="width: {metric_value}%; background: linear-gradient(90deg, {met_color}, {met_color}80);"></div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
-    elif current_page == "pricing":
-        _render_pricing()
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    else:  # "analyze"
-        _render_analyze_page(current_user)
+    # ── TAGS ──
+    if report.get('tags'):
+        st.markdown('<div class="glass-panel animate-slide-right" style="animation-delay: 0.2s;">', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">🏷️ Behavioral Patterns Detected</div>', unsafe_allow_html=True)
+
+        tags_html = '<div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px;">'
+        for tag in report['tags']:
+            if any(w in tag.lower() for w in ['fomo', 'revenge', 'emotional', 'panic', 'tilt', 'crisis', 'catastrophic', 'failure', 'destruction']):
+                tag_color, tag_bg = "#ef4444", "rgba(239, 68, 68, 0.15)"
+            elif any(w in tag.lower() for w in ['disciplined', 'good', 'excellent', 'strong', 'possible']):
+                tag_color, tag_bg = "#10b981", "rgba(16, 185, 129, 0.15)"
+            else:
+                tag_color, tag_bg = "#f59e0b", "rgba(245, 158, 11, 0.15)"
+            tags_html += f'<div style="background: {tag_bg}; border: 1px solid {tag_color}40; padding: 10px 18px; border-radius: 10px; color: {tag_color}; font-weight: 600; font-size: 0.85rem; letter-spacing: 0.5px;">{tag}</div>'
+        tags_html += '</div>'
+        st.markdown(tags_html, unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # ── RADAR CHART ──
+    st.markdown('<div class="glass-panel animate-fade-in" style="animation-delay: 0.3s;">', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">📈 Performance Radar</div>', unsafe_allow_html=True)
+
+    chart_data = pd.DataFrame({
+        'Metric': ['Entry\nQuality', 'Exit\nQuality', 'Risk\nManagement', 'Overall\nScore'],
+        'Score': [report.get('entry_quality', 50), report.get('exit_quality', 50), report.get('risk_score', 50), report['score']]
+    })
+
+    bars = alt.Chart(chart_data).mark_bar(cornerRadiusEnd=8, size=40).encode(
+        x=alt.X('Metric:N', axis=alt.Axis(title=None, labelColor='#e5e7eb', labelFontSize=12, labelAngle=0)),
+        y=alt.Y('Score:Q', scale=alt.Scale(domain=[0, 100]),
+                axis=alt.Axis(title='Score', titleColor='#9ca3af', labelColor='#9ca3af', grid=True, gridColor='#ffffff10')),
+        color=alt.Color('Score:Q', scale=alt.Scale(domain=[0, 40, 60, 80, 100], range=['#ef4444', '#f59e0b', '#3b82f6', '#10b981', '#10b981']), legend=None),
+        tooltip=[alt.Tooltip('Metric:N', title='Category'), alt.Tooltip('Score:Q', title='Score')]
+    ).properties(height=300).configure_view(strokeWidth=0, fill='transparent').configure(background='transparent')
+
+    st.altair_chart(bars, use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # ── 2-COL DETAIL CARDS ──
+    col_left, col_right = st.columns(2)
+
+    with col_left:
+        st.markdown('<div class="result-card animate-slide-up" style="animation-delay: 0.4s;">', unsafe_allow_html=True)
+        st.markdown('<div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;"><div style="font-size: 1.8rem;">⚙️</div><div style="font-size: 1rem; font-weight: 700; color: #3b82f6; text-transform: uppercase; letter-spacing: 1px;">Technical Analysis</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="color: #d1d5db; line-height: 1.8; font-size: 0.92rem;">{report["tech"]}</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        st.markdown('<div class="result-card animate-slide-up" style="animation-delay: 0.6s;">', unsafe_allow_html=True)
+        st.markdown('<div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;"><div style="font-size: 1.8rem;">⚠️</div><div style="font-size: 1rem; font-weight: 700; color: #f59e0b; text-transform: uppercase; letter-spacing: 1px;">Risk Assessment</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="color: #d1d5db; line-height: 1.8; font-size: 0.92rem;">{report["risk"]}</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with col_right:
+        st.markdown('<div class="result-card animate-slide-up" style="animation-delay: 0.5s;">', unsafe_allow_html=True)
+        st.markdown('<div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;"><div style="font-size: 1.8rem;">🧠</div><div style="font-size: 1rem; font-weight: 700; color: #8b5cf6; text-transform: uppercase; letter-spacing: 1px;">Psychology Profile</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="color: #d1d5db; line-height: 1.8; font-size: 0.92rem;">{report["psych"]}</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        st.markdown('<div class="result-card animate-slide-up" style="animation-delay: 0.7s;">', unsafe_allow_html=True)
+        st.markdown('<div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;"><div style="font-size: 1.8rem;">🎯</div><div style="font-size: 1rem; font-weight: 700; color: #10b981; text-transform: uppercase; letter-spacing: 1px;">Action Plan</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="color: #d1d5db; line-height: 1.8; font-size: 0.92rem;">{report["fix"]}</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # ── STRENGTH / CRITICAL ERROR ──
+    if report.get('strength') != 'N/A' and report.get('strength') != 'Analyzing...':
+        st.markdown('<div class="glass-panel animate-slide-up" style="animation-delay: 0.8s;">', unsafe_allow_html=True)
+        ins_col1, ins_col2 = st.columns(2)
+
+        with ins_col1:
+            st.markdown(f"""
+            <div style="background: rgba(16, 185, 129, 0.1); border-left: 4px solid #10b981; padding: 20px; border-radius: 0 12px 12px 0;">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                    <div style="font-size: 1.5rem;">💪</div>
+                    <div style="font-size: 0.85rem; font-weight: 700; color: #10b981; text-transform: uppercase; letter-spacing: 1px;">What Went Well</div>
+                </div>
+                <div style="color: #d1d5db; line-height: 1.7; font-size: 0.9rem;">{report['strength']}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with ins_col2:
+            if report.get('critical_error') != 'N/A' and report.get('critical_error') != 'Analyzing...':
+                st.markdown(f"""
+                <div style="background: rgba(239, 68, 68, 0.1); border-left: 4px solid #ef4444; padding: 20px; border-radius: 0 12px 12px 0;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                        <div style="font-size: 1.5rem;">⛔</div>
+                        <div style="font-size: 0.85rem; font-weight: 700; color: #ef4444; text-transform: uppercase; letter-spacing: 1px;">Critical Error</div>
+                    </div>
+                    <div style="color: #d1d5db; line-height: 1.7; font-size: 0.9rem;">{report['critical_error']}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+        st.markdown('</div>', unsafe_allow_html=True)
 
 
-# ============================================================
+# ─────────────────────────────────────────────────────
 # PAGE: DATA VAULT
-# ============================================================
+# ─────────────────────────────────────────────────────
 def _render_data_vault(current_user):
     if not config.supabase:
         st.warning("Database not configured.")
@@ -146,9 +450,9 @@ def _render_data_vault(current_user):
 
         table_df = filtered_df[['created_at', 'ticker', 'score', 'mistake_tags', 'technical_analysis', 'psych_analysis']].copy()
         table_df.columns = ['Date', 'Ticker', 'Score', 'Error Tags', 'Technical Notes', 'Psychology Notes']
-        table_df['Error Tags'] = table_df['Error Tags'].apply(lambda x: ', '.join(x[:3]) if len(x) > 0 else 'None')
-        table_df['Technical Notes'] = table_df['Technical Notes'].apply(lambda x: (x[:80] + '...') if len(str(x)) > 80 else x)
-        table_df['Psychology Notes'] = table_df['Psychology Notes'].apply(lambda x: (x[:80] + '...') if len(str(x)) > 80 else x)
+        table_df['Error Tags'] = table_df['Error Tags'].apply(lambda x: ', '.join(x[:3]) if isinstance(x, list) and len(x) > 0 else 'None')
+        table_df['Technical Notes'] = table_df['Technical Notes'].apply(lambda x: (str(x)[:80] + '...') if len(str(x)) > 80 else str(x))
+        table_df['Psychology Notes'] = table_df['Psychology Notes'].apply(lambda x: (str(x)[:80] + '...') if len(str(x)) > 80 else str(x))
 
         st.dataframe(
             table_df, use_container_width=True, hide_index=True,
@@ -184,9 +488,9 @@ def _render_data_vault(current_user):
         st.markdown('</div>', unsafe_allow_html=True)
 
 
-# ============================================================
+# ─────────────────────────────────────────────────────
 # PAGE: PRICING
-# ============================================================
+# ─────────────────────────────────────────────────────
 def _render_pricing():
     st.markdown('<div class="glass-panel" style="text-align: center; padding: 80px;">', unsafe_allow_html=True)
     st.markdown("""
@@ -197,9 +501,9 @@ def _render_pricing():
     st.markdown('</div>', unsafe_allow_html=True)
 
 
-# ============================================================
-# PAGE: ANALYZE  (Forensic Audit + Performance Metrics tabs)
-# ============================================================
+# ─────────────────────────────────────────────────────
+# PAGE: ANALYZE  (Forensic Audit + Performance Metrics)
+# ─────────────────────────────────────────────────────
 def _render_analyze_page(current_user):
     main_tab1, main_tab2 = st.tabs(["🔎 FORENSIC AUDIT", "📊 PERFORMANCE METRICS"])
 
@@ -260,16 +564,15 @@ def _render_forensic_audit(current_user):
                 # Build manual override context
                 manual_context = ""
                 if manual_ticker or manual_pnl or manual_pnl_pct or manual_price_range:
-                    manual_context = "\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-                    manual_context += "USER PROVIDED THIS INFORMATION FROM THE CHART:\n"
+                    manual_context = "\n\nUSER-PROVIDED GROUND TRUTH (these numbers are CORRECT — use them):\n"
                     if manual_ticker:  manual_context += f"- Ticker: {manual_ticker}\n"
                     if manual_pnl:     manual_context += f"- P&L: {manual_pnl}\n"
                     if manual_pnl_pct: manual_context += f"- P&L Percentage: {manual_pnl_pct}\n"
                     if manual_price_range: manual_context += f"- Price Range: {manual_price_range}\n"
-                    manual_context += "USE THIS INFORMATION - IT IS CORRECT. Analyze based on these real values.\n"
-                    manual_context += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                    manual_context += "Analyze based on these exact values.\n"
 
                 prompt = _build_chart_vision_prompt(manual_context)
+                ticker_val = manual_ticker if manual_ticker else "IMG"
                 ready_to_run = True
 
         st.markdown('</div>', unsafe_allow_html=True)
@@ -314,23 +617,26 @@ def _render_forensic_audit(current_user):
             st.markdown('<div style="height: 24px;"></div>', unsafe_allow_html=True)
 
             if st.button("🔬 ANALYZE PORTFOLIO HEALTH", type="primary", use_container_width=True):
-                total_pnl = portfolio_current_value - portfolio_total_invested if portfolio_total_invested > 0 else 0
-                total_pnl_pct = (total_pnl / portfolio_total_invested * 100) if portfolio_total_invested > 0 else 0
+                if portfolio_total_invested == 0 or portfolio_current_value == 0:
+                    st.error("⚠️ Please enter both Total Invested and Current Value for accurate analysis.")
+                else:
+                    total_pnl = portfolio_current_value - portfolio_total_invested
+                    total_pnl_pct = (total_pnl / portfolio_total_invested * 100) if portfolio_total_invested > 0 else 0
 
-                img_b64 = None
-                if portfolio_file.type != "application/pdf":
-                    img_b64 = utils.prepare_image_b64(portfolio_file)
+                    img_b64 = None
+                    if portfolio_file.type != "application/pdf":
+                        img_b64 = utils.prepare_image_b64(portfolio_file)
 
-                portfolio_context = _build_portfolio_context(
-                    portfolio_total_invested, portfolio_current_value, total_pnl, total_pnl_pct,
-                    portfolio_num_positions, portfolio_largest_loss, portfolio_largest_gain,
-                    portfolio_crisis_stocks, portfolio_description
-                )
-                prompt = _build_inline_portfolio_prompt(portfolio_context, total_pnl, total_pnl_pct, portfolio_num_positions,
-                                                        portfolio_largest_loss, portfolio_largest_gain, portfolio_crisis_stocks,
-                                                        portfolio_description, portfolio_total_invested)
-                ticker_val = "PORTFOLIO"
-                ready_to_run = True
+                    portfolio_context = _build_portfolio_context(
+                        portfolio_total_invested, portfolio_current_value, total_pnl, total_pnl_pct,
+                        portfolio_num_positions, portfolio_largest_loss, portfolio_largest_gain,
+                        portfolio_crisis_stocks, portfolio_description
+                    )
+                    prompt = _build_inline_portfolio_prompt(portfolio_context, total_pnl, total_pnl_pct, portfolio_num_positions,
+                                                            portfolio_largest_loss, portfolio_largest_gain, portfolio_crisis_stocks,
+                                                            portfolio_description, portfolio_total_invested)
+                    ticker_val = "PORTFOLIO"
+                    ready_to_run = True
 
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -356,9 +662,12 @@ def _render_forensic_audit(current_user):
             st.markdown('<div style="height: 16px;"></div>', unsafe_allow_html=True)
 
             if st.form_submit_button("EXECUTE AUDIT", type="primary", use_container_width=True):
-                ticker_val = ticker
-                prompt = _build_text_param_prompt(ticker, setup_type, emotion, entry, exit_price, stop, notes)
-                ready_to_run = True
+                if entry == 0:
+                    st.error("⚠️ Please enter a valid Entry price.")
+                else:
+                    ticker_val = ticker
+                    prompt = _build_text_param_prompt(ticker, setup_type, emotion, entry, exit_price, stop, notes)
+                    ready_to_run = True
 
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -373,24 +682,25 @@ def _render_forensic_audit(current_user):
 
                 report = utils.parse_report(raw_response)
 
-                # ── Hallucination / sanity checks ──
-                warning_messages = []
-                hallucinated_prices = ['$445', '$435', '$451', '$458', '$440', '$437']
-                if any(p in report.get('tech', '') for p in hallucinated_prices):
-                    warning_messages.append("⚠️ AI may have hallucinated prices from examples rather than analyzing your actual chart")
+                # ── Post-processing: enforce score/grade consistency ──
+                # If all sub-scores are still at defaults (50/50/50), flag incomplete
+                if report['score'] == 50 and report['entry_quality'] == 50 and report['exit_quality'] == 50 and report['risk_score'] == 50:
+                    st.warning("⚠️ Analysis may be incomplete. The model did not return structured scores. Try a clearer image or more detailed input.")
 
-                if 'catastrophic' in raw_response.lower() or 'emergency' in raw_response.lower():
-                    if report['score'] > 20:
-                        report['score'] = max(10, report['score'] // 5)
-                        report['overall_grade'] = 'F'
-                        report['risk_score'] = min(20, report['risk_score'])
-                        warning_messages.append("🚨 Score adjusted for catastrophic loss detected in analysis")
-
-                if report['score'] == 50 and report['entry_quality'] == 50 and report['exit_quality'] == 50:
-                    warning_messages.append("⚠️ Analysis may be incomplete. Try a clearer image with visible price levels.")
-
-                for msg in warning_messages:
-                    st.warning(msg)
+                # Enforce grade consistency with score
+                score = report['score']
+                if score <= 15:
+                    report['overall_grade'] = 'F'
+                elif score <= 30:
+                    report['overall_grade'] = 'D'
+                elif score <= 50:
+                    report['overall_grade'] = 'C'
+                elif score <= 70:
+                    report['overall_grade'] = 'B'
+                elif score <= 85:
+                    report['overall_grade'] = 'A'
+                else:
+                    report['overall_grade'] = 'S-Tier'
 
                 utils.save_analysis(current_user, report, ticker_val, stored_image_url)
                 _display_audit_results(report, ticker_val)
@@ -407,7 +717,7 @@ def _render_forensic_audit(current_user):
 
 
 # ─────────────────────────────────────────────────────
-# TAB 2: PERFORMANCE METRICS
+# TAB 2: PERFORMANCE METRICS  (Trade History Details REMOVED)
 # ─────────────────────────────────────────────────────
 def _render_performance_metrics(current_user):
     if not config.supabase:
@@ -431,7 +741,7 @@ def _render_performance_metrics(current_user):
 
     avg_score = df['score'].mean()
     total_trades = len(df)
-    all_tags = [tag for sublist in df['mistake_tags'] for tag in sublist]
+    all_tags = [tag for sublist in df['mistake_tags'] if isinstance(sublist, list) for tag in sublist]
     top_mistake = pd.Series(all_tags).mode()[0] if all_tags else "None"
     win_rate = len(df[df['score'] > 60]) / len(df) * 100 if len(df) > 0 else 0
 
@@ -533,8 +843,8 @@ def _render_performance_metrics(current_user):
         color_map = {'Poor (0-40)': '#ef4444', 'Fair (40-60)': '#f59e0b', 'Good (60-80)': '#3b82f6', 'Excellent (80-100)': '#10b981'}
 
         for _, row in dist_data.iterrows():
-            range_name = row['Range']
-            count = row['Count']
+            range_name = str(row['Range'])
+            count = int(row['Count'])
             percentage = (count / len(df)) * 100
             color = color_map.get(range_name, '#6b7280')
 
@@ -558,7 +868,7 @@ def _render_performance_metrics(current_user):
 
     table_df = df.head(10)[['created_at', 'ticker', 'score', 'mistake_tags']].copy()
     table_df.columns = ['Time', 'Asset', 'Score', 'Primary Errors']
-    table_df['Primary Errors'] = table_df['Primary Errors'].apply(lambda x: ', '.join(x[:2]) if len(x) > 0 else 'None')
+    table_df['Primary Errors'] = table_df['Primary Errors'].apply(lambda x: ', '.join(x[:2]) if isinstance(x, list) and len(x) > 0 else 'None')
 
     st.dataframe(
         table_df, use_container_width=True, hide_index=True,
@@ -570,478 +880,87 @@ def _render_performance_metrics(current_user):
     )
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # ── DETAILED TRADE HISTORY WITH IMAGES ──
-    st.markdown('<div class="glass-panel" style="margin-top: 32px;">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">📜 Trade History Details</div>', unsafe_allow_html=True)
 
-    for i, row in df.head(20).iterrows():
-        with st.expander(f"📊 {row['created_at'].strftime('%Y-%m-%d %H:%M')} | {row['ticker']} | Score: {row['score']}/100"):
-            if row.get('image_url'):
-                st.image(row['image_url'], caption="Original Trade Evidence", width=600)
-                st.markdown('<div style="height: 16px;"></div>', unsafe_allow_html=True)
-
-            col1, col2 = st.columns(2)
-            with col1:
-                st.markdown(f"**Quality Grade:** {row.get('overall_grade', 'N/A')}")
-                st.markdown(f"**Entry Quality:** {row.get('entry_quality', 'N/A')}/100")
-                st.markdown(f"**Exit Quality:** {row.get('exit_quality', 'N/A')}/100")
-                st.markdown(f"**Risk Score:** {row.get('risk_score', 'N/A')}/100")
-            with col2:
-                tags = row.get('mistake_tags', [])
-                st.markdown(f"**Error Tags:** {', '.join(tags)}" if tags else "**Error Tags:** None")
-
-            st.markdown("---")
-            if row.get('technical_analysis'):
-                st.markdown("**📈 Technical Analysis:**")
-                st.write(row['technical_analysis'])
-            if row.get('psych_analysis'):
-                st.markdown("**🧠 Psychological Analysis:**")
-                st.write(row['psych_analysis'])
-            if row.get('risk_analysis'):
-                st.markdown("**⚠️ Risk Analysis:**")
-                st.write(row['risk_analysis'])
-            if row.get('fix_action'):
-                st.markdown("**🔧 Recommended Fixes:**")
-                st.write(row['fix_action'])
-            if row.get('strength'):
-                st.markdown("**💪 Strengths:**")
-                st.write(row['strength'])
-            if row.get('critical_error'):
-                st.markdown("**🚨 Critical Error:**")
-                st.write(row['critical_error'])
-
-    st.markdown('</div>', unsafe_allow_html=True)
-
-
-# ============================================================
-# PROMPT BUILDERS  (pure functions — no side effects)
-# ============================================================
-
-def _build_chart_vision_prompt(manual_context=""):
-    return f"""CRITICAL INSTRUCTIONS: Analyze this trading/portfolio screenshot.
-
-FIRST: IDENTIFY WHAT YOU'RE LOOKING AT
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Look carefully at the image and determine:
-
-1. Is this a PORTFOLIO view (multiple stocks listed) or SINGLE CHART?
-2. If portfolio: How many stocks/positions are visible?
-3. If portfolio: What is the TOTAL P&L shown at top?
-4. If portfolio: What is the TOTAL percentage gain/loss?
-5. If single chart: Proceed with normal chart analysis
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-IF THIS IS A PORTFOLIO SCREENSHOT:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Read the TOTAL/OVERALL P&L at the top (usually labeled "Total P/L", "Unrealised P/L", "Portfolio Value", etc.)
-
-Analyze the PORTFOLIO as a whole, not individual stocks.
-
-Identify:
-- Total number of positions
-- Largest losses (list top 3-5 by % or amount)
-- Any position showing >100% loss (red flag for leverage/options/error)
-- Overall portfolio drawdown percentage
-- Risk concentration issues
-
-PORTFOLIO OUTPUT FORMAT:
-
-[SCORE] <0-100 based on OVERALL portfolio health>
-[OVERALL_GRADE] <F if total loss>20%, D if >10%, C if >5%, etc.>
-[ENTRY_QUALITY] <Average entry quality across visible positions>
-[EXIT_QUALITY] <Exit discipline assessment based on how losses were managed>
-[RISK_SCORE] <0-100 based on PORTFOLIO-LEVEL risk management>
-[TAGS] <Portfolio_Crisis, Overleveraged, No_Stops, Concentration_Risk, Multiple_Catastrophic_Positions, etc.>
-
-[TECH] PORTFOLIO ANALYSIS: Total P/L: [EXACT total P/L] ([EXACT %]). Number of positions: [count]. Current value: [amount]. Invested: [amount]. Top losses: [list 3-5 worst positions with their %]. Critical observations about portfolio structure and risk concentration.
-
-[PSYCH] PORTFOLIO PSYCHOLOGY: [Analyze the decision-making that led to multiple simultaneous losses. Look for patterns: averaging down? holding losers? FOMO buying? lack of selling discipline?]
-
-[RISK] PORTFOLIO RISK ASSESSMENT: [Analyze diversification, position sizing across portfolio, stop loss discipline, drawdown management, any positions >100% loss (leverage red flags)]
-
-[FIX] PORTFOLIO RECOVERY PLAN:
-1. [Immediate crisis management - which positions to close NOW]
-2. [Risk reduction strategy - position sizing going forward]
-3. [Rehabilitation timeline and rules]
-
-[STRENGTH] [What's working in the portfolio, if anything]
-[CRITICAL_ERROR] [The biggest portfolio-level mistake - usually lack of risk management, no stops, or concentration]
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-IF THIS IS A SINGLE CHART (not portfolio):
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-{manual_context}
-
-Look at the TOP RIGHT corner of the trading interface. You will see:
-- "P/L: [some amount]" - This is the profit/loss. READ IT EXACTLY.
-- "([some percentage])" - This is the percentage. READ IT EXACTLY.
-
-The P/L text is usually in RED (loss) or GREEN (profit). What do you see?
-
-Look at the TOP LEFT. You will see the ticker symbol (e.g., "AAPL", "GLIT", "SPY", etc.). What is it?
-
-Look at the RIGHT SIDE Y-AXIS. You will see price levels. What are the numbers? (e.g., $100, $200, $300?)
-
-SEVERITY ASSESSMENT:
-
-Based on the P/L you read:
-
-IF loss > 50% of account → CATASTROPHIC EMERGENCY (Score: 0-5)
-IF loss > 30% of account → SEVERE CRISIS (Score: 5-15)
-IF loss > 10% of account → MAJOR PROBLEM (Score: 15-30)
-IF loss < 5% of account → Poor trade (Score: 30-50)
-IF profit > 0% → Grade normally (Score: 50-100)
-
-SINGLE TRADE OUTPUT FORMAT:
-
-[SCORE] <Use severity guide above>
-[OVERALL_GRADE] <F if loss>50%, D if loss>30%, C if loss>10%, etc.>
-[ENTRY_QUALITY] <0-100>
-[EXIT_QUALITY] <0-100>
-[RISK_SCORE] <0-100>
-[TAGS] <Based on single trade behavior>
-
-[TECH] Ticker: [EXACT ticker]. P&L: [EXACT P&L] ([EXACT %]). Chart price range: [ACTUAL prices on Y-axis]. [Analysis of price action]
-[PSYCH] [Single trade psychology analysis]
-[RISK] [Single trade risk analysis]
-[FIX] [Specific improvements for this trade]
-[STRENGTH] [What went well]
-[CRITICAL_ERROR] [Biggest mistake in this trade]
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-CRITICAL REMINDERS:
-1. FIRST determine if this is PORTFOLIO or SINGLE TRADE
-2. If portfolio with multiple losses, this is likely a SEVERE crisis
-3. Any position showing >100% loss needs immediate investigation
-4. Portfolio losses of >20% = catastrophic failure
-5. Use EXACT numbers you see on screen, no hallucinations
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
-
-
-def _build_text_param_prompt(ticker, setup_type, emotion, entry, exit_price, stop, notes):
-    pnl = exit_price - entry if exit_price > 0 and entry > 0 else 0
-    pnl_pct = (pnl / entry * 100) if entry > 0 else 0
-    risk = abs(entry - stop) if stop > 0 and entry > 0 else 0
-    risk_pct = (risk / entry * 100) if entry > 0 else 0
-    reward = abs(exit_price - entry) if exit_price > 0 and entry > 0 else 0
-    rr_ratio = (reward / risk) if risk > 0 else 0
-
-    return f"""You are Dr. Michael Steinhardt, legendary hedge fund manager with 45 years experience. Analyze this trade with brutal institutional honesty.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TRADE DATA:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Ticker: {ticker}
-Setup: {setup_type}
-Emotional State: {emotion}
-Entry: ${entry:.2f}
-Exit: ${exit_price:.2f}
-Stop: ${stop:.2f}
-
-METRICS:
-PnL: ${pnl:.2f} ({pnl_pct:+.2f}%)
-Risk: ${risk:.2f} ({risk_pct:.2f}%)
-R:R Ratio: {rr_ratio:.2f}:1
-
-NOTES: {notes if notes else "No notes"}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-OUTPUT FORMAT (EXACT):
-
-[SCORE] <0-100>
-[OVERALL_GRADE] <F/D/C/B/A/S-Tier>
-[ENTRY_QUALITY] <0-100>
-[EXIT_QUALITY] <0-100>
-[RISK_SCORE] <0-100>
-[TAGS] <comma-separated, 3-5 tags>
-
-[TECH] <3-5 sentences with NUMBERS: entry timing, stop placement, R:R analysis, setup quality>
-[PSYCH] <2-4 sentences: emotional state impact, biases detected, discipline assessment>
-[RISK] <3-4 sentences with PERCENTAGES: account risk, position size, stop effectiveness>
-[FIX] <Exactly 3 improvements:
-1. [Specific technical fix]
-2. [Specific psychological fix]
-3. [Specific risk fix]>
-[STRENGTH] <1-2 sentences on what was good>
-[CRITICAL_ERROR] <Single biggest mistake>
-
-BE HARSH. USE NUMBERS. BE SPECIFIC."""
-
-
-def _build_portfolio_context(total_invested, current_value, total_pnl, total_pnl_pct,
-                             num_positions, largest_loss, largest_gain, crisis_stocks, description):
-    return f"""
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PORTFOLIO DATA PROVIDED BY USER:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Total Invested: {total_invested:,.2f}
-Current Value: {current_value:,.2f}
-Total P&L: {total_pnl:,.2f} ({total_pnl_pct:+.2f}%)
-Number of Positions: {num_positions}
-Largest Loss: {largest_loss if largest_loss else "Not specified"}
-Largest Gain: {largest_gain if largest_gain else "Not specified"}
-Crisis Stocks (>30% loss): {crisis_stocks if crisis_stocks else "None specified"}
-
-Additional Context:
-{description if description else "No additional context provided"}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-USE THIS INFORMATION AS GROUND TRUTH. Analyze based on these provided values.
-"""
-
-
-def _build_inline_portfolio_prompt(portfolio_context, total_pnl, total_pnl_pct, num_positions,
-                                   largest_loss, largest_gain, crisis_stocks, description, total_invested):
-    return f"""You are analyzing a COMPLETE INVESTMENT PORTFOLIO. This is NOT a single trade - this is portfolio-level risk assessment.
-
-{portfolio_context}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PORTFOLIO ANALYSIS FRAMEWORK:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-1. PORTFOLIO HEALTH ASSESSMENT:
-   - Overall portfolio P&L and percentage
-   - Drawdown severity (current loss from peak)
-   - Number of positions (diversification vs. over-diversification)
-   - Win/loss ratio across portfolio
-   - Concentration risk (any position >10% of portfolio?)
-
-2. RISK MANAGEMENT EVALUATION:
-   - Are stop losses in place across positions?
-   - Position sizing discipline (should be 1-5% per position)
-   - Correlation risk (positions moving together?)
-   - Sector concentration
-   - Any leveraged/margin positions (red flag)
-   - Positions with >50% losses (likely beyond recovery)
-
-3. PORTFOLIO STRUCTURE ANALYSIS:
-   - Too many positions? (>20 = likely over-diversified)
-   - Too few? (<5 = concentration risk)
-   - Balance between growth/value/defensive
-   - Sector diversification
-   - Market cap diversification
-
-4. CRISIS IDENTIFICATION:
-   - Any positions showing >100% loss (leverage/margin emergency)
-   - Multiple positions >50% down (poor exit discipline)
-   - Portfolio drawdown >30% (severe crisis)
-   - Evidence of averaging down into losers
-   - Revenge trading patterns
-
-5. PSYCHOLOGICAL ASSESSMENT:
-   - Holding losers, cutting winners?
-   - Evidence of FOMO buying at tops
-   - Lack of selling discipline
-   - Emotional attachment to positions
-   - Hope-based investing vs. risk management
-
-SEVERITY LEVELS FOR PORTFOLIOS:
-
-Portfolio Drawdown >50%: CATASTROPHIC (Score 0-5)
-Portfolio Drawdown 30-50%: SEVERE CRISIS (Score 5-15)
-Portfolio Drawdown 20-30%: MAJOR PROBLEM (Score 15-30)
-Portfolio Drawdown 10-20%: CONCERNING (Score 30-50)
-Portfolio Drawdown 5-10%: MINOR ISSUE (Score 50-70)
-Portfolio Drawdown <5%: ACCEPTABLE (Score 70-100)
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-OUTPUT FORMAT:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-[SCORE] <0-100 based on portfolio drawdown severity>
-[OVERALL_GRADE] <F if >30% loss, D if 20-30%, C if 10-20%, B if 5-10%, A if <5%>
-[ENTRY_QUALITY] <Average entry quality across portfolio>
-[EXIT_QUALITY] <Exit discipline - are stop losses used? Or holding losers?>
-[RISK_SCORE] <0-100 portfolio-level risk management quality>
-[TAGS] <Portfolio_Crisis, Overleveraged, No_Stops, Concentration_Risk, Too_Many_Positions, Sector_Concentration, Multiple_Losers, No_Exit_Plan, Hope_Based_Investing, etc.>
-
-[TECH] PORTFOLIO TECHNICAL ANALYSIS: Total P&L: {total_pnl:,.2f} ({total_pnl_pct:+.2f}%). Portfolio has {num_positions} positions. [Analyze diversification, concentration, position sizing. List top 3-5 problem positions. Identify sector exposure risks. Comment on portfolio structure.]
-
-[PSYCH] PORTFOLIO PSYCHOLOGY PROFILE: [Analyze the decision-making patterns across the portfolio. Are they holding losers and cutting winners? Evidence of FOMO? Revenge trading? Lack of selling discipline? Emotional attachment to positions? This should be behavioral analysis of their OVERALL trading psychology based on portfolio patterns.]
-
-[RISK] PORTFOLIO RISK ASSESSMENT: [Analyze portfolio-level risk: position sizing discipline, stop loss usage across positions, concentration risk, correlation risk, drawdown management, any leverage/margin red flags. If portfolio loss >30%, this is CATASTROPHIC. If any position shows >100% loss, this is margin/leverage emergency.]
-
-[FIX] PORTFOLIO RESTRUCTURING PLAN:
-1. IMMEDIATE ACTIONS: [What needs to happen in next 24-48 hours]
-2. SHORT TERM (1-4 weeks): [Which positions to close/reduce, how to implement stops, position sizing rules]
-3. LONG TERM (1-6 months): [Portfolio rebuild strategy, education needs, risk management framework, psychological reset]
-
-[STRENGTH] [What's working in the portfolio, if anything]
-[CRITICAL_ERROR] [The biggest portfolio-level mistake]
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-CRITICAL PORTFOLIO-SPECIFIC RULES:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-1. If portfolio drawdown >30%: This is CATASTROPHIC portfolio failure, score MUST be 0-10
-2. If any position shows >100% loss: LEVERAGE/MARGIN EMERGENCY - flag immediately
-3. If >20 positions: Likely over-diversification
-4. If multiple positions >50% loss: Exit discipline failure
-5. Portfolio analysis is about RISK MANAGEMENT, not individual stock picking
-6. Focus on position sizing, diversification, stop losses, and exit discipline
-7. Recovery from >30% drawdown typically takes 12-24+ months minimum
-
-REMEMBER: This is PORTFOLIO analysis. Focus on overall risk management, diversification, position sizing discipline, and exit strategy across ALL positions.
-"""
-
-
-# ============================================================
-# RESULT DISPLAY HELPERS
-# ============================================================
-
-def _display_audit_results(report, ticker_val):
-    """Render the animated forensic-audit result cards (shared by all 3 input modes)."""
-
-    if report['score'] >= 80:
-        score_color, grade_color = "#10b981", "rgba(16, 185, 129, 0.2)"
-    elif report['score'] >= 60:
-        score_color, grade_color = "#3b82f6", "rgba(59, 130, 246, 0.2)"
-    elif report['score'] >= 40:
-        score_color, grade_color = "#f59e0b", "rgba(245, 158, 11, 0.2)"
-    else:
-        score_color, grade_color = "#ef4444", "rgba(239, 68, 68, 0.2)"
-
-    # ── HEADER ──
-    st.markdown(f"""
-    <div class="glass-panel animate-scale-in" style="border-top: 3px solid {score_color}; margin-top: 32px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px;">
-            <div>
-                <div style="color:#6b7280; letter-spacing:3px; font-size:0.7rem; text-transform: uppercase; margin-bottom: 10px; font-weight: 600;">FORENSIC ANALYSIS COMPLETE</div>
-                <div style="display: flex; align-items: center; gap: 20px;">
-                    <div class="score-value" style="color:{score_color}">{report['score']}</div>
-                    <div class="grade-badge" style="background:{grade_color}; color:{score_color};">GRADE: {report.get('overall_grade', 'C')}</div>
-                </div>
-            </div>
-            <div style="text-align: right;">
-                <div class="ticker-badge">{ticker_val}</div>
-                <div style="color:#6b7280; font-size:0.85rem; margin-top: 8px;">{datetime.now().strftime('%B %d, %Y • %H:%M')}</div>
-            </div>
-        </div>
+# ==========================================
+# LOGIN GATE
+# ==========================================
+if not st.session_state["authenticated"]:
+    st.markdown("""
+    <div class="login-container">
+        <div class="login-logo">🩸</div>
+        <h1 style="margin: 0 0 10px 0; font-size: 2.2rem; font-weight: 800; letter-spacing: -0.02em; position: relative; z-index: 1;">StockPostmortem</h1>
+        <p style="color: #6b7280; font-size: 0.8rem; margin-bottom: 48px; letter-spacing: 3px; text-transform: uppercase; position: relative; z-index: 1;">Algorithmic Behavioral Forensics</p>
     </div>
     """, unsafe_allow_html=True)
 
-    # ── METRICS ──
-    st.markdown('<div class="glass-panel animate-slide-up" style="animation-delay: 0.1s;">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">📊 Performance Breakdown</div>', unsafe_allow_html=True)
+    c1, c2, c3 = st.columns([1, 1.2, 1])
+    with c2:
+        with st.form("login_form"):
+            st.text_input("Operator ID", key="username_input", placeholder="Enter your ID")
+            st.text_input("Access Key", type="password", key="password_input", placeholder="Enter your key")
+            submitted = st.form_submit_button("INITIALIZE TERMINAL", type="primary", use_container_width=True)
+            if submitted:
+                check_login(st.session_state.username_input, st.session_state.password_input)
 
-    met_col1, met_col2, met_col3 = st.columns(3)
-    metrics_data = [
-        ("Entry Quality", report.get('entry_quality', 50), met_col1),
-        ("Exit Quality", report.get('exit_quality', 50), met_col2),
-        ("Risk Management", report.get('risk_score', 50), met_col3)
-    ]
+# ==========================================
+# AUTHENTICATED DASHBOARD
+# ==========================================
+else:
+    # One-time DB/API init per session
+    if "db_initialized" not in st.session_state:
+        config.init_db_and_api()
+        st.session_state["db_initialized"] = True
 
-    for metric_name, metric_value, col in metrics_data:
-        with col:
-            met_color = "#10b981" if metric_value >= 80 else "#3b82f6" if metric_value >= 60 else "#f59e0b" if metric_value >= 40 else "#ef4444"
-            st.markdown(f"""
-            <div style="text-align: center; padding: 20px;">
-                <div class="metric-circle" style="background: rgba(255,255,255,0.03);">
-                    <div style="font-size: 2rem; font-weight: 700; color: {met_color}; font-family: 'JetBrains Mono', monospace;">{metric_value}</div>
-                    <div style="font-size: 0.7rem; color: #6b7280; text-transform: uppercase; letter-spacing: 1px;">/100</div>
-                </div>
-                <div style="margin-top: 16px; font-size: 0.9rem; font-weight: 600; color: #e5e7eb;">{metric_name}</div>
-                <div class="progress-bar-container" style="margin-top: 12px;">
-                    <div class="progress-bar" style="width: {metric_value}%; background: linear-gradient(90deg, {met_color}, {met_color}80);"></div>
-                </div>
+    current_user = st.session_state["user"]
+
+    # ── Re-read query params on EVERY rerun so navbar navigation works ──
+    try:
+        params = st.query_params
+        if "page" in params:
+            st.session_state["current_page"] = params["page"]
+    except:
+        pass
+
+    if "current_page" not in st.session_state:
+        st.session_state["current_page"] = "analyze"
+
+    current_page = st.session_state.get("current_page", "analyze")
+
+    # ── NAVBAR ──
+    st.markdown(f"""
+    <div class="premium-navbar">
+        <div class="nav-brand">
+            <div class="nav-logo">🩸</div>
+            <div><div class="nav-title">Trade Autopsy</div></div>
+        </div>
+        <div class="nav-menu">
+            <span class="nav-link {'active' if current_page == 'analyze' else ''}" id="nav_analyze">Analyze</span>
+            <span class="nav-link {'active' if current_page == 'portfolio' else ''}" id="nav_portfolio">Portfolio</span>
+            <span class="nav-link {'active' if current_page == 'data_vault' else ''}" id="nav_vault">Data Vault</span>
+            <span class="nav-link {'active' if current_page == 'pricing' else ''}" id="nav_pricing">Pricing</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="background: rgba(16, 185, 129, 0.15); padding: 8px 16px; border-radius: 10px; font-size: 0.85rem; font-weight: 600; color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">
+                {current_user}
             </div>
-            """, unsafe_allow_html=True)
+        </div>
+    </div>
+    <script>
+    document.getElementById('nav_analyze').onclick = function() {{ window.location.href = '?page=analyze'; }};
+    document.getElementById('nav_portfolio').onclick = function() {{ window.location.href = '?page=portfolio'; }};
+    document.getElementById('nav_vault').onclick = function() {{ window.location.href = '?page=data_vault'; }};
+    document.getElementById('nav_pricing').onclick = function() {{ window.location.href = '?page=pricing'; }};
+    </script>
+    """, unsafe_allow_html=True)
 
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    # ── TAGS ──
-    if report.get('tags'):
-        st.markdown('<div class="glass-panel animate-slide-right" style="animation-delay: 0.2s;">', unsafe_allow_html=True)
-        st.markdown('<div class="section-title">🏷️ Behavioral Patterns Detected</div>', unsafe_allow_html=True)
-
-        tags_html = '<div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px;">'
-        for tag in report['tags']:
-            if any(w in tag.lower() for w in ['fomo', 'revenge', 'emotional', 'panic', 'tilt']):
-                tag_color, tag_bg = "#ef4444", "rgba(239, 68, 68, 0.15)"
-            elif any(w in tag.lower() for w in ['disciplined', 'good', 'excellent', 'strong']):
-                tag_color, tag_bg = "#10b981", "rgba(16, 185, 129, 0.15)"
-            else:
-                tag_color, tag_bg = "#f59e0b", "rgba(245, 158, 11, 0.15)"
-            tags_html += f'<div style="background: {tag_bg}; border: 1px solid {tag_color}40; padding: 10px 18px; border-radius: 10px; color: {tag_color}; font-weight: 600; font-size: 0.85rem; letter-spacing: 0.5px;">{tag}</div>'
-        tags_html += '</div>'
-        st.markdown(tags_html, unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    # ── RADAR CHART ──
-    st.markdown('<div class="glass-panel animate-fade-in" style="animation-delay: 0.3s;">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">📈 Performance Radar</div>', unsafe_allow_html=True)
-
-    chart_data = pd.DataFrame({
-        'Metric': ['Entry\nQuality', 'Exit\nQuality', 'Risk\nManagement', 'Overall\nScore'],
-        'Score': [report.get('entry_quality', 50), report.get('exit_quality', 50), report.get('risk_score', 50), report['score']]
-    })
-
-    bars = alt.Chart(chart_data).mark_bar(cornerRadiusEnd=8, size=40).encode(
-        x=alt.X('Metric:N', axis=alt.Axis(title=None, labelColor='#e5e7eb', labelFontSize=12, labelAngle=0)),
-        y=alt.Y('Score:Q', scale=alt.Scale(domain=[0, 100]),
-                axis=alt.Axis(title='Score', titleColor='#9ca3af', labelColor='#9ca3af', grid=True, gridColor='#ffffff10')),
-        color=alt.Color('Score:Q', scale=alt.Scale(domain=[0, 40, 60, 80, 100], range=['#ef4444', '#f59e0b', '#3b82f6', '#10b981', '#10b981']), legend=None),
-        tooltip=[alt.Tooltip('Metric:N', title='Category'), alt.Tooltip('Score:Q', title='Score')]
-    ).properties(height=300).configure_view(strokeWidth=0, fill='transparent').configure(background='transparent')
-
-    st.altair_chart(bars, use_container_width=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    # ── 2-COL DETAIL CARDS ──
-    col_left, col_right = st.columns(2)
-
-    with col_left:
-        st.markdown('<div class="result-card animate-slide-up" style="animation-delay: 0.4s;">', unsafe_allow_html=True)
-        st.markdown('<div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;"><div style="font-size: 1.8rem;">⚙️</div><div style="font-size: 1rem; font-weight: 700; color: #3b82f6; text-transform: uppercase; letter-spacing: 1px;">Technical Analysis</div></div>', unsafe_allow_html=True)
-        st.markdown(f'<div style="color: #d1d5db; line-height: 1.8; font-size: 0.92rem;">{report["tech"]}</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        st.markdown('<div class="result-card animate-slide-up" style="animation-delay: 0.6s;">', unsafe_allow_html=True)
-        st.markdown('<div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;"><div style="font-size: 1.8rem;">⚠️</div><div style="font-size: 1rem; font-weight: 700; color: #f59e0b; text-transform: uppercase; letter-spacing: 1px;">Risk Assessment</div></div>', unsafe_allow_html=True)
-        st.markdown(f'<div style="color: #d1d5db; line-height: 1.8; font-size: 0.92rem;">{report["risk"]}</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    with col_right:
-        st.markdown('<div class="result-card animate-slide-up" style="animation-delay: 0.5s;">', unsafe_allow_html=True)
-        st.markdown('<div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;"><div style="font-size: 1.8rem;">🧠</div><div style="font-size: 1rem; font-weight: 700; color: #8b5cf6; text-transform: uppercase; letter-spacing: 1px;">Psychology Profile</div></div>', unsafe_allow_html=True)
-        st.markdown(f'<div style="color: #d1d5db; line-height: 1.8; font-size: 0.92rem;">{report["psych"]}</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        st.markdown('<div class="result-card animate-slide-up" style="animation-delay: 0.7s;">', unsafe_allow_html=True)
-        st.markdown('<div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;"><div style="font-size: 1.8rem;">🎯</div><div style="font-size: 1rem; font-weight: 700; color: #10b981; text-transform: uppercase; letter-spacing: 1px;">Action Plan</div></div>', unsafe_allow_html=True)
-        st.markdown(f'<div style="color: #d1d5db; line-height: 1.8; font-size: 0.92rem;">{report["fix"]}</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    # ── STRENGTH / CRITICAL ERROR ──
-    if report.get('strength') != 'N/A' and report.get('strength') != 'Analyzing...':
-        st.markdown('<div class="glass-panel animate-slide-up" style="animation-delay: 0.8s;">', unsafe_allow_html=True)
-        ins_col1, ins_col2 = st.columns(2)
-
-        with ins_col1:
-            st.markdown(f"""
-            <div style="background: rgba(16, 185, 129, 0.1); border-left: 4px solid #10b981; padding: 20px; border-radius: 0 12px 12px 0;">
-                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
-                    <div style="font-size: 1.5rem;">💪</div>
-                    <div style="font-size: 0.85rem; font-weight: 700; color: #10b981; text-transform: uppercase; letter-spacing: 1px;">What Went Well</div>
-                </div>
-                <div style="color: #d1d5db; line-height: 1.7; font-size: 0.9rem;">{report['strength']}</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-        with ins_col2:
-            if report.get('critical_error') != 'N/A' and report.get('critical_error') != 'Analyzing...':
-                st.markdown(f"""
-                <div style="background: rgba(239, 68, 68, 0.1); border-left: 4px solid #ef4444; padding: 20px; border-radius: 0 12px 12px 0;">
-                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
-                        <div style="font-size: 1.5rem;">⛔</div>
-                        <div style="font-size: 0.85rem; font-weight: 700; color: #ef4444; text-transform: uppercase; letter-spacing: 1px;">Critical Error</div>
-                    </div>
-                    <div style="color: #d1d5db; line-height: 1.7; font-size: 0.9rem;">{report['critical_error']}</div>
-                </div>
-                """, unsafe_allow_html=True)
-
-        st.markdown('</div>', unsafe_allow_html=True)
+    # ==========================================
+    # PAGE ROUTING
+    # ==========================================
+    if current_page == "portfolio":
+        render_portfolio_page(current_user)
+    elif current_page == "data_vault":
+        _render_data_vault(current_user)
+    elif current_page == "pricing":
+        _render_pricing()
+    else:  # "analyze"
+        _render_analyze_page(current_user)
