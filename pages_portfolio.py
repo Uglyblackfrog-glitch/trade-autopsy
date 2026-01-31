@@ -166,26 +166,6 @@ def _run_portfolio_analysis(
     total_pnl = current_value - total_invested
     total_pnl_pct = (total_pnl / total_invested * 100) if total_invested > 0 else 0
 
-    # Pre-calculate severity so model doesn't have to guess
-    if total_pnl_pct <= -50:
-        severity = "CATASTROPHIC EMERGENCY. Score MUST be 0-5. Grade MUST be F."
-    elif total_pnl_pct <= -30:
-        severity = "SEVERE CRISIS. Score MUST be 5-15. Grade MUST be F."
-    elif total_pnl_pct <= -20:
-        severity = "MAJOR PROBLEM. Score MUST be 15-30. Grade MUST be D."
-    elif total_pnl_pct <= -10:
-        severity = "CONCERNING. Score MUST be 30-50. Grade MUST be C."
-    elif total_pnl_pct <= -5:
-        severity = "MINOR ISSUE. Score 50-65. Grade B or C."
-    elif total_pnl_pct <= 0:
-        severity = "BREAKEVEN or marginal loss. Score 55-70. Grade B or C."
-    else:
-        severity = "PROFITABLE portfolio. Score 70-90 based on risk management quality. Grade A or B."
-
-    avg_position_pct = 100 / num_positions if num_positions > 0 else 100
-    recovery_needed = (abs(total_pnl) / current_value * 100) if current_value > 0 and total_pnl < 0 else 0
-    max_risk_per_trade = total_invested * 0.02  # 2% rule
-
     # ── Prepare image ──
     img_b64 = None
     stored_portfolio_image_url = None
@@ -198,91 +178,220 @@ def _run_portfolio_analysis(
             st.warning("Could not process image, using manual data only")
 
     # ── Build prompt ──
-    portfolio_prompt = f"""Analyze this investment portfolio. Output ONLY the tagged sections below — no extra commentary, no preamble.
+    portfolio_context = f"""
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+COMPREHENSIVE PORTFOLIO DATA:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-PORTFOLIO DATA (GROUND TRUTH — use these exact numbers):
+PORTFOLIO OVERVIEW:
 Total Invested: ₹{total_invested:,.2f}
 Current Value: ₹{current_value:,.2f}
 Total P&L: ₹{total_pnl:,.2f} ({total_pnl_pct:+.2f}%)
 Number of Positions: {num_positions}
+
+POSITION DETAILS:
 Worst Position: {largest_loss if largest_loss else "Not provided"}
 Best Position: {largest_gain if largest_gain else "Not provided"}
-Crisis Positions (>30% loss): {crisis_stocks if crisis_stocks else "None listed"}
+Crisis Stocks: {crisis_stocks if crisis_stocks else "None listed"}
 Top Holdings: {top_holdings if top_holdings else "Not provided"}
+
+PORTFOLIO STRUCTURE:
 Sector Allocation: {sectors if sectors else "Not provided"}
 Strategy: {strategy}
 Time Horizon: {time_horizon}
-Leverage: {leverage}
-Context: {description if description else "None provided"}
+Leverage Usage: {leverage}
 
-PRE-CALCULATED METRICS (use these directly):
-Drawdown: {total_pnl_pct:+.2f}%
-Severity: {severity}
-Recovery needed from current value: {recovery_needed:.1f}%
-Average position size: {avg_position_pct:.1f}% ({num_positions} positions)
-Max risk per trade (2% rule): ₹{max_risk_per_trade:,.0f}
+TRADER CONTEXT:
+{description if description else "No additional context provided"}
 
-SCORING FRAMEWORK:
-- Score (0-100): Overall portfolio health. Use the Severity line above as your anchor.
-- Entry Quality (0-100): Average entry quality across positions. Crisis positions with deep losses pull this down.
-- Exit Quality (0-100): Stop loss and exit discipline. Holding multiple deep losers with no exits = 10-25. Some trimming = 30-50.
-- Risk Score (0-100): Position sizing, diversification, leverage, stop usage. If drawdown >20%, MUST be below 30.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THIS IS GROUND TRUTH DATA. Analyze based on these exact values.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"""
 
-TAGS — pick 4-7 that apply:
-Portfolio_Crisis, Overleveraged, No_Stops, Concentration_Risk, Over_Diversified, Sector_Concentration, Multiple_Losers, Exit_Failure, Hope_Trading, Good_Diversification, Disciplined_Stops, Recovery_Possible, Capital_Destruction
+    portfolio_prompt = f"""You are a Senior Portfolio Manager with 30+ years experience managing institutional portfolios. You specialize in retail portfolio risk assessment and restructuring.
 
-OUTPUT — produce EXACTLY these sections:
+{portfolio_context}
 
-[SCORE] <0-100>
-[OVERALL_GRADE] <F/D/C/B/A/S-Tier>
-[ENTRY_QUALITY] <0-100>
-[EXIT_QUALITY] <0-100>
-[RISK_SCORE] <0-100>
-[TAGS] <4-7 tags>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+COMPREHENSIVE PORTFOLIO ANALYSIS FRAMEWORK:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-[TECH] Portfolio structure analysis. Open with the hard numbers: "₹{total_pnl_pct:+.2f}% drawdown, {num_positions} positions." Then: Is {num_positions} positions optimal? Evaluate concentration from top holdings ({top_holdings if top_holdings else "N/A"}). Address crisis positions ({crisis_stocks if crisis_stocks else "none"}) — recoverable or cut? Sector exposure ({sectors if sectors else "unknown"}) — any dangerous concentration? Best position: {largest_gain if largest_gain else "N/A"}.
+1. PORTFOLIO HEALTH ASSESSMENT:
+   Analyze the overall portfolio drawdown of {total_pnl_pct:.2f}%
+   - Is this acceptable, concerning, or catastrophic?
+   - Current value vs invested (recovery difficulty)
+   - Number of positions ({num_positions}) - over/under diversified?
+   - Win/loss distribution based on provided positions
 
-[PSYCH] Behavioral analysis. What do the position patterns reveal? Evidence of: holding losers too long (crisis positions still open?), cutting winners early, FOMO buying, revenge trading, averaging down. Reference actual positions. Strategy stated as "{strategy}" with "{time_horizon}" horizon — is behavior aligned?
+2. RISK MANAGEMENT DEEP DIVE:
+   - Position sizing: With {num_positions} positions, average should be ~{100/num_positions if num_positions > 0 else 0:.1f}% each
+   - Concentration risk: Top holdings analysis
+   - Stop loss discipline: Evidence from crisis positions
+   - Leverage assessment: {leverage} - flag if dangerous
+   - Sector concentration: {sectors if sectors else "Unknown"} - any overexposure?
 
-[RISK] Risk assessment with numbers. Position sizing: avg {avg_position_pct:.1f}% — disciplined or reckless? Stop evidence: are crisis positions open with no exit plan? Leverage: "{leverage}" — flag if dangerous. Recovery: needs {recovery_needed:.1f}% gain to break even — realistic timeline 6mo/12mo/24mo+? Any position showing >100% loss = leverage emergency.
+3. CRISIS IDENTIFICATION:
+   Crisis Positions: {crisis_stocks if crisis_stocks else "None specified"}
+   Worst Position: {largest_loss if largest_loss else "Not provided"}
+   - Any positions >100% loss? (leverage emergency)
+   - Multiple positions >50% loss? (exit discipline failure)
+   - Recovery likelihood for crisis positions
 
-[FIX] Recovery roadmap:
-IMMEDIATE (24-48h): [Most urgent — cut beyond-recovery positions or halt new trades]
-SHORT TERM (1-4 weeks): [Rebalancing, stop implementation, position cuts with specific names]
-LONG TERM (1-6 months): [Rebuild strategy. Max ₹{max_risk_per_trade:,.0f} per trade going forward (2% rule)]
+4. BEHAVIORAL PATTERN ANALYSIS:
+   Strategy: {strategy}
+   Time Horizon: {time_horizon}
+   Context: {description[:200] if description else "Minimal"}
+   - Holding losers too long?
+   - FOMO buying at peaks?
+   - Averaging down mistakes?
+   - Emotional vs. systematic approach?
 
-[STRENGTH] What is working or what could have been worse. Be honest.
+5. PORTFOLIO STRUCTURE EVALUATION:
+   - {num_positions} positions: Is this manageable?
+   - Sector allocation quality
+   - Market cap diversification
+   - Correlation risks
+   - Appropriate for stated time horizon?
 
-[CRITICAL_ERROR] The single biggest portfolio mistake. Name specific positions or patterns. Be direct."""
+SEVERITY CLASSIFICATION (CRITICAL):
+
+Drawdown >50%: CATASTROPHIC EMERGENCY (Score: 0-5, Grade: F)
+Drawdown 30-50%: SEVERE CRISIS (Score: 5-15, Grade: F)
+Drawdown 20-30%: MAJOR PROBLEM (Score: 15-30, Grade: D)
+Drawdown 10-20%: CONCERNING (Score: 30-50, Grade: C)
+Drawdown 5-10%: MINOR ISSUE (Score: 50-70, Grade: B)
+Drawdown 0-5%: ACCEPTABLE (Score: 70-85, Grade: A)
+Profit >0%: GOOD (Score: 85-100, Grade: A/S-Tier)
+
+SPECIAL CONSIDERATIONS:
+- Leverage usage increases severity by one level
+- >20 positions increases severity (over-diversification)
+- Multiple crisis stocks increases severity
+- No clear strategy increases severity
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MANDATORY OUTPUT FORMAT:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[SCORE] <0-100 based on drawdown and risk factors>
+
+[OVERALL_GRADE] <F/D/C/B/A/S-Tier based on severity table>
+
+[ENTRY_QUALITY] <0-100: Average entry timing quality across portfolio>
+
+[EXIT_QUALITY] <0-100: Exit discipline - stop loss usage, holding losers?>
+
+[RISK_SCORE] <0-100: Portfolio risk management quality - MUST be 0-10 if crisis>
+
+[TAGS] <Choose 5-8 relevant tags: Portfolio_Crisis, Overleveraged, No_Stops, Concentration_Risk, Over_Diversified, Sector_Concentration, Multiple_Losers, Exit_Failure, Hope_Trading, Good_Diversification, Disciplined_Stops, etc.>
+
+[TECH] PORTFOLIO STRUCTURE ANALYSIS:
+
+Portfolio Metrics: ₹{total_invested:,.0f} invested → ₹{current_value:,.0f} current = ₹{total_pnl:,.0f} ({total_pnl_pct:+.2f}%)
+
+Position Count Analysis: {num_positions} positions. [Is this optimal? Too many to manage? Too few for diversification?]
+
+Top Holdings Impact: {top_holdings if top_holdings else "Not provided"}. [Concentration risk assessment]
+
+Sector Exposure: {sectors if sectors else "Unknown"}. [Any dangerous concentration?]
+
+Crisis Positions: {crisis_stocks if crisis_stocks else "None listed"}. [Recovery likelihood? Should close?]
+
+[Provide specific technical commentary on portfolio construction, position sizing, diversification quality, and structural issues]
+
+[PSYCH] BEHAVIORAL PORTFOLIO PSYCHOLOGY:
+
+Trading Approach: {strategy} with {time_horizon} horizon. [Is behavior aligned with stated goals?]
+
+Decision-Making Patterns: [Based on crisis positions, worst loss, and description, analyze: Are they holding losers too long? Cutting winners early? FOMO buying? Revenge trading? Averaging down? Emotional attachment?]
+
+Discipline Assessment: [Evidence of trading plan? Stop loss usage? Position sizing rules? Or hope-based investing?]
+
+{leverage} - [If using leverage, address the psychological impact and risk]
+
+[Analyze the trader's MINDSET and behavioral patterns visible in portfolio structure]
+
+[RISK] COMPREHENSIVE RISK ASSESSMENT:
+
+Portfolio Drawdown: {total_pnl_pct:.2f}% = [CATASTROPHIC/SEVERE/MAJOR/CONCERNING/MINOR/ACCEPTABLE]
+
+Position Sizing: Avg {100/num_positions if num_positions > 0 else 0:.1f}% per position with {num_positions} holdings. [Assessment of sizing discipline]
+
+Leverage Risk: {leverage}. [If using margin/futures/options, this is RED FLAG - quantify danger]
+
+Concentration Risk: [Based on top holdings and sector allocation, assess if too concentrated]
+
+Stop Loss Implementation: [Based on crisis positions and description, are stops used? If not, bleeding continues]
+
+Recovery Mathematics: To recover {abs(total_pnl_pct):.1f}% loss requires {abs(total_pnl_pct)/(100+total_pnl_pct)*100 if total_pnl_pct < 0 else 0:.1f}% gain. Timeline: [Estimate 6mo/12mo/18mo/24mo+]
+
+[Provide specific risk metrics and quantified danger assessment]
+
+[FIX] PORTFOLIO RESTRUCTURING ROADMAP:
+
+IMMEDIATE (Next 24-48 hours):
+1. [Most urgent action - usually investigate leverage, close worst positions, or stop new trades]
+2. [Second priority - typically implement stops or hedge risks]
+3. [Third priority - usually calculate actual losses and set recovery plan]
+
+SHORT TERM (1-4 weeks):
+1. [Position reduction/consolidation - specific numbers]
+2. [Stop loss implementation - specific % levels]
+3. [Sector rebalancing if needed]
+4. [Close beyond-recovery positions]
+
+LONG TERM (1-6 months):
+1. [Complete portfolio restructuring strategy]
+2. [Education/skill development needs]
+3. [New risk management framework]
+4. [Psychology reset and habit building]
+
+Position Sizing Rule Going Forward: Risk no more than 1-2% per position (₹{total_invested*0.02:,.0f} max per trade)
+
+[STRENGTH] [Find something positive even in disaster: diversification across sectors? at least some winners? closed positions before -100%? still has capital to recover?]
+
+[CRITICAL_ERROR] [The single biggest portfolio-level mistake: usually no stops, concentration, leverage, or holding losers. Be specific with numbers/names]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CRITICAL RULES:
+- If drawdown >30%, score MUST be 0-15, grade F
+- If leverage + crisis, increase severity dramatically
+- Be specific with numbers from provided data
+- Recovery timeline must be realistic based on drawdown
+- If crisis positions listed, address them specifically by name
+- Focus on PORTFOLIO MANAGEMENT not stock picking
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
 
     # ── Call AI ──
     with st.spinner("🔬 Running Deep Portfolio Analysis... This may take 30-60 seconds..."):
         try:
             if img_b64:
-                raw_response = utils.call_vision_api(portfolio_prompt, img_b64)
+                messages = [{"role": "user", "content": [{"type": "text", "text": portfolio_prompt}, {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}}]}]
             else:
-                raw_response = utils.call_text_api(portfolio_prompt, max_tokens=2000)
+                messages = [{"role": "user", "content": [{"type": "text", "text": portfolio_prompt}]}]
 
-            report = utils.parse_report(raw_response)
+            payload = {
+                "model": "Qwen/Qwen2.5-VL-7B-Instruct",
+                "messages": messages,
+                "max_tokens": 2000,
+                "temperature": 0.3
+            }
+            headers = {
+                "Authorization": f"Bearer {config.HF_TOKEN}",
+                "Content-Type": "application/json"
+            }
 
-            # Enforce grade consistency with score
-            score = report['score']
-            if score <= 15:
-                report['overall_grade'] = 'F'
-            elif score <= 30:
-                report['overall_grade'] = 'D'
-            elif score <= 50:
-                report['overall_grade'] = 'C'
-            elif score <= 70:
-                report['overall_grade'] = 'B'
-            elif score <= 85:
-                report['overall_grade'] = 'A'
+            res = requests.post(config.API_URL, headers=headers, json=payload, timeout=90)
+
+            if res.status_code == 200:
+                raw_response = res.json()["choices"][0]["message"]["content"]
+                report = utils.parse_report(raw_response)
+                utils.save_analysis(current_user, report, "PORTFOLIO", stored_portfolio_image_url)
+                _display_portfolio_results(report, total_pnl_pct)
+                st.success("✅ Portfolio analysis complete! Review recommendations above.")
             else:
-                report['overall_grade'] = 'S-Tier'
-
-            utils.save_analysis(current_user, report, "PORTFOLIO", stored_portfolio_image_url)
-            _display_portfolio_results(report, total_pnl_pct)
-            st.success("✅ Portfolio analysis complete! Review recommendations above.")
+                st.error(f"API Error: {res.status_code} - {res.text[:200]}")
 
         except Exception as e:
             st.error(f"Analysis failed: {str(e)}")
@@ -366,9 +475,9 @@ def _display_portfolio_results(report, total_pnl_pct):
 
         tags_html = '<div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px;">'
         for tag in report['tags']:
-            if any(w in tag.lower() for w in ['crisis', 'catastrophic', 'emergency', 'overleveraged', 'failure', 'destruction']):
+            if any(w in tag.lower() for w in ['crisis', 'catastrophic', 'emergency', 'overleveraged', 'failure']):
                 tag_color, tag_bg = "#ef4444", "rgba(239, 68, 68, 0.15)"
-            elif any(w in tag.lower() for w in ['good', 'disciplined', 'strong', 'excellent', 'possible']):
+            elif any(w in tag.lower() for w in ['good', 'disciplined', 'strong', 'excellent']):
                 tag_color, tag_bg = "#10b981", "rgba(16, 185, 129, 0.15)"
             else:
                 tag_color, tag_bg = "#f59e0b", "rgba(245, 158, 11, 0.15)"
@@ -408,7 +517,7 @@ def _display_portfolio_results(report, total_pnl_pct):
         ins_col1, ins_col2 = st.columns(2)
 
         with ins_col1:
-            if report.get('strength') and report['strength'] != 'Analyzing...':
+            if report.get('strength'):
                 st.markdown(f"""
                 <div style="background: rgba(16, 185, 129, 0.1); border-left: 4px solid #10b981; padding: 20px; border-radius: 0 12px 12px 0;">
                     <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
@@ -420,7 +529,7 @@ def _display_portfolio_results(report, total_pnl_pct):
                 """, unsafe_allow_html=True)
 
         with ins_col2:
-            if report.get('critical_error') and report['critical_error'] != 'Analyzing...':
+            if report.get('critical_error'):
                 st.markdown(f"""
                 <div style="background: rgba(239, 68, 68, 0.1); border-left: 4px solid #ef4444; padding: 20px; border-radius: 0 12px 12px 0;">
                     <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
