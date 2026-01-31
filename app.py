@@ -11,221 +11,92 @@ import utils
 from pages_portfolio import render_portfolio_page
 
 # ==========================================
-# INITIALIZATION (CRITICAL FIX)
+# INITIALIZATION
 # ==========================================
-# This ensures "authenticated" key exists before we check it
+# 1. Initialize Session State
 if hasattr(config, 'init_session'):
     config.init_session()
 else:
-    # Fallback if config.py wasn't updated
+    # Fallback safety
     if "authenticated" not in st.session_state:
         st.session_state["authenticated"] = False
         st.session_state["user"] = None
         st.session_state["current_page"] = "analyze"
 
-# ==========================================
-# INJECT THEME (must run before anything renders)
-# ==========================================
+# 2. Inject CSS
 inject_css()
 
-# ==========================================
-# LOGIN GATE
-# ==========================================
-if not st.session_state["authenticated"]:
-    st.markdown("""
-    <div class="login-container">
-        <div class="login-logo">🩸</div>
-        <h1 style="margin: 0 0 10px 0; font-size: 2.2rem; font-weight: 800; letter-spacing: -0.02em; position: relative; z-index: 1;">StockPostmortem</h1>
-        <p style="color: #6b7280; font-size: 0.8rem; margin-bottom: 48px; letter-spacing: 3px; text-transform: uppercase; position: relative; z-index: 1;">Algorithmic Behavioral Forensics</p>
-    </div>
-    """, unsafe_allow_html=True)
 
-    c1, c2, c3 = st.columns([1, 1.2, 1])
-    with c2:
-        with st.form("login_form"):
-            st.text_input("Operator ID", key="username_input", placeholder="Enter your ID")
-            st.text_input("Access Key", type="password", key="password_input", placeholder="Enter your key")
-            submitted = st.form_submit_button("INITIALIZE TERMINAL", type="primary", use_container_width=True)
-            if submitted:
-                check_login(st.session_state.username_input, st.session_state.password_input)
+# ============================================================
+# HELPER: PROMPT BUILDERS
+# ============================================================
+def _build_chart_vision_prompt(manual_context):
+    return f"""
+    You are a professional trading psychology coach and technical analyst.
+    Analyze this trading chart image.
+    {manual_context}
+    
+    Provide a JSON response with these keys:
+    - score (0-100)
+    - tags (list of strings like "FOMO", "Impulse", "Good Entry")
+    - tech (technical analysis summary)
+    - psych (psychological state analysis)
+    - risk (risk management analysis)
+    - fix (how to improve)
+    - strength (what went well)
+    - critical_error (fatal mistake if any)
+    """
 
-# ==========================================
-# AUTHENTICATED DASHBOARD
-# ==========================================
-else:
-    # One-time DB/API init per session
-    if "db_initialized" not in st.session_state:
-        config.init_db_and_api()
-        st.session_state["db_initialized"] = True
+def _build_portfolio_context(inv, curr, pnl, pnl_pct, num, l_loss, l_gain, crisis, desc):
+    return f"""
+    Portfolio Data:
+    - Invested: {inv}
+    - Current Value: {curr}
+    - P&L: {pnl} ({pnl_pct:.2f}%)
+    - Positions: {num}
+    - Largest Loss: {l_loss}
+    - Largest Gain: {l_gain}
+    - Crisis Stocks: {crisis}
+    - Description: {desc}
+    """
 
-    current_user = st.session_state["user"]
+def _build_inline_portfolio_prompt(ctx, pnl, pnl_pct, num, l_loss, l_gain, crisis, desc, inv):
+    return f"""
+    Analyze this portfolio health based on the image and data provided.
+    {ctx}
+    
+    Provide a JSON response in the same format as a trade audit, but adapted for portfolio health:
+    - score (0-100 health score)
+    - tags (risk factors like "Over-concentrated", "High Drawdown")
+    - tech (structural analysis of portfolio)
+    - psych (investor psychology assessment based on holding losers/winners)
+    - risk (exposure analysis)
+    - fix (restructuring recommendations)
+    - strength (what is working)
+    """
 
-    if "current_page" not in st.session_state:
-        st.session_state["current_page"] = "analyze"
+def _build_text_param_prompt(ticker, setup, emotion, entry, exit_p, stop, notes):
+    return f"""
+    Analyze this trade:
+    Ticker: {ticker}
+    Setup: {setup}
+    Emotion: {emotion}
+    Entry: {entry}
+    Exit: {exit_p}
+    Stop: {stop}
+    Notes: {notes}
+    
+    Provide JSON response with standard keys (score, tags, tech, psych, risk, fix, strength, critical_error).
+    """
 
-    current_page = st.session_state.get("current_page", "analyze")
-
-    # ── NAVBAR ──
-    st.markdown(f"""
-    <div class="premium-navbar">
-        <div class="nav-brand">
-            <div class="nav-logo">🩸</div>
-            <div><div class="nav-title">Trade Autopsy</div></div>
-        </div>
-        <div class="nav-menu">
-            <span class="nav-link {'active' if current_page == 'analyze' else ''}" id="nav_analyze">Analyze</span>
-            <span class="nav-link {'active' if current_page == 'portfolio' else ''}" id="nav_portfolio">Portfolio</span>
-            <span class="nav-link {'active' if current_page == 'data_vault' else ''}" id="nav_vault">Data Vault</span>
-            <span class="nav-link {'active' if current_page == 'pricing' else ''}" id="nav_pricing">Pricing</span>
-        </div>
-        <div style="display: flex; align-items: center; gap: 12px;">
-            <div style="background: rgba(16, 185, 129, 0.15); padding: 8px 16px; border-radius: 10px; font-size: 0.85rem; font-weight: 600; color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">
-                {current_user}
-            </div>
-        </div>
-    </div>
-    <script>
-    document.getElementById('nav_analyze').onclick = function() {{ window.location.href = '?page=analyze'; }};
-    document.getElementById('nav_portfolio').onclick = function() {{ window.location.href = '?page=portfolio'; }};
-    document.getElementById('nav_vault').onclick = function() {{ window.location.href = '?page=data_vault'; }};
-    document.getElementById('nav_pricing').onclick = function() {{ window.location.href = '?page=pricing'; }};
-    </script>
-    """, unsafe_allow_html=True)
-
-    # ==========================================
-    # PAGE ROUTING
-    # ==========================================
-
-    if current_page == "portfolio":
-        render_portfolio_page(current_user)
-
-    elif current_page == "data_vault":
-        _render_data_vault(current_user)
-
-    elif current_page == "pricing":
-        _render_pricing()
-
-    else:  # "analyze"
-        _render_analyze_page(current_user)
+def _display_audit_results(report, ticker_val):
+    st.markdown(f"### Analysis Result for {ticker_val}")
+    st.json(report)
 
 
 # ============================================================
-# PAGE: DATA VAULT
+# COMPONENT: FORENSIC AUDIT (TAB 1)
 # ============================================================
-def _render_data_vault(current_user):
-    if not config.supabase:
-        st.warning("Database not configured.")
-        return
-
-    hist = config.supabase.table("trades").select("*").eq("user_id", current_user).order("created_at", desc=True).execute()
-
-    if hist.data:
-        df = pd.DataFrame(hist.data)
-        df['created_at'] = pd.to_datetime(df['created_at'])
-
-        st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
-        st.markdown(f'<div class="section-title">Complete Audit History ({len(df)} records)</div>', unsafe_allow_html=True)
-
-        col_search1, col_search2, col_search3 = st.columns([2, 1, 1])
-        with col_search1:
-            search_ticker = st.text_input("Search by Ticker", placeholder="e.g., SPY, AAPL", label_visibility="collapsed")
-        with col_search2:
-            score_filter = st.selectbox("Score Filter", ["All", "Excellent (80+)", "Good (60-80)", "Fair (40-60)", "Poor (<40)"], label_visibility="collapsed")
-        with col_search3:
-            sort_order = st.selectbox("Sort By", ["Newest First", "Oldest First", "Highest Score", "Lowest Score"], label_visibility="collapsed")
-
-        st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
-
-        filtered_df = df.copy()
-        if search_ticker:
-            filtered_df = filtered_df[filtered_df['ticker'].str.contains(search_ticker, case=False, na=False)]
-        if score_filter == "Excellent (80+)":
-            filtered_df = filtered_df[filtered_df['score'] >= 80]
-        elif score_filter == "Good (60-80)":
-            filtered_df = filtered_df[(filtered_df['score'] >= 60) & (filtered_df['score'] < 80)]
-        elif score_filter == "Fair (40-60)":
-            filtered_df = filtered_df[(filtered_df['score'] >= 40) & (filtered_df['score'] < 60)]
-        elif score_filter == "Poor (<40)":
-            filtered_df = filtered_df[filtered_df['score'] < 40]
-
-        if sort_order == "Oldest First":
-            filtered_df = filtered_df.sort_values('created_at', ascending=True)
-        elif sort_order == "Highest Score":
-            filtered_df = filtered_df.sort_values('score', ascending=False)
-        elif sort_order == "Lowest Score":
-            filtered_df = filtered_df.sort_values('score', ascending=True)
-        else:
-            filtered_df = filtered_df.sort_values('created_at', ascending=False)
-
-        table_df = filtered_df[['created_at', 'ticker', 'score', 'mistake_tags', 'technical_analysis', 'psych_analysis']].copy()
-        table_df.columns = ['Date', 'Ticker', 'Score', 'Error Tags', 'Technical Notes', 'Psychology Notes']
-        table_df['Error Tags'] = table_df['Error Tags'].apply(lambda x: ', '.join(x[:3]) if len(x) > 0 else 'None')
-        table_df['Technical Notes'] = table_df['Technical Notes'].apply(lambda x: (x[:80] + '...') if len(str(x)) > 80 else x)
-        table_df['Psychology Notes'] = table_df['Psychology Notes'].apply(lambda x: (x[:80] + '...') if len(str(x)) > 80 else x)
-
-        st.dataframe(
-            table_df, use_container_width=True, hide_index=True,
-            column_config={
-                "Score": st.column_config.ProgressColumn("Score", min_value=0, max_value=100, format="%d"),
-                "Date": st.column_config.DatetimeColumn("Date", format="MMM DD, YYYY HH:mm"),
-                "Ticker": st.column_config.TextColumn("Ticker", width="small"),
-                "Error Tags": st.column_config.TextColumn("Error Tags", width="medium"),
-                "Technical Notes": st.column_config.TextColumn("Technical", width="large"),
-                "Psychology Notes": st.column_config.TextColumn("Psychology", width="large")
-            },
-            height=600
-        )
-
-        st.markdown('<div style="margin-top: 20px;"></div>', unsafe_allow_html=True)
-        csv = filtered_df.to_csv(index=False)
-        st.download_button(
-            label="📥 Export to CSV",
-            data=csv,
-            file_name=f"stockpostmortem_data_{current_user}_{datetime.now().strftime('%Y%m%d')}.csv",
-            mime="text/csv",
-            use_container_width=False
-        )
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    else:
-        st.markdown('<div class="glass-panel" style="text-align: center; padding: 80px;">', unsafe_allow_html=True)
-        st.markdown("""
-        <div style="font-size: 3.5rem; margin-bottom: 20px; opacity: 0.4;">🗄️</div>
-        <div style="font-size: 1.2rem; color: #9ca3af; margin-bottom: 10px; font-weight: 600;">Data Vault Empty</div>
-        <div style="font-size: 0.95rem; color: #6b7280;">Your audit history will appear here once you start analyzing trades.</div>
-        """, unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-
-# ============================================================
-# PAGE: PRICING
-# ============================================================
-def _render_pricing():
-    st.markdown('<div class="glass-panel" style="text-align: center; padding: 80px;">', unsafe_allow_html=True)
-    st.markdown("""
-    <div style="font-size: 3.5rem; margin-bottom: 20px; opacity: 0.4;">💳</div>
-    <div style="font-size: 1.2rem; color: #9ca3af; margin-bottom: 10px; font-weight: 600;">Pricing Information</div>
-    <div style="font-size: 0.95rem; color: #6b7280;">Pricing details coming soon.</div>
-    """, unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-
-
-# ============================================================
-# PAGE: ANALYZE  (Forensic Audit + Performance Metrics tabs)
-# ============================================================
-def _render_analyze_page(current_user):
-    main_tab1, main_tab2 = st.tabs(["🔎 FORENSIC AUDIT", "📊 PERFORMANCE METRICS"])
-
-    with main_tab1:
-        _render_forensic_audit(current_user)
-
-    with main_tab2:
-        _render_performance_metrics(current_user)
-
-
-# ─────────────────────────────────────────────────────
-# TAB 1: FORENSIC AUDIT  (3 input modes)
-# ─────────────────────────────────────────────────────
 def _render_forensic_audit(current_user):
     c_mode = st.radio("Input Vector", ["Text Parameters", "Chart Vision", "Portfolio Analysis"], horizontal=True, label_visibility="collapsed")
 
@@ -419,9 +290,9 @@ def _render_forensic_audit(current_user):
                 """)
 
 
-# ─────────────────────────────────────────────────────
-# TAB 2: PERFORMANCE METRICS
-# ─────────────────────────────────────────────────────
+# ============================================================
+# COMPONENT: PERFORMANCE METRICS (TAB 2)
+# ============================================================
 def _render_performance_metrics(current_user):
     if not config.supabase:
         st.warning("Database not configured.")
@@ -436,7 +307,6 @@ def _render_performance_metrics(current_user):
         <div style="font-size: 1.2rem; color: #9ca3af; margin-bottom: 10px; font-weight: 600;">No Performance Data Yet</div>
         <div style="font-size: 0.95rem; color: #6b7280;">Complete your first forensic audit to see metrics here.</div>
         """, unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
         return
 
     df = pd.DataFrame(hist.data)
@@ -445,7 +315,12 @@ def _render_performance_metrics(current_user):
     avg_score = df['score'].mean()
     total_trades = len(df)
     all_tags = [tag for sublist in df['mistake_tags'] for tag in sublist]
-    top_mistake = pd.Series(all_tags).mode()[0] if all_tags else "None"
+    # Handle empty mode case
+    if all_tags:
+        top_mistake = pd.Series(all_tags).mode()[0]
+    else:
+        top_mistake = "None"
+    
     win_rate = len(df[df['score'] > 60]) / len(df) * 100 if len(df) > 0 else 0
     
     recent_avg = df.head(5)['score'].mean() if len(df) >= 5 else avg_score
@@ -477,69 +352,196 @@ def _render_performance_metrics(current_user):
     st.markdown('</div>', unsafe_allow_html=True)
 
 
-# ─────────────────────────────────────────────────────
-# HELPER: PROMPT BUILDERS (Restored for completeness)
-# ─────────────────────────────────────────────────────
+# ============================================================
+# PAGE: ANALYZE (MAIN)
+# ============================================================
+def _render_analyze_page(current_user):
+    main_tab1, main_tab2 = st.tabs(["🔎 FORENSIC AUDIT", "📊 PERFORMANCE METRICS"])
 
-def _build_chart_vision_prompt(manual_context):
-    return f"""
-    You are a professional trading psychology coach and technical analyst.
-    Analyze this trading chart image.
-    {manual_context}
-    
-    Provide a JSON response with these keys:
-    - score (0-100)
-    - tags (list of strings like "FOMO", "Impulse", "Good Entry")
-    - tech (technical analysis summary)
-    - psych (psychological state analysis)
-    - risk (risk management analysis)
-    - fix (how to improve)
-    - strength (what went well)
-    - critical_error (fatal mistake if any)
-    """
+    with main_tab1:
+        _render_forensic_audit(current_user)
 
-def _build_portfolio_context(inv, curr, pnl, pnl_pct, num, l_loss, l_gain, crisis, desc):
-    return f"""
-    Portfolio Data:
-    - Invested: {inv}
-    - Current Value: {curr}
-    - P&L: {pnl} ({pnl_pct:.2f}%)
-    - Positions: {num}
-    - Largest Loss: {l_loss}
-    - Largest Gain: {l_gain}
-    - Crisis Stocks: {crisis}
-    - Description: {desc}
-    """
+    with main_tab2:
+        _render_performance_metrics(current_user)
 
-def _build_inline_portfolio_prompt(ctx, pnl, pnl_pct, num, l_loss, l_gain, crisis, desc, inv):
-    return f"""
-    Analyze this portfolio health based on the image and data provided.
-    {ctx}
-    
-    Provide a JSON response in the same format as a trade audit, but adapted for portfolio health:
-    - score (0-100 health score)
-    - tags (risk factors like "Over-concentrated", "High Drawdown")
-    - tech (structural analysis of portfolio)
-    - psych (investor psychology assessment based on holding losers/winners)
-    - risk (exposure analysis)
-    - fix (restructuring recommendations)
-    - strength (what is working)
-    """
 
-def _build_text_param_prompt(ticker, setup, emotion, entry, exit_p, stop, notes):
-    return f"""
-    Analyze this trade:
-    Ticker: {ticker}
-    Setup: {setup}
-    Emotion: {emotion}
-    Entry: {entry}
-    Exit: {exit_p}
-    Stop: {stop}
-    Notes: {notes}
-    
-    Provide JSON response with standard keys (score, tags, tech, psych, risk, fix, strength, critical_error).
-    """
+# ============================================================
+# PAGE: DATA VAULT
+# ============================================================
+def _render_data_vault(current_user):
+    if not config.supabase:
+        st.warning("Database not configured.")
+        return
 
-def _display_audit_results(report, ticker_val):
-    st.markdown(f"### Analysis Result for {ticker_val}")
-    st.json(report)
+    hist = config.supabase.table("trades").select("*").eq("user_id", current_user).order("created_at", desc=True).execute()
+
+    if hist.data:
+        df = pd.DataFrame(hist.data)
+        df['created_at'] = pd.to_datetime(df['created_at'])
+
+        st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
+        st.markdown(f'<div class="section-title">Complete Audit History ({len(df)} records)</div>', unsafe_allow_html=True)
+
+        col_search1, col_search2, col_search3 = st.columns([2, 1, 1])
+        with col_search1:
+            search_ticker = st.text_input("Search by Ticker", placeholder="e.g., SPY, AAPL", label_visibility="collapsed")
+        with col_search2:
+            score_filter = st.selectbox("Score Filter", ["All", "Excellent (80+)", "Good (60-80)", "Fair (40-60)", "Poor (<40)"], label_visibility="collapsed")
+        with col_search3:
+            sort_order = st.selectbox("Sort By", ["Newest First", "Oldest First", "Highest Score", "Lowest Score"], label_visibility="collapsed")
+
+        st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
+
+        filtered_df = df.copy()
+        if search_ticker:
+            filtered_df = filtered_df[filtered_df['ticker'].str.contains(search_ticker, case=False, na=False)]
+        if score_filter == "Excellent (80+)":
+            filtered_df = filtered_df[filtered_df['score'] >= 80]
+        elif score_filter == "Good (60-80)":
+            filtered_df = filtered_df[(filtered_df['score'] >= 60) & (filtered_df['score'] < 80)]
+        elif score_filter == "Fair (40-60)":
+            filtered_df = filtered_df[(filtered_df['score'] >= 40) & (filtered_df['score'] < 60)]
+        elif score_filter == "Poor (<40)":
+            filtered_df = filtered_df[filtered_df['score'] < 40]
+
+        if sort_order == "Oldest First":
+            filtered_df = filtered_df.sort_values('created_at', ascending=True)
+        elif sort_order == "Highest Score":
+            filtered_df = filtered_df.sort_values('score', ascending=False)
+        elif sort_order == "Lowest Score":
+            filtered_df = filtered_df.sort_values('score', ascending=True)
+        else:
+            filtered_df = filtered_df.sort_values('created_at', ascending=False)
+
+        table_df = filtered_df[['created_at', 'ticker', 'score', 'mistake_tags', 'technical_analysis', 'psych_analysis']].copy()
+        table_df.columns = ['Date', 'Ticker', 'Score', 'Error Tags', 'Technical Notes', 'Psychology Notes']
+        table_df['Error Tags'] = table_df['Error Tags'].apply(lambda x: ', '.join(x[:3]) if len(x) > 0 else 'None')
+        table_df['Technical Notes'] = table_df['Technical Notes'].apply(lambda x: (x[:80] + '...') if len(str(x)) > 80 else x)
+        table_df['Psychology Notes'] = table_df['Psychology Notes'].apply(lambda x: (x[:80] + '...') if len(str(x)) > 80 else x)
+
+        st.dataframe(
+            table_df, use_container_width=True, hide_index=True,
+            column_config={
+                "Score": st.column_config.ProgressColumn("Score", min_value=0, max_value=100, format="%d"),
+                "Date": st.column_config.DatetimeColumn("Date", format="MMM DD, YYYY HH:mm"),
+                "Ticker": st.column_config.TextColumn("Ticker", width="small"),
+                "Error Tags": st.column_config.TextColumn("Error Tags", width="medium"),
+                "Technical Notes": st.column_config.TextColumn("Technical", width="large"),
+                "Psychology Notes": st.column_config.TextColumn("Psychology", width="large")
+            },
+            height=600
+        )
+
+        st.markdown('<div style="margin-top: 20px;"></div>', unsafe_allow_html=True)
+        csv = filtered_df.to_csv(index=False)
+        st.download_button(
+            label="📥 Export to CSV",
+            data=csv,
+            file_name=f"stockpostmortem_data_{current_user}_{datetime.now().strftime('%Y%m%d')}.csv",
+            mime="text/csv",
+            use_container_width=False
+        )
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    else:
+        st.markdown('<div class="glass-panel" style="text-align: center; padding: 80px;">', unsafe_allow_html=True)
+        st.markdown("""
+        <div style="font-size: 3.5rem; margin-bottom: 20px; opacity: 0.4;">🗄️</div>
+        <div style="font-size: 1.2rem; color: #9ca3af; margin-bottom: 10px; font-weight: 600;">Data Vault Empty</div>
+        <div style="font-size: 0.95rem; color: #6b7280;">Your audit history will appear here once you start analyzing trades.</div>
+        """, unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+
+# ============================================================
+# PAGE: PRICING
+# ============================================================
+def _render_pricing():
+    st.markdown('<div class="glass-panel" style="text-align: center; padding: 80px;">', unsafe_allow_html=True)
+    st.markdown("""
+    <div style="font-size: 3.5rem; margin-bottom: 20px; opacity: 0.4;">💳</div>
+    <div style="font-size: 1.2rem; color: #9ca3af; margin-bottom: 10px; font-weight: 600;">Pricing Information</div>
+    <div style="font-size: 0.95rem; color: #6b7280;">Pricing details coming soon.</div>
+    """, unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+
+# ==========================================
+# MAIN EXECUTION LOGIC (MUST BE AT THE END)
+# ==========================================
+
+# LOGIN GATE
+if not st.session_state["authenticated"]:
+    st.markdown("""
+    <div class="login-container">
+        <div class="login-logo">🩸</div>
+        <h1 style="margin: 0 0 10px 0; font-size: 2.2rem; font-weight: 800; letter-spacing: -0.02em; position: relative; z-index: 1;">StockPostmortem</h1>
+        <p style="color: #6b7280; font-size: 0.8rem; margin-bottom: 48px; letter-spacing: 3px; text-transform: uppercase; position: relative; z-index: 1;">Algorithmic Behavioral Forensics</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    c1, c2, c3 = st.columns([1, 1.2, 1])
+    with c2:
+        with st.form("login_form"):
+            st.text_input("Operator ID", key="username_input", placeholder="Enter your ID")
+            st.text_input("Access Key", type="password", key="password_input", placeholder="Enter your key")
+            submitted = st.form_submit_button("INITIALIZE TERMINAL", type="primary", use_container_width=True)
+            if submitted:
+                check_login(st.session_state.username_input, st.session_state.password_input)
+
+# AUTHENTICATED DASHBOARD
+else:
+    # One-time DB/API init per session
+    if "db_initialized" not in st.session_state:
+        config.init_db_and_api()
+        st.session_state["db_initialized"] = True
+
+    current_user = st.session_state["user"]
+
+    if "current_page" not in st.session_state:
+        st.session_state["current_page"] = "analyze"
+
+    current_page = st.session_state.get("current_page", "analyze")
+
+    # ── NAVBAR ──
+    st.markdown(f"""
+    <div class="premium-navbar">
+        <div class="nav-brand">
+            <div class="nav-logo">🩸</div>
+            <div><div class="nav-title">Trade Autopsy</div></div>
+        </div>
+        <div class="nav-menu">
+            <span class="nav-link {'active' if current_page == 'analyze' else ''}" id="nav_analyze">Analyze</span>
+            <span class="nav-link {'active' if current_page == 'portfolio' else ''}" id="nav_portfolio">Portfolio</span>
+            <span class="nav-link {'active' if current_page == 'data_vault' else ''}" id="nav_vault">Data Vault</span>
+            <span class="nav-link {'active' if current_page == 'pricing' else ''}" id="nav_pricing">Pricing</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="background: rgba(16, 185, 129, 0.15); padding: 8px 16px; border-radius: 10px; font-size: 0.85rem; font-weight: 600; color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">
+                {current_user}
+            </div>
+        </div>
+    </div>
+    <script>
+    document.getElementById('nav_analyze').onclick = function() {{ window.location.href = '?page=analyze'; }};
+    document.getElementById('nav_portfolio').onclick = function() {{ window.location.href = '?page=portfolio'; }};
+    document.getElementById('nav_vault').onclick = function() {{ window.location.href = '?page=data_vault'; }};
+    document.getElementById('nav_pricing').onclick = function() {{ window.location.href = '?page=pricing'; }};
+    </script>
+    """, unsafe_allow_html=True)
+
+    # ==========================================
+    # PAGE ROUTING
+    # ==========================================
+
+    if current_page == "portfolio":
+        render_portfolio_page(current_user)
+
+    elif current_page == "data_vault":
+        _render_data_vault(current_user)
+
+    elif current_page == "pricing":
+        _render_pricing()
+
+    else:  # "analyze"
+        _render_analyze_page(current_user)
