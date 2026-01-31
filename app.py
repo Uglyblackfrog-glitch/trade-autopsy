@@ -9,7 +9,6 @@ from PIL import Image
 from supabase import create_client, Client
 from datetime import datetime
 import json
-import uuid  # Add this to generate unique filenames
 
 # ==========================================
 # 0. AUTHENTICATION & CONFIG
@@ -1089,7 +1088,7 @@ def parse_report(text):
     
     return sections
 
-def save_analysis(user_id, data, ticker_symbol="UNK", img_url=None):  # Added img_url param
+def save_analysis(user_id, data, ticker_symbol="UNK"):
     if not supabase: return
     try:
         payload = {
@@ -1100,8 +1099,7 @@ def save_analysis(user_id, data, ticker_symbol="UNK", img_url=None):  # Added im
             "technical_analysis": data.get('tech', ''),
             "psych_analysis": data.get('psych', ''),
             "risk_analysis": data.get('risk', ''),
-            "fix_action": data.get('fix', ''),
-            "image_url": img_url  # Save the link
+            "fix_action": data.get('fix', '')
         }
         supabase.table("trades").insert(payload).execute()
     except Exception as e:
@@ -1122,34 +1120,6 @@ def generate_insights(df):
         insights.append("🧠 **Toxic Loop:** 'FOMO' leading to 'Revenge' detected 3x this month.")
     
     return insights if insights else ["✅ Performance metrics within normal parameters."]
-
-def upload_image_to_supabase(file_obj):
-    """Uploads stream/buffer to Supabase Storage and returns public URL"""
-    if not supabase: return None
-    
-    try:
-        # Create unique filename
-        file_ext = file_obj.name.split('.')[-1]
-        file_name = f"{st.session_state['user']}/{uuid.uuid4()}.{file_ext}"
-        
-        # Reset pointer to start of file
-        file_obj.seek(0)
-        file_bytes = file_obj.read()
-        
-        # Upload
-        bucket_name = "trade_images"  # Must match what you created in Supabase
-        supabase.storage.from_(bucket_name).upload(
-            file=file_bytes,
-            path=file_name,
-            file_options={"content-type": f"image/{file_ext}"}
-        )
-        
-        # Get Public URL
-        public_url = supabase.storage.from_(bucket_name).get_public_url(file_name)
-        return public_url
-    except Exception as e:
-        st.error(f"Image Upload Failed: {e}")
-        return None
 
 def call_vision_api(prompt, img_b64, max_retries=2):
     """Call vision API with retry logic and better error handling"""
@@ -1482,14 +1452,8 @@ else:
                     
                     # Prepare image if uploaded
                     img_b64 = None
-                    stored_portfolio_image_url = None  # Initialize URL variable
                     if portfolio_file and portfolio_file.type != "application/pdf":
                         try:
-                            # Upload to Supabase first
-                            with st.spinner("Uploading portfolio evidence to secure vault..."):
-                                stored_portfolio_image_url = upload_image_to_supabase(portfolio_file)
-                            
-                            # Process for AI analysis
                             image = Image.open(portfolio_file)
                             max_size = (1920, 1080)
                             image.thumbnail(max_size, Image.Resampling.LANCZOS)
@@ -1711,8 +1675,8 @@ CRITICAL RULES:
                                 raw_response = res.json()["choices"][0]["message"]["content"]
                                 report = parse_report(raw_response)
                                 
-                                # Save to database with image URL
-                                save_analysis(current_user, report, "PORTFOLIO", stored_portfolio_image_url)
+                                # Save to database
+                                save_analysis(current_user, report, "PORTFOLIO")
                                 
                                 # Display results with same beautiful UI as trade analysis
                                 # [All the visualization code from trade analysis - reuse the same display logic]
@@ -2114,11 +2078,6 @@ CRITICAL RULES:
                     st.markdown('<div style="height: 24px;"></div>', unsafe_allow_html=True)
                     
                     if st.button("🧬 RUN QUANTITATIVE ANALYSIS", type="primary", use_container_width=True):
-                        # 1. Upload Image First
-                        with st.spinner("Uploading evidence to secure vault..."):
-                            stored_image_url = upload_image_to_supabase(uploaded_file)
-                        
-                        # 2. Process Image for AI (Existing logic)
                         image = Image.open(uploaded_file)
                         # Optimize image size
                         max_size = (1920, 1080)
@@ -2607,9 +2566,7 @@ BE HARSH. USE NUMBERS. BE SPECIFIC."""
                             for msg in warning_messages:
                                 st.warning(msg)
                         
-                        # Save with image URL if available
-                        image_url_to_save = stored_image_url if 'stored_image_url' in locals() else None
-                        save_analysis(current_user, report, ticker_val, image_url_to_save)
+                        save_analysis(current_user, report, ticker_val)
                         
                         # REST OF THE DISPLAY CODE REMAINS EXACTLY THE SAME...
                         # (All the visualization code from line 2000+ stays unchanged)
@@ -3205,67 +3162,6 @@ BE HARSH. USE NUMBERS. BE SPECIFIC."""
                             )
                         }
                     )
-                    st.markdown('</div>', unsafe_allow_html=True)
-                    
-                    # 5. DETAILED TRADE HISTORY WITH IMAGES
-                    st.markdown('<div class="glass-panel" style="margin-top: 32px;">', unsafe_allow_html=True)
-                    st.markdown('<div class="section-title">📜 Trade History Details</div>', unsafe_allow_html=True)
-                    
-                    for i, row in df.head(20).iterrows():
-                        with st.expander(f"📊 {row['created_at'].strftime('%Y-%m-%d %H:%M')} | {row['ticker']} | Score: {row['score']}/100"):
-                            # CHECK IF IMAGE EXISTS AND DISPLAY IT
-                            if row.get('image_url'):
-                                st.image(row['image_url'], caption="Original Trade Evidence", width=600)
-                                st.markdown('<div style="height: 16px;"></div>', unsafe_allow_html=True)
-                            
-                            # Display analysis details
-                            col1, col2 = st.columns(2)
-                            
-                            with col1:
-                                st.markdown(f"**Quality Grade:** {row.get('overall_grade', 'N/A')}")
-                                st.markdown(f"**Entry Quality:** {row.get('entry_quality', 'N/A')}/100")
-                                st.markdown(f"**Exit Quality:** {row.get('exit_quality', 'N/A')}/100")
-                                st.markdown(f"**Risk Score:** {row.get('risk_score', 'N/A')}/100")
-                            
-                            with col2:
-                                tags = row.get('mistake_tags', [])
-                                if tags:
-                                    st.markdown(f"**Error Tags:** {', '.join(tags)}")
-                                else:
-                                    st.markdown("**Error Tags:** None")
-                            
-                            st.markdown("---")
-                            
-                            # Technical Analysis
-                            if row.get('technical_analysis'):
-                                st.markdown("**📈 Technical Analysis:**")
-                                st.write(row['technical_analysis'])
-                            
-                            # Psychological Analysis
-                            if row.get('psych_analysis'):
-                                st.markdown("**🧠 Psychological Analysis:**")
-                                st.write(row['psych_analysis'])
-                            
-                            # Risk Analysis
-                            if row.get('risk_analysis'):
-                                st.markdown("**⚠️ Risk Analysis:**")
-                                st.write(row['risk_analysis'])
-                            
-                            # Fix Action
-                            if row.get('fix_action'):
-                                st.markdown("**🔧 Recommended Fixes:**")
-                                st.write(row['fix_action'])
-                            
-                            # Strength
-                            if row.get('strength'):
-                                st.markdown("**💪 Strengths:**")
-                                st.write(row['strength'])
-                            
-                            # Critical Error
-                            if row.get('critical_error'):
-                                st.markdown("**🚨 Critical Error:**")
-                                st.write(row['critical_error'])
-                    
                     st.markdown('</div>', unsafe_allow_html=True)
                 
                 else:
