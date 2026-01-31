@@ -1105,23 +1105,283 @@ def save_analysis(user_id, data, ticker_symbol="UNK"):
     except Exception as e:
         st.error(f"Database error: {e}")
 
+# ==========================================
+# IMPROVED PORTFOLIO ANALYSIS FUNCTION
+# Replace lines 1108-1122 in your file
+# ==========================================
+
 def generate_insights(df):
+    """
+    Elite-level portfolio analysis with Wall Street precision.
+    Provides comprehensive behavioral, statistical, and risk analytics.
+    """
     insights = []
-    if df.empty: return ["Awaiting data to generate neural patterns."]
     
-    recent_scores = df.head(3)['score'].mean()
-    if recent_scores < 50:
-        insights.append("⚠️ **Tilt Detected:** Last 3 trades avg < 50. Suggest 24h trading halt.")
-    elif recent_scores > 80:
-        insights.append("🔥 **Flow State:** High decision quality detected. Increase risk tolerance slightly.")
-
+    if df.empty:
+        return ["📊 Awaiting trade data for comprehensive portfolio analysis."]
+    
+    # ========================================
+    # CORE STATISTICAL METRICS
+    # ========================================
+    total_trades = len(df)
+    avg_score = df['score'].mean()
+    score_std = df['score'].std()
+    median_score = df['score'].median()
+    
+    # Entry/Exit/Risk averages
+    avg_entry = df['entry_quality'].mean() if 'entry_quality' in df.columns else 0
+    avg_exit = df['exit_quality'].mean() if 'exit_quality' in df.columns else 0
+    avg_risk = df['risk_score'].mean() if 'risk_score' in df.columns else 0
+    
+    # ========================================
+    # 1. PERFORMANCE GRADE & SUMMARY
+    # ========================================
+    if avg_score >= 85:
+        grade = "A+"
+        performance = "🏆 **ELITE PERFORMANCE**"
+        desc = f"Exceptional quality: {avg_score:.1f}/100 avg score across {total_trades} trades"
+    elif avg_score >= 75:
+        grade = "A"
+        performance = "⭐ **STRONG PERFORMANCE**"
+        desc = f"High-quality execution: {avg_score:.1f}/100 avg score across {total_trades} trades"
+    elif avg_score >= 65:
+        grade = "B"
+        performance = "✅ **SOLID PERFORMANCE**"
+        desc = f"Above-average quality: {avg_score:.1f}/100 avg score across {total_trades} trades"
+    elif avg_score >= 55:
+        grade = "C"
+        performance = "⚠️ **MODERATE PERFORMANCE**"
+        desc = f"Room for improvement: {avg_score:.1f}/100 avg score across {total_trades} trades"
+    elif avg_score >= 45:
+        grade = "D"
+        performance = "🔴 **UNDERPERFORMANCE**"
+        desc = f"Significant issues detected: {avg_score:.1f}/100 avg score across {total_trades} trades"
+    else:
+        grade = "F"
+        performance = "🚨 **CRITICAL ALERT**"
+        desc = f"Major systemic problems: {avg_score:.1f}/100 avg score across {total_trades} trades"
+    
+    insights.append(f"{performance}: {desc}")
+    
+    # ========================================
+    # 2. CONSISTENCY ANALYSIS (Sharpe-inspired)
+    # ========================================
+    if total_trades >= 5:
+        # Risk-adjusted performance metric
+        consistency_ratio = avg_score / max(score_std, 1)  # Prevent division by zero
+        
+        if consistency_ratio > 5:
+            insights.append(f"💎 **EXCEPTIONAL CONSISTENCY**: Risk-adjusted score ratio {consistency_ratio:.2f}x (σ={score_std:.1f}). Your decision quality is remarkably stable—hallmark of disciplined execution.")
+        elif consistency_ratio > 3:
+            insights.append(f"📊 **HIGH CONSISTENCY**: Risk-adjusted score ratio {consistency_ratio:.2f}x (σ={score_std:.1f}). Strong pattern stability indicates mature trading psychology.")
+        elif consistency_ratio > 1.5:
+            insights.append(f"📉 **MODERATE VOLATILITY**: Risk-adjusted score ratio {consistency_ratio:.2f}x (σ={score_std:.1f}). Performance variance suggests emotional trading episodes.")
+        else:
+            insights.append(f"⚠️ **HIGH VOLATILITY ALERT**: Risk-adjusted score ratio {consistency_ratio:.2f}x (σ={score_std:.1f}). Erratic scores ({score_std:.1f} std dev) indicate severe consistency issues. Recommend reduced position sizing.")
+    
+    # ========================================
+    # 3. RECENT TREND ANALYSIS (Last 20%)
+    # ========================================
+    window = max(3, total_trades // 5)  # Last 20% or min 3 trades
+    recent_scores = df.head(window)['score'].mean()
+    older_scores = df.iloc[window:window*2]['score'].mean() if len(df) > window else avg_score
+    trend_change = recent_scores - older_scores
+    trend_pct = (trend_change / max(older_scores, 1)) * 100
+    
+    if abs(trend_change) >= 15:
+        if trend_change > 0:
+            insights.append(f"🚀 **IMPROVING TRAJECTORY**: Recent {window}-trade avg {recent_scores:.1f} vs prior {older_scores:.1f} (+{trend_change:.1f} pts, +{trend_pct:.1f}%). Performance momentum is accelerating—capitalize on flow state.")
+        else:
+            insights.append(f"📉 **DEGRADING PERFORMANCE**: Recent {window}-trade avg {recent_scores:.1f} vs prior {older_scores:.1f} ({trend_change:.1f} pts, {trend_pct:.1f}%). Immediate intervention required. Consider 48h trading pause.")
+    elif trend_change > 5:
+        insights.append(f"📈 **POSITIVE MOMENTUM**: Recent improvement detected (+{trend_change:.1f} pts). Continue current approach.")
+    elif trend_change < -5:
+        insights.append(f"⚠️ **SLIGHT DECLINE**: Recent scores down {abs(trend_change):.1f} pts. Monitor for pattern deterioration.")
+    
+    # ========================================
+    # 4. ACUTE TILT DETECTION
+    # ========================================
+    if total_trades >= 3:
+        last_3_avg = df.head(3)['score'].mean()
+        if last_3_avg < 40:
+            insights.append(f"🔥 **SEVERE TILT DETECTED**: Last 3 trades avg {last_3_avg:.1f}/100. STOP TRADING IMMEDIATELY. Neural patterns indicate emotional hijacking. Mandatory 24-48h cooldown period.")
+        elif last_3_avg < 50:
+            insights.append(f"⚠️ **TILT WARNING**: Last 3 trades avg {last_3_avg:.1f}/100. Decision quality degrading. Reduce position size 50% and limit trading to A+ setups only.")
+        elif last_3_avg > 85:
+            insights.append(f"🔥 **FLOW STATE DETECTED**: Last 3 trades avg {last_3_avg:.1f}/100. Peak performance zone. Consider modestly increasing position size (15-25%) while maintaining discipline.")
+    
+    # ========================================
+    # 5. WIN RATE & QUALITY DISTRIBUTION
+    # ========================================
+    excellent_trades = len(df[df['score'] >= 80])
+    good_trades = len(df[(df['score'] >= 60) & (df['score'] < 80)])
+    poor_trades = len(df[df['score'] < 40])
+    
+    quality_rate = (excellent_trades + good_trades) / total_trades * 100
+    poor_rate = poor_trades / total_trades * 100
+    
+    if quality_rate >= 70:
+        insights.append(f"✅ **HIGH QUALITY RATE**: {quality_rate:.1f}% of trades scored ≥60 ({excellent_trades} excellent, {good_trades} good). Execution discipline is strong.")
+    elif quality_rate >= 50:
+        insights.append(f"📊 **MODERATE QUALITY**: {quality_rate:.1f}% quality rate. Target 70%+ by eliminating marginal setups.")
+    else:
+        insights.append(f"🚨 **LOW QUALITY RATE**: Only {quality_rate:.1f}% of trades meet quality threshold. {poor_rate:.1f}% are poor quality. Fundamental strategy revision needed.")
+    
+    if poor_trades >= 3:
+        insights.append(f"⚠️ **POOR TRADE CLUSTER**: {poor_trades} trades scored <40/100. These represent {poor_rate:.1f}% of portfolio—analyze commonalities for systematic errors.")
+    
+    # ========================================
+    # 6. COMPONENT ANALYSIS (Entry/Exit/Risk)
+    # ========================================
+    if avg_entry > 0 and avg_exit > 0 and avg_risk > 0:
+        # Identify weakest component
+        components = {
+            'Entry Timing': avg_entry,
+            'Exit Execution': avg_exit,
+            'Risk Management': avg_risk
+        }
+        weakest = min(components, key=components.get)
+        strongest = max(components, key=components.get)
+        
+        gap = components[strongest] - components[weakest]
+        
+        if gap > 20:
+            insights.append(f"⚙️ **COMPONENT IMBALANCE**: {weakest} significantly lags ({components[weakest]:.1f}) vs {strongest} ({components[strongest]:.1f}). Focus improvement efforts on {weakest.lower()} to unlock +{gap/2:.0f} pts overall score potential.")
+        
+        # Specific component alerts
+        if avg_entry < 55:
+            insights.append(f"🎯 **ENTRY TIMING ISSUE**: {avg_entry:.1f}/100 avg. Premature entries or poor setup selection. Wait for higher-probability confirmations.")
+        
+        if avg_exit < 55:
+            insights.append(f"🚪 **EXIT EXECUTION WEAKNESS**: {avg_exit:.1f}/100 avg. Either exiting too early (fear) or holding too long (greed). Implement mechanical exit rules.")
+        
+        if avg_risk < 55:
+            insights.append(f"⚠️ **RISK MANAGEMENT FAILURE**: {avg_risk:.1f}/100 avg. Position sizing or stop-loss discipline is inadequate. This is highest priority fix—risk management determines survival.")
+    
+    # ========================================
+    # 7. BEHAVIORAL PATTERN ANALYSIS
+    # ========================================
     all_tags = [tag for sublist in df['mistake_tags'] for tag in sublist]
-    if "FOMO" in all_tags and "Revenge" in all_tags:
-        insights.append("🧠 **Toxic Loop:** 'FOMO' leading to 'Revenge' detected 3x this month.")
+    tag_series = pd.Series(all_tags)
     
-    return insights if insights else ["✅ Performance metrics within normal parameters."]
-
-def call_vision_api(prompt, img_b64, max_retries=2):
+    if len(tag_series) > 0:
+        top_3_mistakes = tag_series.value_counts().head(3)
+        
+        # Identify toxic behavioral loops
+        toxic_pairs = [
+            (['FOMO', 'Revenge'], 'FOMO-Revenge'),
+            (['Overtrading', 'Revenge'], 'Overtrade-Revenge'),
+            (['No Stop Loss', 'Holding Losses'], 'Loss-Aversion'),
+            (['Chasing', 'FOMO'], 'Chase-FOMO')
+        ]
+        
+        for pair, loop_name in toxic_pairs:
+            if all(tag in all_tags for tag in pair):
+                count_a = all_tags.count(pair[0])
+                count_b = all_tags.count(pair[1])
+                insights.append(f"🧠 **TOXIC LOOP DETECTED**: {loop_name} cycle identified ({pair[0]}: {count_a}x, {pair[1]}: {count_b}x). This is a self-reinforcing behavioral trap. Break with mandatory 24h pause after ANY {pair[0].lower()} instance.")
+        
+        # Top mistake analysis
+        top_mistake = top_3_mistakes.index[0]
+        top_count = top_3_mistakes.values[0]
+        top_pct = (top_count / total_trades) * 100
+        
+        if top_pct > 50:
+            insights.append(f"🎯 **DOMINANT ERROR**: '{top_mistake}' appears in {top_pct:.1f}% of trades ({top_count}/{total_trades}). This is your PRIMARY bottleneck. Fixing this pattern alone could improve overall score by 15-25 points.")
+        elif top_pct > 30:
+            insights.append(f"📍 **RECURRING PATTERN**: '{top_mistake}' detected {top_count}x ({top_pct:.1f}%). Create specific trading rule to prevent this error.")
+        
+        # List all significant patterns
+        if len(top_3_mistakes) >= 2:
+            pattern_summary = ", ".join([f"{tag} ({cnt}x)" for tag, cnt in top_3_mistakes.items()])
+            insights.append(f"🔍 **ERROR HIERARCHY**: Primary patterns — {pattern_summary}. Address in this order for maximum impact.")
+    
+    # ========================================
+    # 8. STATISTICAL ANOMALIES
+    # ========================================
+    if total_trades >= 10:
+        # Detect streaks
+        scores = df['score'].tolist()
+        
+        # Winning streak (score > 60)
+        current_win_streak = 0
+        max_win_streak = 0
+        for score in scores:
+            if score > 60:
+                current_win_streak += 1
+                max_win_streak = max(max_win_streak, current_win_streak)
+            else:
+                current_win_streak = 0
+        
+        # Losing streak (score < 50)
+        current_loss_streak = 0
+        max_loss_streak = 0
+        for score in scores:
+            if score < 50:
+                current_loss_streak += 1
+                max_loss_streak = max(max_loss_streak, current_loss_streak)
+            else:
+                current_loss_streak = 0
+        
+        if max_win_streak >= 5:
+            insights.append(f"⭐ **STREAK CAPABILITY**: Max {max_win_streak}-trade quality streak achieved. You CAN perform at high levels consistently—identify what enables these periods.")
+        
+        if max_loss_streak >= 4:
+            insights.append(f"🚨 **TILT SPIRAL HISTORY**: {max_loss_streak}-trade losing streak detected. Implement automatic 'circuit breaker' after 2 consecutive sub-50 scores to prevent future spirals.")
+    
+    # ========================================
+    # 9. MEDIAN VS MEAN ANALYSIS
+    # ========================================
+    if abs(avg_score - median_score) > 10:
+        if avg_score > median_score:
+            insights.append(f"📊 **RIGHT-SKEWED DISTRIBUTION**: Mean ({avg_score:.1f}) > Median ({median_score:.1f}). A few excellent trades lift average—but typical trade quality is lower. Focus on raising the floor, not the ceiling.")
+        else:
+            insights.append(f"📊 **LEFT-SKEWED DISTRIBUTION**: Mean ({avg_score:.1f}) < Median ({median_score:.1f}). A few disasters drag down average. Eliminate catastrophic errors to unlock +{abs(avg_score - median_score):.1f} pts.")
+    
+    # ========================================
+    # 10. TIME-BASED PATTERNS (if timestamps available)
+    # ========================================
+    if 'created_at' in df.columns and total_trades >= 10:
+        df['hour'] = pd.to_datetime(df['created_at']).dt.hour
+        df['day_of_week'] = pd.to_datetime(df['created_at']).dt.day_name()
+        
+        # Best/worst hours
+        hourly_avg = df.groupby('hour')['score'].mean()
+        if len(hourly_avg) >= 3:
+            best_hour = hourly_avg.idxmax()
+            worst_hour = hourly_avg.idxmin()
+            hour_gap = hourly_avg.max() - hourly_avg.min()
+            
+            if hour_gap > 15:
+                insights.append(f"🕐 **TIME-OF-DAY EDGE**: Performance varies {hour_gap:.1f} pts by hour. Best: {best_hour:02d}:00 ({hourly_avg.max():.1f} avg), Worst: {worst_hour:02d}:00 ({hourly_avg.min():.1f} avg). Trade more during peak hours.")
+        
+        # Best/worst days
+        daily_avg = df.groupby('day_of_week')['score'].mean()
+        if len(daily_avg) >= 3:
+            best_day = daily_avg.idxmax()
+            worst_day = daily_avg.idxmin()
+            day_gap = daily_avg.max() - daily_avg.min()
+            
+            if day_gap > 15:
+                insights.append(f"📅 **DAY-OF-WEEK PATTERN**: {best_day}s ({daily_avg.max():.1f} avg) outperform {worst_day}s ({daily_avg.min():.1f} avg) by {day_gap:.1f} pts. Reduce exposure on weak days.")
+    
+    # ========================================
+    # 11. PORTFOLIO RECOMMENDATIONS
+    # ========================================
+    if avg_score < 50:
+        insights.append(f"💡 **IMMEDIATE ACTION**: Avg score {avg_score:.1f} is below acceptable threshold. Suspend trading, review last 10 trades for patterns, then paper trade until 5 consecutive quality setups identified.")
+    elif avg_score < 60:
+        insights.append(f"💡 **SYSTEMATIC IMPROVEMENT NEEDED**: Avg score {avg_score:.1f}. Implement: (1) Pre-trade checklist, (2) Mandatory 15-min wait after bad trade, (3) Max 3 trades/day until 70+ avg achieved.")
+    elif avg_score >= 75:
+        insights.append(f"💡 **OPTIMIZATION PHASE**: Solid {avg_score:.1f} avg. Fine-tune by: (1) Journaling all trades <70, (2) Backtesting best setups, (3) Gradually increasing size on A+ patterns only.")
+    
+    # ========================================
+    # FALLBACK
+    # ========================================
+    if not insights:
+        insights.append(f"📊 Portfolio analyzed: {total_trades} trades, {avg_score:.1f}/100 avg score. Collect more data for detailed insights.")
+    
+    return insightsdef call_vision_api(prompt, img_b64, max_retries=2):
     """Call vision API with retry logic and better error handling"""
     for attempt in range(max_retries):
         try:
