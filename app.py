@@ -1016,16 +1016,41 @@ def clean_text(text):
     text = re.sub(r'```[\s\S]*?```', '', text)
     return text.strip()
 
-def validate_score(score, min_val=0, max_val=100):
-    """Validate and clamp scores"""
-    try:
+def validate_score(score, min_val=0, max_val=100, context=None):
+    """
+    Enhanced validation with context-aware clamping
+    context dict can contain: {'drawdown': float, 'is_crisis': bool, 'metric_type': str}
+    """
+    try:  # ← This needs to be indented 4 spaces from the left margin
         score = int(score)
+        
+        # Context-based strict enforcement
+        if context:
+            # Crisis-specific rules (from accuracy report line 148-166)
+            if context.get('is_crisis') and context.get('metric_type') == 'risk':
+                # STRICT: Risk management MUST be 0-10 for crisis
+                max_val = 10
+            
+            # Drawdown-based score enforcement
+            drawdown = context.get('drawdown', 0)
+            if drawdown > 50 and context.get('metric_type') == 'overall':
+                # Catastrophic: force 0-5 range
+                max_val = 5
+            elif drawdown > 30 and context.get('metric_type') == 'overall':
+                # Severe crisis: force 5-15 range
+                min_val = 5
+                max_val = 15
+        
+        # Clamp and return
         return max(min_val, min(max_val, score))
     except:
-        return 50  # Default middle score if parsing fails
+        return 50  # Safe default
 
 def parse_report(text):
-    """FIXED: Enhanced parsing with better fallbacks and validation"""
+    """
+    ENHANCED: Crisis-aware parsing with strict score validation
+    Implements findings from accuracy_analysis_report.md
+    """
     sections = { 
         "score": 50,
         "tags": [], 
@@ -1044,81 +1069,125 @@ def parse_report(text):
     # Clean text first
     text = clean_text(text)
     
-    # FIX 1: Extract and validate score
+    # NEW: Crisis detection from content
+    is_crisis = False
+    estimated_drawdown = 0.0
+    
+    # Detect crisis keywords and extract drawdown if mentioned
+    crisis_keywords = ['catastrophic', 'emergency', 'severe crisis', 'portfolio crisis', 
+                       'complete loss', 'wiped out', 'major problem']
+    if any(keyword in text.lower() for keyword in crisis_keywords):
+        is_crisis = True
+    
+    # Extract drawdown percentage if mentioned
+    drawdown_match = re.search(r'(?:drawdown|loss|decline)[:\s]+(?:of\s+)?[\$]?[\d,]+\s*\(?([-]?\d+\.?\d*)%\)?', text, re.IGNORECASE)
+    if drawdown_match:
+        estimated_drawdown = abs(float(drawdown_match.group(1)))
+        if estimated_drawdown > 30:
+            is_crisis = True
+    
+    # Also check for explicit P/L mentions
+    pnl_match = re.search(r'P[/&]L[:\s]+[\$]?[-]?[\d,]+\s*\(([-]?\d+\.?\d*)%\)', text, re.IGNORECASE)
+    if pnl_match:
+        pnl_pct = float(pnl_match.group(1))
+        if pnl_pct < -30:
+            is_crisis = True
+            estimated_drawdown = abs(pnl_pct)
+    
+    # Extract overall score with context
     score_match = re.search(r'\[SCORE\]\s*[:\-]?\s*(\d+)', text, re.IGNORECASE)
-    if score_match: 
-        sections['score'] = validate_score(score_match.group(1))
+    if score_match:
+        context = {'drawdown': estimated_drawdown, 'is_crisis': is_crisis, 'metric_type': 'overall'}
+        sections['score'] = validate_score(score_match.group(1), context=context)
     else:
-        # Try alternate patterns like "Score: 45" or "Overall Score: 45"
         alt_score = re.search(r'(?:overall\s+)?score\s*[:\-]\s*(\d+)', text, re.IGNORECASE)
         if alt_score:
-            sections['score'] = validate_score(alt_score.group(1))
+            context = {'drawdown': estimated_drawdown, 'is_crisis': is_crisis, 'metric_type': 'overall'}
+            sections['score'] = validate_score(alt_score.group(1), context=context)
     
-    # FIX 2: Extract grade with more patterns
+    # Extract grade with validation
     grade_match = re.search(r'\[OVERALL_GRADE\]\s*[:\-]?\s*([A-FS][\-\+]?(?:-?Tier)?)', text, re.IGNORECASE)
-    if grade_match: 
+    if grade_match:
         sections['overall_grade'] = grade_match.group(1).upper()
+        # NEW: Enforce F grade for crisis
+        if is_crisis and estimated_drawdown > 30:
+            sections['overall_grade'] = 'F'
     else:
-        # Try alternate patterns
         alt_grade = re.search(r'grade\s*[:\-]\s*([A-FS][\-\+]?)', text, re.IGNORECASE)
         if alt_grade:
             sections['overall_grade'] = alt_grade.group(1).upper()
+            if is_crisis and estimated_drawdown > 30:
+                sections['overall_grade'] = 'F'
     
-    # FIX 3: Extract quality scores with more lenient patterns
+    # Extract entry quality
     entry_match = re.search(r'\[ENTRY_QUALITY\]\s*[:\-]?\s*(\d+)', text, re.IGNORECASE)
-    if entry_match: 
+    if entry_match:
         sections['entry_quality'] = validate_score(entry_match.group(1))
     else:
         alt_entry = re.search(r'entry\s+quality\s*[:\-]\s*(\d+)', text, re.IGNORECASE)
         if alt_entry:
             sections['entry_quality'] = validate_score(alt_entry.group(1))
     
+    # Extract exit quality with stricter validation for no-stop scenarios
     exit_match = re.search(r'\[EXIT_QUALITY\]\s*[:\-]?\s*(\d+)', text, re.IGNORECASE)
-    if exit_match: 
-        sections['exit_quality'] = validate_score(exit_match.group(1))
+    if exit_match:
+        exit_score = int(exit_match.group(1))
+        # NEW: Check if "no stop" is mentioned - if so, cap exit quality at 30
+        if any(phrase in text.lower() for phrase in ['no stop', 'no stops', 'without stop', 'lack of stop', 'no exit']):
+            exit_score = min(exit_score, 30)
+        sections['exit_quality'] = validate_score(exit_score)
     else:
         alt_exit = re.search(r'exit\s+quality\s*[:\-]\s*(\d+)', text, re.IGNORECASE)
         if alt_exit:
-            sections['exit_quality'] = validate_score(alt_exit.group(1))
+            exit_score = int(alt_exit.group(1))
+            if any(phrase in text.lower() for phrase in ['no stop', 'no stops', 'without stop', 'lack of stop', 'no exit']):
+                exit_score = min(exit_score, 30)
+            sections['exit_quality'] = validate_score(exit_score)
     
+    # Extract risk score with STRICT crisis enforcement
     risk_score_match = re.search(r'\[RISK_SCORE\]\s*[:\-]?\s*(\d+)', text, re.IGNORECASE)
-    if risk_score_match: 
-        sections['risk_score'] = validate_score(risk_score_match.group(1))
+    if risk_score_match:
+        # CRITICAL: Apply strict crisis context
+        context = {'drawdown': estimated_drawdown, 'is_crisis': is_crisis, 'metric_type': 'risk'}
+        sections['risk_score'] = validate_score(risk_score_match.group(1), context=context)
     else:
         alt_risk = re.search(r'risk\s+(?:score|management)\s*[:\-]\s*(\d+)', text, re.IGNORECASE)
         if alt_risk:
-            sections['risk_score'] = validate_score(alt_risk.group(1))
+            context = {'drawdown': estimated_drawdown, 'is_crisis': is_crisis, 'metric_type': 'risk'}
+            sections['risk_score'] = validate_score(alt_risk.group(1), context=context)
     
-    # FIX 4: Extract tags with more patterns
+    # Extract tags with enhanced patterns
     tags_match = re.search(r'\[TAGS\]\s*[:\-]?\s*(.*?)(?=\[|$)', text, re.DOTALL | re.IGNORECASE)
     if tags_match:
         raw = tags_match.group(1).replace('[', '').replace(']', '').replace('<', '').replace('>', '').split(',')
         sections['tags'] = [t.strip() for t in raw if t.strip() and len(t.strip()) > 2][:10]
     else:
-        # Try alternate pattern like "Tags: FOMO, Revenge Trading"
         alt_tags = re.search(r'tags\s*[:\-]\s*(.*?)(?=\n\n|\[|$)', text, re.IGNORECASE)
         if alt_tags:
             raw = alt_tags.group(1).replace('[', '').replace(']', '').split(',')
             sections['tags'] = [t.strip() for t in raw if t.strip() and len(t.strip()) > 2][:10]
     
-    # FIX 5: Extract text sections with MUCH more lenient patterns
-    # This is the key fix for "Analysis pending..." issue
+    # Extract text sections with MUCH more lenient patterns
     patterns = {
         "tech": [
             r"\[TECH\]\s*[:\-]?\s*(.*?)(?=\[PSYCH\]|\[RISK\]|\[FIX\]|\[STRENGTH\]|\[CRITICAL_ERROR\]|$)",
-            r"technical\s+analysis\s*[:\-]\s*(.*?)(?=psychology|risk|action|strength|critical|$)"
+            r"technical\s+analysis\s*[:\-]\s*(.*?)(?=psychology|risk|action|strength|critical|$)",
+            r"portfolio\s+(?:technical\s+)?analysis\s*[:\-]\s*(.*?)(?=psychology|psych|risk|action|$)"
         ],
         "psych": [
             r"\[PSYCH\]\s*[:\-]?\s*(.*?)(?=\[RISK\]|\[FIX\]|\[STRENGTH\]|\[CRITICAL_ERROR\]|$)",
-            r"psychology\s+(?:profile|analysis)\s*[:\-]\s*(.*?)(?=risk|action|strength|critical|$)"
+            r"psychology\s+(?:profile|analysis)\s*[:\-]\s*(.*?)(?=risk|action|strength|critical|$)",
+            r"portfolio\s+psychology\s*[:\-]\s*(.*?)(?=risk|action|$)"
         ],
         "risk": [
             r"\[RISK\]\s*[:\-]?\s*(.*?)(?=\[FIX\]|\[STRENGTH\]|\[CRITICAL_ERROR\]|$)",
-            r"risk\s+(?:assessment|analysis)\s*[:\-]\s*(.*?)(?=action|fix|strength|critical|$)"
+            r"risk\s+(?:assessment|analysis)\s*[:\-]\s*(.*?)(?=action|fix|strength|critical|$)",
+            r"portfolio\s+risk\s*[:\-]\s*(.*?)(?=action|fix|$)"
         ],
         "fix": [
             r"\[FIX\]\s*[:\-]?\s*(.*?)(?=\[STRENGTH\]|\[CRITICAL_ERROR\]|$)",
-            r"action\s+plan\s*[:\-]\s*(.*?)(?=strength|critical|$)"
+            r"action\s+plan\s*[:\-]\s*(.*?)(?=strength|critical|$)",
+            r"(?:portfolio\s+)?(?:recovery|restructuring)\s+plan\s*[:\-]\s*(.*?)(?=strength|$)"
         ],
         "strength": [
             r"\[STRENGTH\]\s*[:\-]?\s*(.*?)(?=\[CRITICAL_ERROR\]|$)",
@@ -1134,27 +1203,27 @@ def parse_report(text):
         content = None
         for pattern in pattern_list:
             match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
-            if match: 
+            if match:
                 content = match.group(1).strip()
-                # Filter out any remaining HTML/code
+                # Filter out HTML/code
                 content = re.sub(r'<[^>]+>', '', content)
                 content = re.sub(r'```[\s\S]*?```', '', content)
                 # Remove excessive whitespace
                 content = ' '.join(content.split())
-                if len(content) > 15:  # Only update if substantial content
+                if len(content) > 15:
                     sections[key] = content
-                    break  # Found content, move to next key
+                    break
         
-        # FIX 6: If still empty, provide helpful message instead of "Analysis pending..."
+        # Better fallback messages
         if not sections[key]:
             if key == "tech":
-                sections[key] = "Technical analysis could not be extracted from the AI response. The image may need better clarity or the AI response format was unexpected."
+                sections[key] = "Technical analysis unavailable. Please verify image clarity and retry."
             elif key == "psych":
-                sections[key] = "Psychology profile could not be extracted. Please try uploading a clearer image or provide more context."
+                sections[key] = "Psychology profile unavailable. Image may need better resolution."
             elif key == "risk":
-                sections[key] = "Risk assessment could not be generated. This may indicate the AI couldn't properly analyze the trade data."
+                sections[key] = "Risk assessment unavailable. Verify chart shows P&L clearly."
             elif key == "fix":
-                sections[key] = "Action plan unavailable. Please retry the analysis with a clearer image showing price levels and P&L."
+                sections[key] = "Action recommendations unavailable. Retry with clearer data."
             elif key == "strength":
                 sections[key] = "N/A"
             elif key == "critical_error":
@@ -2206,123 +2275,206 @@ CRITICAL RULES:
                             manual_context += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
                         
                         # MASSIVELY IMPROVED PROMPT
-                        prompt = f"""CRITICAL INSTRUCTIONS: Analyze this trading/portfolio screenshot.
-
-FIRST: IDENTIFY WHAT YOU'RE LOOKING AT
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Look carefully at the image and determine:
-
-1. Is this a PORTFOLIO view (multiple stocks listed) or SINGLE CHART?
-2. If portfolio: How many stocks/positions are visible?
-3. If portfolio: What is the TOTAL P&L shown at top?
-4. If portfolio: What is the TOTAL percentage gain/loss?
-5. If single chart: Proceed with normal chart analysis
+                        prompt = f"""CRITICAL INSTRUCTIONS: You are analyzing a trading chart/portfolio screenshot.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-IF THIS IS A PORTFOLIO SCREENSHOT:
+STEP 1: IDENTIFY THE IMAGE TYPE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Read the TOTAL/OVERALL P&L at the top (usually labeled "Total P/L", "Unrealised P/L", "Portfolio Value", etc.)
+Look at the image carefully and determine:
 
-Analyze the PORTFOLIO as a whole, not individual stocks.
+🔍 **Is this a PORTFOLIO view (multiple stocks listed) or SINGLE TRADE chart?**
 
-Identify:
-- Total number of positions
-- Largest losses (list top 3-5 by % or amount)
-- Any position showing >100% loss (red flag for leverage/options/error)
-- Overall portfolio drawdown percentage
-- Risk concentration issues
+PORTFOLIO indicators:
+- Multiple rows/lines showing different stocks
+- Column headers like "Symbol", "Qty", "P&L", "% Change"
+- Total/overall P&L shown at top
+- Usually a table/list format
 
-PORTFOLIO OUTPUT FORMAT:
+SINGLE TRADE indicators:
+- One candlestick/line chart prominently displayed
+- Price on Y-axis, Time on X-axis
+- Single P/L display (top-right corner)
+- Technical indicators (MACD, RSI, Volume) below chart
 
-[SCORE] <0-100 based on OVERALL portfolio health>
-
-[OVERALL_GRADE] <F if total loss>20%, D if >10%, C if >5%, etc.>
-
-[ENTRY_QUALITY] <Average entry quality across visible positions>
-
-[EXIT_QUALITY] <Exit discipline assessment based on how losses were managed>
-
-[RISK_SCORE] <0-100 based on PORTFOLIO-LEVEL risk management>
-
-[TAGS] <Portfolio_Crisis, Overleveraged, No_Stops, Concentration_Risk, Multiple_Catastrophic_Positions, etc.>
-
-[TECH] PORTFOLIO ANALYSIS: Total P/L: [EXACT total P/L] ([EXACT %]). Number of positions: [count]. Current value: [amount]. Invested: [amount]. Top losses: [list 3-5 worst positions with their %]. Critical observations about portfolio structure and risk concentration.
-
-[PSYCH] PORTFOLIO PSYCHOLOGY: [Analyze the decision-making that led to multiple simultaneous losses. Look for patterns: averaging down? holding losers? FOMO buying? lack of selling discipline?]
-
-[RISK] PORTFOLIO RISK ASSESSMENT: [Analyze diversification, position sizing across portfolio, stop loss discipline, drawdown management, any positions >100% loss (leverage red flags)]
-
-[FIX] PORTFOLIO RECOVERY PLAN:
-1. [Immediate crisis management - which positions to close NOW]
-2. [Risk reduction strategy - position sizing going forward]
-3. [Rehabilitation timeline and rules]
-
-[STRENGTH] [What's working in the portfolio, if anything]
-
-[CRITICAL_ERROR] [The biggest portfolio-level mistake - usually lack of risk management, no stops, or concentration]
+**YOUR ANSWER: This is a [PORTFOLIO / SINGLE TRADE]**
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-IF THIS IS A SINGLE CHART (not portfolio):
+STEP 2A: IF PORTFOLIO - READ TOTAL P/L FIRST
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 {manual_context}
 
-Look at the TOP RIGHT corner of the trading interface. You will see:
-- "P/L: [some amount]" - This is the profit/loss. READ IT EXACTLY.
-- "([some percentage])" - This is the percentage. READ IT EXACTLY.
+**CRITICAL OCR TASK:**
 
-The P/L text is usually in RED (loss) or GREEN (profit). What do you see?
+Look at the TOP of the image. Find text that says:
+- "Total P/L" or "Unrealised P/L" or "Overall P&L" or "Portfolio Value"
 
-Look at the TOP LEFT. You will see the ticker symbol (e.g., "AAPL", "GLIT", "SPY", etc.). What is it?
+READ THE EXACT NUMBER next to it. Examples:
+- "-$18,500 (-68.2%)" ← READ THIS EXACTLY
+- "+$2,340 (+12.5%)" ← READ THIS EXACTLY
+- "₹-45,000 (-34.5%)" ← READ THIS EXACTLY
 
-Look at the RIGHT SIDE Y-AXIS. You will see price levels. What are the numbers? (e.g., $100, $200, $300?)
+⚠️ **COMMON OCR MISTAKES TO AVOID:**
+1. Don't confuse "-$1,250" with "-$12,500" (check decimal carefully)
+2. Don't confuse "68.2%" with "6.82%" or "682%" (check decimal position)
+3. Red text = LOSS (negative), Green text = PROFIT (positive)
+4. If you see "-" symbol, include it in your output
+5. Commas are thousands separators: "$1,250" = one thousand
 
-SEVERITY ASSESSMENT:
+**What I see:**
+Total P/L: [WRITE EXACT TEXT YOU SEE]
+Percentage: [WRITE EXACT % YOU SEE]
 
-Based on the P/L you read:
+Now analyze THE ENTIRE PORTFOLIO, not individual stocks:
 
-IF loss > 50% of account → CATASTROPHIC EMERGENCY (Score: 0-5)
-IF loss > 30% of account → SEVERE CRISIS (Score: 5-15)
-IF loss > 10% of account → MAJOR PROBLEM (Score: 15-30)
-IF loss < 5% of account → Poor trade (Score: 30-50)
-IF profit > 0% → Grade normally (Score: 50-100)
+**PORTFOLIO SEVERITY RULES** (STRICTLY ENFORCED):
 
-SINGLE TRADE OUTPUT FORMAT:
+| Total Portfolio Loss | Score Range | Grade | Classification |
+|---------------------|-------------|-------|----------------|
+| > 50% loss          | 0-5         | F     | CATASTROPHIC   |
+| 30-50% loss         | 5-15        | F     | SEVERE CRISIS  |
+| 20-30% loss         | 15-30       | D     | MAJOR PROBLEM  |
+| 10-20% loss         | 30-50       | C     | CONCERNING     |
+| 5-10% loss          | 50-70       | B     | MINOR ISSUE    |
+| 0-5% loss           | 70-85       | A     | ACCEPTABLE     |
+| Any profit          | 85-100      | A/S   | GOOD           |
 
-[SCORE] <Use severity guide above>
-
-[OVERALL_GRADE] <F if loss>50%, D if loss>30%, C if loss>10%, etc.>
-
-[ENTRY_QUALITY] <0-100>
-
-[EXIT_QUALITY] <0-100>
-
-[RISK_SCORE] <0-100>
-
-[TAGS] <Based on single trade behavior>
-
-[TECH] Ticker: [EXACT ticker]. P&L: [EXACT P&L] ([EXACT %]). Chart price range: [ACTUAL prices on Y-axis]. [Analysis of price action]
-
-[PSYCH] [Single trade psychology analysis]
-
-[RISK] [Single trade risk analysis]
-
-[FIX] [Specific improvements for this trade]
-
-[STRENGTH] [What went well]
-
-[CRITICAL_ERROR] [Biggest mistake in this trade]
+**CRITICAL SCORING RULES FOR PORTFOLIOS:**
+1. If portfolio loss > 30%: Overall Score MUST be 0-15, Grade MUST be F
+2. If portfolio loss > 50%: Overall Score MUST be 0-5
+3. Risk Score MUST be 0-10 if crisis (>30% loss)
+4. Exit Quality MUST be <30 if no stop losses visible
+5. If ANY position shows >100% loss: EMERGENCY - mention immediately
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-CRITICAL REMINDERS:
-1. FIRST determine if this is PORTFOLIO or SINGLE TRADE
-2. If portfolio with multiple losses, this is likely a SEVERE crisis
-3. Any position showing >100% loss needs immediate investigation
-4. Portfolio losses of >20% = catastrophic failure
-5. Use EXACT numbers you see on screen, no hallucinations
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
+STEP 2B: IF SINGLE TRADE - READ P/L FROM CHART
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+{manual_context}
+
+**CRITICAL OCR TASK:**
+
+1. **Find Ticker Symbol** (top-left corner):
+   - Look for text like "AAPL", "GBLI", "SPY", "TSLA"
+   - Usually near company name or chart title
+   - **What I see:** [WRITE EXACT TICKER]
+
+2. **Find P/L Display** (usually top-right):
+   - Look for "P/L:", "P&L:", "Profit/Loss:"
+   - Format is usually: "P/L: +$1,250.00 (23.7%)" or "P/L: -$850 (-12.3%)"
+   - Color: GREEN = profit, RED = loss
+   - **What I see:** [WRITE EXACT P/L TEXT]
+
+3. **Read Price Axis** (right side Y-axis):
+   - Look at numbers on right edge of chart
+   - Examples: "$80", "$85", "$90", "$95", "$100"
+   - Current price usually shown at latest candlestick
+   - **Price range:** From $[LOW] to $[HIGH]
+
+4. **Check for Stop Loss Line**:
+   - Look for horizontal line with "Stop" or "SL" label
+   - Often dashed or dotted line
+   - **Stop visible?** [YES with level / NO]
+
+**SINGLE TRADE SEVERITY RULES** (STRICTLY ENFORCED):
+
+| Loss Amount | Score Range | Grade | Classification |
+|-------------|-------------|-------|----------------|
+| > 50%       | 0-5         | F     | CATASTROPHIC   |
+| 30-50%      | 5-15        | F     | SEVERE         |
+| 20-30%      | 15-30       | D     | MAJOR          |
+| 10-20%      | 30-50       | C     | CONCERNING     |
+| 5-10%       | 50-70       | B     | MINOR          |
+| 0-5%        | 70-85       | A     | ACCEPTABLE     |
+| Profit      | 85-100      | A/S   | GOOD           |
+
+**CRITICAL SCORING RULES FOR TRADES:**
+1. If NO stop loss visible AND trade is losing: Exit Quality MUST be <30
+2. If loss > 30%: Risk Score MUST be 0-10
+3. If loss > 50%: Overall Score MUST be 0-5, Grade MUST be F
+4. Parabolic move without retest = Entry Quality <60
+5. Never hallucinate P/L values - if unclear, say "P/L not clearly visible"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 3: STRUCTURED OUTPUT (MANDATORY FORMAT)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**Output EXACTLY in this format (brackets and all):**
+
+[SCORE] <number between 0-100, follow severity table STRICTLY>
+
+[OVERALL_GRADE] <F if >30% loss, D if 20-30%, C if 10-20%, B if 5-10%, A if <5% or profit>
+
+[ENTRY_QUALITY] <0-100, based on entry timing and technical setup>
+
+[EXIT_QUALITY] <0-100, MUST be <30 if no stop loss and position is losing>
+
+[RISK_SCORE] <0-100, MUST be 0-10 if crisis (>30% loss)>
+
+[TAGS] <Comma-separated behavioral/technical tags, 4-8 tags>
+
+[TECH] **TYPE: [Portfolio/Single Trade]** | P/L: [EXACT amount] ([EXACT %]) | [If portfolio: "Positions: X, Top losses: Y, Z..."] [If trade: "Ticker: X, Price range: $A-$B, Entry: ..., Exit: ..., Indicators: ..."] | [Technical analysis of setup, timing, risk management]
+
+[PSYCH] [Psychological assessment: FOMO? Revenge trading? Lack of discipline? Hope-based holding? For portfolios: pattern across multiple losers. For trades: single trade psychology]
+
+[RISK] [Risk assessment: Position sizing, stop loss discipline, drawdown management. If portfolio loss >30%: THIS IS CATASTROPHIC. If any position >100% loss: LEVERAGE EMERGENCY. If no stops: CRITICAL FAILURE.]
+
+[FIX] [Actionable improvements:
+1. [Immediate action needed within 24-48 hours]
+2. [Short-term fix - next 1-2 weeks]
+3. [Long-term improvement - ongoing discipline]]
+
+[STRENGTH] [What went well - even in disasters, find something positive or say "N/A" if truly catastrophic]
+
+[CRITICAL_ERROR] [The single biggest mistake made - be specific and actionable]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+EXAMPLE OUTPUT FOR CATASTROPHIC PORTFOLIO:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[SCORE] 8
+
+[OVERALL_GRADE] F
+
+[ENTRY_QUALITY] 45
+
+[EXIT_QUALITY] 25
+
+[RISK_SCORE] 5
+
+[TAGS] Portfolio_Crisis, No_Stops, Concentration_Risk, Multiple_Catastrophic_Positions, Overleveraged, Hope_Based_Investing, Lack_Of_Exit_Plan
+
+[TECH] **TYPE: Portfolio** | P/L: -$18,500 (-68.2%) | Positions: 1 visible (AAPL), heavily concentrated. Current value appears significantly below invested amount. Chart shows sustained downtrend without exit. No visible stop loss implementation. Position sizing appears to be 100% of portfolio in single stock - extreme concentration risk. Technical indicators (MACD) show bearish divergence throughout decline.
+
+[PSYCH] This portfolio demonstrates severe behavioral failures: holding a massive loser without exit plan (loss aversion bias), likely averaging down or refusing to accept reality (hope-based investing), complete absence of sell discipline. The -68% loss suggests emotional attachment to position rather than rules-based management. No evidence of cutting losses early or protecting capital.
+
+[RISK] CATASTROPHIC FAILURE: Portfolio is down -68.2%, which classifies as emergency-level crisis. No stop losses implemented anywhere. Entire portfolio appears concentrated in single position (AAPL) - zero diversification. This level of drawdown typically takes 18-24 months to recover from even with perfect execution. The absence of any risk management tools (stops, position sizing, diversification) is the primary cause of catastrophic loss.
+
+[FIX]
+1. IMMEDIATE (24-48h): Close AAPL position completely or reduce to <5% of portfolio. Stop all new position entries until risk framework established.
+2. SHORT-TERM (1-2 weeks): Implement mandatory stop losses on all positions at -8% maximum. Establish position sizing rules: no single position >10% of portfolio. Paper trade for 2 weeks before risking capital.
+3. LONG-TERM (ongoing): Diversify across minimum 8-10 positions. Establish written trading plan with entry/exit rules. Track every trade with post-trade analysis. Consider working with trading coach/mentor given severity of loss.
+
+[STRENGTH] N/A - Portfolio is completely wiped out with no redeeming tactical decisions visible.
+
+[CRITICAL_ERROR] Complete absence of stop loss discipline. The single biggest mistake was allowing a position to decline -68% without any exit trigger. This indicates no risk management plan existed at entry, and emotional attachment prevented rational exit decisions. Stop losses at -10% would have prevented 85% of this loss.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CRITICAL REMINDERS BEFORE YOU START:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ READ P/L VALUES EXACTLY - Don't hallucinate numbers
+✅ FOLLOW SEVERITY TABLES - Score must match loss percentage
+✅ Risk Score MUST be 0-10 if loss >30%
+✅ Exit Quality MUST be <30 if no stops and losing
+✅ Grade MUST be F if loss >30%
+✅ Be BRUTALLY HONEST - This is forensic analysis, not cheerleading
+✅ Use EXACT format with [BRACKETS]
+✅ If you can't read something, say "unclear" rather than guessing
+
+NOW ANALYZE THE IMAGE:
+"""
                         
                         ready_to_run = True
                 st.markdown('</div>', unsafe_allow_html=True)
@@ -2395,124 +2547,191 @@ CRITICAL REMINDERS:
                             img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
                         
                         # Build portfolio context
-                        portfolio_context = f"""
+                        portfolio_prompt = f"""CRITICAL INSTRUCTIONS: You are analyzing a complete investment portfolio.
+
+This is NOT a single trade - this is PORTFOLIO-LEVEL FORENSIC ANALYSIS.
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PORTFOLIO DATA PROVIDED BY USER:
+USER-PROVIDED PORTFOLIO DATA (TREAT AS AUTHORITATIVE):
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 Total Invested: {portfolio_total_invested:,.2f}
 Current Value: {portfolio_current_value:,.2f}
-Total P&L: {total_pnl:,.2f} ({total_pnl_pct:+.2f}%)
 Number of Positions: {portfolio_num_positions}
-Largest Loss: {portfolio_largest_loss if portfolio_largest_loss else "Not specified"}
-Largest Gain: {portfolio_largest_gain if portfolio_largest_gain else "Not specified"}
-Crisis Stocks (>30% loss): {portfolio_crisis_stocks if portfolio_crisis_stocks else "None specified"}
 
-Additional Context:
-{portfolio_description if portfolio_description else "No additional context provided"}
+CALCULATED METRICS:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Total P/L: ${total_pnl:,.2f}
+Portfolio Drawdown: {total_pnl_pct:+.2f}%
+Average Position Size: ${portfolio_total_invested / max(portfolio_num_positions, 1):,.2f}
 
-USE THIS INFORMATION AS GROUND TRUTH. Analyze based on these provided values.
-"""
-                        
-                        # PORTFOLIO-SPECIFIC PROMPT
-                        portfolio_prompt = f"""You are analyzing a COMPLETE INVESTMENT PORTFOLIO. This is NOT a single trade - this is portfolio-level risk assessment.
+SEVERITY CLASSIFICATION:
+{
+    "🚨 CATASTROPHIC EMERGENCY" if total_pnl_pct < -50 else
+    "⚠️ SEVERE CRISIS" if total_pnl_pct < -30 else
+    "⚠️ MAJOR PROBLEM" if total_pnl_pct < -20 else
+    "⚠️ CONCERNING" if total_pnl_pct < -10 else
+    "⚠️ MINOR ISSUE" if total_pnl_pct < -5 else
+    "✓ ACCEPTABLE" if total_pnl_pct < 5 else
+    "✓ PERFORMING WELL"
+}
 
-{portfolio_context}
+Position Details (if image provided):
+- Review uploaded image/PDF for individual stock holdings
+- Look for concentrated positions (any single stock >20% of portfolio)
+- Identify crisis positions (individual losses >50%)
+- Check for sector concentration risks
+- Verify if stop losses are visible
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PORTFOLIO ANALYSIS FRAMEWORK:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-1. PORTFOLIO HEALTH ASSESSMENT:
-   - Overall portfolio P&L and percentage
-   - Drawdown severity (current loss from peak)
-   - Number of positions (diversification vs. over-diversification)
-   - Win/loss ratio across portfolio
-   - Concentration risk (any position >10% of portfolio?)
+**1. PORTFOLIO HEALTH SCORE (PRIMARY METRIC):**
 
-2. RISK MANAGEMENT EVALUATION:
-   - Are stop losses in place across positions?
-   - Position sizing discipline (should be 1-5% per position)
-   - Correlation risk (positions moving together?)
-   - Sector concentration
-   - Any leveraged/margin positions (red flag)
-   - Positions with >50% losses (likely beyond recovery)
+Use this STRICT severity table:
 
-3. PORTFOLIO STRUCTURE ANALYSIS:
-   - Too many positions? (>20 = likely over-diversified)
-   - Too few? (<5 = concentration risk)
-   - Balance between growth/value/defensive
-   - Sector diversification
-   - Market cap diversification
+| Portfolio Drawdown | Score Range | Grade | Classification |
+|--------------------|-------------|-------|----------------|
+| < -50%             | 0-5         | F     | CATASTROPHIC   |
+| -30% to -50%       | 5-15        | F     | SEVERE CRISIS  |
+| -20% to -30%       | 15-30       | D     | MAJOR PROBLEM  |
+| -10% to -20%       | 30-50       | C     | CONCERNING     |
+| -5% to -10%        | 50-70       | B     | MINOR ISSUE    |
+| 0% to -5%          | 70-85       | A     | ACCEPTABLE     |
+| 0% to +10%         | 85-92       | A     | GOOD           |
+| > +10%             | 93-100      | S     | EXCELLENT      |
 
-4. CRISIS IDENTIFICATION:
-   - Any positions showing >100% loss (leverage/margin emergency)
-   - Multiple positions >50% down (poor exit discipline)
-   - Portfolio drawdown >30% (severe crisis)
-   - Evidence of averaging down into losers
-   - Revenge trading patterns
+**Current drawdown: {total_pnl_pct:+.2f}%**
+**Therefore, base score must be in range shown in table above.**
 
-5. PSYCHOLOGICAL ASSESSMENT:
-   - Holding losers, cutting winners? (common retail mistake)
-   - Evidence of FOMO buying at tops
-   - Lack of selling discipline
-   - Emotional attachment to positions
-   - Hope-based investing vs. risk management
+**2. DIVERSIFICATION ASSESSMENT:**
 
-SEVERITY LEVELS FOR PORTFOLIOS:
+Analyze number of positions:
+- < 3 positions: Extreme concentration risk (-20 points)
+- 3-5 positions: High concentration (-10 points)
+- 6-12 positions: Good diversification (baseline)
+- 13-20 positions: Well diversified (+5 points)
+- > 20 positions: Over-diversified, can't manage properly (-10 points)
 
-Portfolio Drawdown >50%: CATASTROPHIC (Score 0-5)
-Portfolio Drawdown 30-50%: SEVERE CRISIS (Score 5-15)
-Portfolio Drawdown 20-30%: MAJOR PROBLEM (Score 15-30)
-Portfolio Drawdown 10-20%: CONCERNING (Score 30-50)
-Portfolio Drawdown 5-10%: MINOR ISSUE (Score 50-70)
-Portfolio Drawdown <5%: ACCEPTABLE (Score 70-100)
+**Current: {portfolio_num_positions} positions**
+
+**3. POSITION SIZING DISCIPLINE:**
+
+Evaluate based on image (if provided):
+- Any single position >30% of portfolio = Catastrophic concentration
+- Any single position >20% of portfolio = High risk
+- Largest position should be <15% ideally
+- Look for "barbell" portfolio (few large bets + many small)
+
+**4. CRISIS POSITION IDENTIFICATION:**
+
+From image analysis, identify:
+- Positions with >50% individual losses (likely beyond recovery)
+- Positions with >100% losses (LEVERAGE/MARGIN EMERGENCY)
+- How many positions are in crisis vs recovering
+- Whether losers are being held while winners are sold (common mistake)
+
+**5. SECTOR & CORRELATION RISK:**
+
+If image shows sector/industry data:
+- Too concentrated in one sector? (e.g., all tech stocks)
+- Positions correlated? (will all fall together in crash)
+- Balanced across defensive/growth/value?
+
+**6. RISK MANAGEMENT SCORING (0-100):**
+
+**CRITICAL ENFORCEMENT:**
+- If portfolio drawdown > 30%: Risk Score MUST NOT EXCEED 10
+- If portfolio drawdown > 50%: Risk Score MUST NOT EXCEED 5
+- If any position shows >100% loss: Risk Score MUST be 0-5 (leverage emergency)
+- If {portfolio_num_positions} > 20: Risk Score maximum 60 (too many to manage)
+- If {portfolio_num_positions} < 3: Risk Score maximum 40 (concentration)
+
+Base calculations:
+- No stop losses visible anywhere: Base score 0-20
+- Some stops visible: Base score 40-60
+- All positions have stops: Base score 70-90
+- Diversified sizing: +10
+- Concentrated sizing: -20
+- Multiple crisis positions: -30
+
+**7. ENTRY QUALITY (Portfolio-Level):**
+
+Assess average entry quality across positions:
+- Did trader buy at reasonable valuations?
+- Evidence of FOMO buying at market tops?
+- Disciplined entry points or emotional?
+- Scale-in approach or lump sum at worst time?
+
+Score 0-100 based on aggregate entry discipline.
+
+**8. EXIT QUALITY (Portfolio-Level):**
+
+**CRITICAL ENFORCEMENT:**
+- If portfolio shows multiple large losers held: Exit Quality MUST BE <30
+- If no stops visible anywhere: Exit Quality MUST BE <40
+- If portfolio drawdown >30% with no exits: Exit Quality MUST BE <20
+
+Assess based on:
+- Are stop losses being used? (If no = automatic cap at 40)
+- Is there exit discipline or hope-based holding?
+- Are losers being held while winners sold? (disposition effect)
+- Evidence of averaging down into losers?
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-OUTPUT FORMAT:
+REQUIRED OUTPUT FORMAT (EXACT):
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-[SCORE] <0-100 based on portfolio drawdown severity>
+[SCORE] <Use severity table strictly based on {total_pnl_pct:+.2f}% drawdown>
 
-[OVERALL_GRADE] <F if >30% loss, D if 20-30%, C if 10-20%, B if 5-10%, A if <5%>
+[OVERALL_GRADE] <F if <-30%, D if -20 to -30%, C if -10 to -20%, etc.>
 
-[ENTRY_QUALITY] <Average entry quality across portfolio - rate the timing of buys>
+[ENTRY_QUALITY] <0-100, assess average entry discipline across portfolio>
 
-[EXIT_QUALITY] <Exit discipline - are stop losses used? Or holding losers?>
+[EXIT_QUALITY] <0-100, MUST BE <30 if multiple big losers held, <40 if no stops>
 
-[RISK_SCORE] <0-100 portfolio-level risk management quality>
+[RISK_SCORE] <0-100, MUST BE ≤10 if drawdown>30%, ≤5 if drawdown>50%>
 
-[TAGS] <Portfolio_Crisis, Overleveraged, No_Stops, Concentration_Risk, Too_Many_Positions, Sector_Concentration, Multiple_Losers, No_Exit_Plan, Hope_Based_Investing, etc.>
+[TAGS] <6-10 portfolio-specific tags: Portfolio_Crisis, Overleveraged, No_Stops, Concentration_Risk, Multiple_Catastrophic_Positions, Sector_Concentration, Over_Diversified, Hope_Based_Investing, Lack_Of_Exit_Plan, Averaging_Down, Position_Sizing_Failure, etc.>
 
-[TECH] PORTFOLIO TECHNICAL ANALYSIS: Total P&L: {total_pnl:,.2f} ({total_pnl_pct:+.2f}%). Portfolio has {portfolio_num_positions} positions. [Analyze diversification, concentration, position sizing. List top 3-5 problem positions. Identify sector exposure risks. Comment on portfolio structure.]
+[TECH] PORTFOLIO STRUCTURE ANALYSIS: Total P/L: ${total_pnl:,.2f} ({total_pnl_pct:+.2f}%). Portfolio holds {portfolio_num_positions} positions. Invested: ${portfolio_total_invested:,.2f}, Current Value: ${portfolio_current_value:,.2f}. [From image: List top 3-5 worst-performing individual positions with their specific losses. Identify any positions >20% of portfolio (concentration). Note sector concentration if visible. Analyze diversification quality. Comment on position sizing discipline. Flag any positions showing >100% loss as leverage/margin emergency.]
 
-[PSYCH] PORTFOLIO PSYCHOLOGY PROFILE: [Analyze the decision-making patterns across the portfolio. Are they holding losers and cutting winners? Evidence of FOMO? Revenge trading? Lack of selling discipline? Emotional attachment to positions? This should be behavioral analysis of their OVERALL trading psychology based on portfolio patterns.]
+[PSYCH] PORTFOLIO PSYCHOLOGY PROFILE: [Analyze behavioral patterns across entire portfolio. Evidence of FOMO buying? Holding losers and cutting winners (disposition effect)? Refusing to accept losses (hope-based investing)? Averaging down into failing positions? Revenge trading after losses? Lack of selling discipline? Emotional attachment? This should analyze the OVERALL decision-making psychology, not individual trades. If drawdown >30%, this is evidence of catastrophic psychological failures in risk management.]
 
-[RISK] PORTFOLIO RISK ASSESSMENT: [Analyze portfolio-level risk: position sizing discipline, stop loss usage across positions, concentration risk, correlation risk, drawdown management, any leverage/margin red flags. If portfolio loss >30%, this is CATASTROPHIC. If any position shows >100% loss, this is margin/leverage emergency.]
+[RISK] PORTFOLIO RISK ASSESSMENT: [CRITICAL SECTION - This is where you MUST be brutally honest. If drawdown is {total_pnl_pct:+.2f}%, classify severity per table above. Analyze: (1) Position sizing - any individual position >20% is high risk. (2) Stop loss discipline - if no stops visible and portfolio is down >30%, this is catastrophic failure. (3) Diversification - {portfolio_num_positions} positions: is this adequate? (4) Drawdown management - at what point will trader cut losses? (5) If ANY position shows >100% loss, this is likely MARGIN/LEVERAGE emergency requiring immediate action. (6) Recovery timeline: portfolios down >30% typically need 18-24+ months to recover. (7) Correlation risk: are all positions in same sector?]
 
-[FIX] PORTFOLIO RESTRUCTURING PLAN:
-1. IMMEDIATE ACTIONS: [What needs to happen in next 24-48 hours - close crisis positions, investigate leverage, stop opening new positions]
-2. SHORT TERM (1-4 weeks): [Which positions to close/reduce, how to implement stops, position sizing rules]
-3. LONG TERM (1-6 months): [Portfolio rebuild strategy, education needs, risk management framework, psychological reset]
+[FIX] PORTFOLIO RECOVERY PLAN:
 
-[STRENGTH] [What's working in the portfolio, if anything. Even in disasters, find something - e.g., "Diversification across sectors prevents total loss" or "At least closed some positions before -100%"]
+**IMMEDIATE ACTIONS (Next 24-48 Hours):**
+[What must happen NOW to stop bleeding. Examples: "Close AAPL position completely", "Investigate positions showing >100% loss for margin/leverage issues", "Halt all new position entries immediately", "Deposit emergency funds if margin call risk"]
 
-[CRITICAL_ERROR] [The biggest portfolio-level mistake. Usually: no stop losses, concentration risk, averaging down losers, lack of exit plan, emotional position holding, or taking on leverage without understanding it]
+**SHORT-TERM RECOVERY (1-4 Weeks):**
+[Steps to stabilize. Examples: "Implement -10% stop loss on every remaining position", "Close positions with >50% individual losses (likely beyond recovery)", "Reduce portfolio to maximum 8-10 positions", "Paper trade new system for 2 weeks before live capital deployment", "Position size maximum 10% per stock going forward"]
+
+**LONG-TERM REHABILITATION (1-6 Months):**
+[Systemic changes needed. Examples: "Rebuild portfolio with diversified approach across 8-10 sectors", "Establish written trading plan with entry/exit rules for every position", "Mandatory post-trade review for every position weekly", "Education: complete risk management course before adding new positions", "Work with trading mentor/coach given severity of loss", "Implement position sizing calculator tool", "Recovery timeline: expect 18-24 months to break even at this drawdown level"]
+
+[STRENGTH] [Find anything positive, even in disasters. Examples: "Portfolio diversification across sectors prevented total loss", "At least some positions were closed before reaching -100%", "Willingness to seek analysis shows potential for improvement", or if truly nothing: "The portfolio size is small enough that this lesson won't cause financial ruin - treat this as expensive education"]
+
+[CRITICAL_ERROR] [The single biggest portfolio-level mistake. Usually one of: "Complete absence of stop loss discipline across all positions", "Extreme concentration in single position (AAPL = 100% of portfolio)", "Averaging down into losing positions instead of cutting losses", "Holding losers and selling winners (disposition effect)", "Using leverage/margin without understanding risk", "No exit plan or rules - hope-based investing", "Position sizing failure - bet too much on single idea". Be specific and explain impact: e.g., "The critical error was lacking ANY stop loss discipline. If -10% stops had been used on every position, this portfolio would be down -10% maximum instead of {total_pnl_pct:+.1f}%. This single failure is responsible for approximately ${abs(total_pnl) * 0.85:,.2f} of the ${abs(total_pnl):,.2f} loss."]
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-CRITICAL PORTFOLIO-SPECIFIC RULES:
+PRE-OUTPUT VALIDATION CHECKLIST:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-1. If portfolio drawdown >30%: This is CATASTROPHIC portfolio failure, score MUST be 0-10
-2. If any position shows >100% loss: LEVERAGE/MARGIN EMERGENCY - flag immediately
-3. If >20 positions: Likely over-diversification - too many positions to manage properly
-4. If multiple positions >50% loss: Exit discipline failure - holding losers too long
-5. Portfolio analysis is about RISK MANAGEMENT, not individual stock picking
-6. Focus on position sizing, diversification, stop losses, and exit discipline
-7. A portfolio can have some winners but still fail due to poor risk management
-8. Recovery from >30% drawdown typically takes 12-24+ months minimum
+Before submitting output, verify:
 
-REMEMBER: This is PORTFOLIO analysis, not trade analysis. Focus on overall risk management, diversification, position sizing discipline, and exit strategy across ALL positions.
+✓ Score matches severity table for {total_pnl_pct:+.2f}% drawdown
+✓ If drawdown <-30%: Score is 0-15, Grade is F, Risk Score ≤10
+✓ If drawdown <-50%: Score is 0-5, Risk Score ≤5
+✓ Exit Quality ≤30 if multiple big losers visible
+✓ All numbers match user-provided data exactly
+✓ [TECH] section identifies specific worst positions from image
+✓ [CRITICAL_ERROR] is specific and quantifies impact
+✓ [FIX] section has three time-based categories with multiple actions each
+
+NOW PERFORM PORTFOLIO FORENSIC ANALYSIS:
 """
                         
                         ready_to_run = True
@@ -2554,56 +2773,137 @@ REMEMBER: This is PORTFOLIO analysis, not trade analysis. Focus on overall risk 
                         reward = abs(exit_price - entry) if exit_price > 0 and entry > 0 else 0
                         rr_ratio = (reward / risk) if risk > 0 else 0
                         
-                        prompt = f"""You are Dr. Michael Steinhardt, legendary hedge fund manager with 45 years experience. Analyze this trade with brutal institutional honesty.
+                        prompt = f"""You are Dr. Michael Steinhardt, legendary hedge fund manager with 45 years experience and $500M AUM. Analyze this trade with brutal institutional honesty using evidence-based quantitative methods.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TRADE DATA:
+TRADE DATA (USER-PROVIDED PARAMETERS):
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Ticker: {ticker}
-Setup: {setup_type}
-Emotional State: {emotion}
+Setup Type: {setup_type}
+Emotional State at Entry: {emotion}
+
+PRICE LEVELS:
 Entry: ${entry:.2f}
 Exit: ${exit_price:.2f}
-Stop: ${stop:.2f}
+Stop Loss: ${stop:.2f if stop > 0 else "NOT SET ⚠️"}
 
-METRICS:
-PnL: ${pnl:.2f} ({pnl_pct:+.2f}%)
-Risk: ${risk:.2f} ({risk_pct:.2f}%)
-R:R Ratio: {rr_ratio:.2f}:1
+CALCULATED METRICS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Profit/Loss: ${pnl:.2f} ({pnl_pct:+.2f}%)
+Risk Amount: ${risk:.2f} ({risk_pct:.2f}% of entry)
+Realized R:R Ratio: {rr_ratio:.2f}:1
+{'⚠️ NO STOP LOSS DEFINED' if stop <= 0 else '✓ Stop Loss Set'}
 
-NOTES: {notes if notes else "No notes"}
+TRADER NOTES:
+{notes if notes else "No execution notes provided"}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ANALYSIS FRAMEWORK:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-OUTPUT FORMAT (EXACT):
+**1. SEVERITY ASSESSMENT (PRIMARY DRIVER OF SCORE):**
 
-[SCORE] <0-100>
+| P/L Loss Level | Base Score | Grade | Classification |
+|----------------|------------|-------|----------------|
+| > 50% loss     | 0-5        | F     | CATASTROPHIC   |
+| 30-50% loss    | 5-15       | F     | SEVERE         |
+| 20-30% loss    | 15-30      | D     | MAJOR FAILURE  |
+| 10-20% loss    | 30-50      | C     | POOR           |
+| 5-10% loss     | 50-70      | B     | MEDIOCRE       |
+| 0-5% loss      | 70-85      | A     | ACCEPTABLE     |
+| 0-10% profit   | 85-92      | A     | GOOD           |
+| > 10% profit   | 93-100     | S     | EXCELLENT      |
 
-[OVERALL_GRADE] <F/D/C/B/A/S-Tier>
+**2. RISK MANAGEMENT SCORING (0-100 scale):**
 
-[ENTRY_QUALITY] <0-100>
+Calculate Risk Score based on:
+- Stop Loss Present: +40 points base
+- Stop Loss Absent: 0 points base (automatic cap at 30 maximum)
+- R:R Ratio < 1:1 = -20 points
+- R:R Ratio 1:2 = base
+- R:R Ratio > 1:3 = +20 points
+- Position risk > 5% of account = -30 points
+- Emotional state "FOMO" or "Revenge" or "Tilt" = -15 points
 
-[EXIT_QUALITY] <0-100>
+**If loss >30%: Risk Score MUST NOT EXCEED 10 (crisis override)**
+**If no stop loss AND losing trade: Risk Score MUST NOT EXCEED 20**
 
-[RISK_SCORE] <0-100>
+**3. ENTRY QUALITY SCORING (0-100 scale):**
 
-[TAGS] <comma-separated, 3-5 tags>
+Assess based on:
+- Setup appropriateness for market condition
+- Entry timing relative to technical levels
+- Confirmation indicators present
+- Emotional state impact (FOMO/Revenge = lower score)
+- {setup_type} setup validation
 
-[TECH] <3-5 sentences with NUMBERS: entry timing, stop placement, R:R analysis, setup quality>
+Scoring guide:
+- 90-100: Perfect setup, ideal entry timing, all confirmations
+- 70-89: Good setup, decent timing, most confirmations
+- 50-69: Average setup, questionable timing, some confirmations
+- 30-49: Poor setup, bad timing, few confirmations
+- 0-29: Terrible setup, emotional entry, no confirmations
 
-[PSYCH] <2-4 sentences: emotional state impact, biases detected, discipline assessment>
+**4. EXIT QUALITY SCORING (0-100 scale):**
 
-[RISK] <3-4 sentences with PERCENTAGES: account risk, position size, stop effectiveness>
+Assess based on:
+- Whether stop loss was actually SET (if not = automatic cap at 30)
+- Whether exit was rules-based vs emotional
+- Risk management during trade
+- Trailing stop usage
+- Profit-taking discipline
 
-[FIX] <Exactly 3 improvements:
-1. [Specific technical fix]
-2. [Specific psychological fix]
-3. [Specific risk fix]>
+**CRITICAL: If stop={stop}, this means:**
+- If stop ≤ 0 AND trade lost money: Exit Quality MAXIMUM 30
+- If stop > 0 AND hit stop: Exit Quality 60-80 (good discipline)
+- If stop > 0 AND didn't hit stop: Exit Quality varies by other factors
 
-[STRENGTH] <1-2 sentences on what was good>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REQUIRED OUTPUT FORMAT (EXACT):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-[CRITICAL_ERROR] <Single biggest mistake>
+[SCORE] <0-100, use severity table strictly>
 
-BE HARSH. USE NUMBERS. BE SPECIFIC."""
+[OVERALL_GRADE] <F/D/C/B/A/S-Tier, align with severity table>
+
+[ENTRY_QUALITY] <0-100, assess setup and timing>
+
+[EXIT_QUALITY] <0-100, MUST BE ≤30 if no stop AND losing, ≤50 if no stop AND winning>
+
+[RISK_SCORE] <0-100, MUST BE ≤10 if loss>30%, MUST BE ≤20 if no stop AND losing>
+
+[TAGS] <4-7 comma-separated tags describing behavioral and technical issues>
+
+[TECH] TECHNICAL ASSESSMENT: {ticker} | Entry: ${entry:.2f}, Exit: ${exit_price:.2f}, Stop: ${stop:.2f if stop > 0 else "NOT SET"}. P/L: ${pnl:.2f} ({pnl_pct:+.2f}%). Risk: ${risk:.2f} ({risk_pct:.2f}%). R:R: {rr_ratio:.2f}:1. [Analyze the {setup_type} setup quality, entry timing relative to technical levels, whether stop placement was appropriate for volatility, and if risk amount was proportional to account size. Use specific numbers and percentages.]
+
+[PSYCH] PSYCHOLOGICAL PROFILE: Entered in {emotion} emotional state. [Analyze how this emotional state affected decision-making. Did it cause premature entry, late entry, no stop loss, or poor exit? Connect the emotion to the technical execution failures. For "Neutral" state, analyze whether discipline was maintained. For "FOMO/Revenge/Tilt", explain specific impacts on trade quality.]
+
+[RISK] RISK MANAGEMENT ASSESSMENT: [Analyze: (1) Stop loss discipline - was it set? appropriate? honored? (2) Position sizing - was {risk_pct:.2f}% risk appropriate? (3) R:R ratio of {rr_ratio:.2f}:1 - is this acceptable? (4) Overall risk framework - does trader have a system? If loss >30% or no stop, this section MUST emphasize catastrophic risk failure.]
+
+[FIX] ACTIONABLE IMPROVEMENTS (exactly 3):
+1. [Specific technical fix with numbers - e.g., "Set stop loss at -2% below entry ($X) on every trade"]
+2. [Specific psychological fix - e.g., "Wait 30 minutes after seeing setup before entering to avoid FOMO"]
+3. [Specific risk fix - e.g., "Limit risk to 1% of account max ($X per trade) and verify R:R >1:2"]
+
+[STRENGTH] [Identify 1-2 things done correctly, even if trade lost. If truly nothing, write "Trader recognized mistake by seeking analysis - willingness to improve is the only strength here."]
+
+[CRITICAL_ERROR] [The single biggest mistake in this trade. Be specific: "Not setting a stop loss" or "Entering on FOMO emotion" or "Risk of {risk_pct:.1f}% was too large" or "R:R of {rr_ratio:.1f}:1 was unacceptable". Explain why this was most critical.]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CRITICAL VALIDATION CHECKS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Before finalizing your output, verify:
+
+✓ If pnl_pct < -30%: Score is 0-15, Grade is F, Risk Score is 0-10
+✓ If stop ≤ 0 AND pnl < 0: Exit Quality ≤ 30, Risk Score ≤ 20
+✓ If emotion is "FOMO" or "Revenge" or "Tilt": Psych section explains impact, Score penalized
+✓ R:R ratio < 1:1 is BAD - must be reflected in Risk Score and critique
+✓ All numbers in [TECH] section match the provided data exactly
+✓ [FIX] section has EXACTLY 3 numbered actionable items
+
+NOW PERFORM THE ANALYSIS:
+"""
                         ready_to_run = True
                 st.markdown('</div>', unsafe_allow_html=True)
 
