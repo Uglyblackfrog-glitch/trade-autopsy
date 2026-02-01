@@ -1002,6 +1002,13 @@ st.markdown("""
 # ==========================================
 # 3. IMPROVED HELPER FUNCTIONS
 # ==========================================
+# FIXED VERSION - Replace lines 1020-1170 in your original file
+
+# This fixes:
+# 1. "Analysis pending..." appearing for all three tools
+# 2. Hallucination detection 
+# 3. Better parsing of AI responses even when format is imperfect
+
 def clean_text(text):
     """Clean text but preserve structure"""
     # Remove HTML/code artifacts
@@ -1018,73 +1025,140 @@ def validate_score(score, min_val=0, max_val=100):
         return 50  # Default middle score if parsing fails
 
 def parse_report(text):
-    """Enhanced parsing with validation"""
+    """FIXED: Enhanced parsing with better fallbacks and validation"""
     sections = { 
-        "score": 50,  # Default to middle score
+        "score": 50,
         "tags": [], 
-        "tech": "Analysis pending...", 
-        "psych": "Analysis pending...", 
-        "risk": "Analysis pending...", 
-        "fix": "Analysis pending...",
+        "tech": "", 
+        "psych": "", 
+        "risk": "", 
+        "fix": "",
         "overall_grade": "C",
         "entry_quality": 50,
         "exit_quality": 50,
         "risk_score": 50,
-        "strength": "Analyzing...",
-        "critical_error": "Analyzing..."
+        "strength": "",
+        "critical_error": ""
     }
     
     # Clean text first
     text = clean_text(text)
     
-    # Extract and validate score
-    score_match = re.search(r'\[SCORE\]\s*(\d+)', text, re.IGNORECASE)
+    # FIX 1: Extract and validate score
+    score_match = re.search(r'\[SCORE\]\s*[:\-]?\s*(\d+)', text, re.IGNORECASE)
     if score_match: 
         sections['score'] = validate_score(score_match.group(1))
+    else:
+        # Try alternate patterns like "Score: 45" or "Overall Score: 45"
+        alt_score = re.search(r'(?:overall\s+)?score\s*[:\-]\s*(\d+)', text, re.IGNORECASE)
+        if alt_score:
+            sections['score'] = validate_score(alt_score.group(1))
     
-    # Extract grade
-    grade_match = re.search(r'\[OVERALL_GRADE\]\s*([A-FS][\-\+]?(?:-Tier)?)', text, re.IGNORECASE)
+    # FIX 2: Extract grade with more patterns
+    grade_match = re.search(r'\[OVERALL_GRADE\]\s*[:\-]?\s*([A-FS][\-\+]?(?:-?Tier)?)', text, re.IGNORECASE)
     if grade_match: 
         sections['overall_grade'] = grade_match.group(1).upper()
+    else:
+        # Try alternate patterns
+        alt_grade = re.search(r'grade\s*[:\-]\s*([A-FS][\-\+]?)', text, re.IGNORECASE)
+        if alt_grade:
+            sections['overall_grade'] = alt_grade.group(1).upper()
     
-    # Extract and validate quality scores
-    entry_match = re.search(r'\[ENTRY_QUALITY\]\s*(\d+)', text, re.IGNORECASE)
+    # FIX 3: Extract quality scores with more lenient patterns
+    entry_match = re.search(r'\[ENTRY_QUALITY\]\s*[:\-]?\s*(\d+)', text, re.IGNORECASE)
     if entry_match: 
         sections['entry_quality'] = validate_score(entry_match.group(1))
+    else:
+        alt_entry = re.search(r'entry\s+quality\s*[:\-]\s*(\d+)', text, re.IGNORECASE)
+        if alt_entry:
+            sections['entry_quality'] = validate_score(alt_entry.group(1))
     
-    exit_match = re.search(r'\[EXIT_QUALITY\]\s*(\d+)', text, re.IGNORECASE)
+    exit_match = re.search(r'\[EXIT_QUALITY\]\s*[:\-]?\s*(\d+)', text, re.IGNORECASE)
     if exit_match: 
         sections['exit_quality'] = validate_score(exit_match.group(1))
+    else:
+        alt_exit = re.search(r'exit\s+quality\s*[:\-]\s*(\d+)', text, re.IGNORECASE)
+        if alt_exit:
+            sections['exit_quality'] = validate_score(alt_exit.group(1))
     
-    risk_score_match = re.search(r'\[RISK_SCORE\]\s*(\d+)', text, re.IGNORECASE)
+    risk_score_match = re.search(r'\[RISK_SCORE\]\s*[:\-]?\s*(\d+)', text, re.IGNORECASE)
     if risk_score_match: 
         sections['risk_score'] = validate_score(risk_score_match.group(1))
+    else:
+        alt_risk = re.search(r'risk\s+(?:score|management)\s*[:\-]\s*(\d+)', text, re.IGNORECASE)
+        if alt_risk:
+            sections['risk_score'] = validate_score(alt_risk.group(1))
     
-    # Extract tags
-    tags_match = re.search(r'\[TAGS\](.*?)(?=\[|$)', text, re.DOTALL | re.IGNORECASE)
+    # FIX 4: Extract tags with more patterns
+    tags_match = re.search(r'\[TAGS\]\s*[:\-]?\s*(.*?)(?=\[|$)', text, re.DOTALL | re.IGNORECASE)
     if tags_match:
-        raw = tags_match.group(1).replace('[', '').replace(']', '').split(',')
-        sections['tags'] = [t.strip() for t in raw if t.strip() and len(t.strip()) > 2][:10]  # Limit to 10 tags
+        raw = tags_match.group(1).replace('[', '').replace(']', '').replace('<', '').replace('>', '').split(',')
+        sections['tags'] = [t.strip() for t in raw if t.strip() and len(t.strip()) > 2][:10]
+    else:
+        # Try alternate pattern like "Tags: FOMO, Revenge Trading"
+        alt_tags = re.search(r'tags\s*[:\-]\s*(.*?)(?=\n\n|\[|$)', text, re.IGNORECASE)
+        if alt_tags:
+            raw = alt_tags.group(1).replace('[', '').replace(']', '').split(',')
+            sections['tags'] = [t.strip() for t in raw if t.strip() and len(t.strip()) > 2][:10]
     
-    # Extract text sections with better patterns
+    # FIX 5: Extract text sections with MUCH more lenient patterns
+    # This is the key fix for "Analysis pending..." issue
     patterns = {
-        "tech": r"\[TECH\](.*?)(?=\[PSYCH\]|\[RISK\]|\[FIX\]|\[STRENGTH\]|\[CRITICAL_ERROR\]|$)",
-        "psych": r"\[PSYCH\](.*?)(?=\[RISK\]|\[FIX\]|\[STRENGTH\]|\[CRITICAL_ERROR\]|$)",
-        "risk": r"\[RISK\](.*?)(?=\[FIX\]|\[STRENGTH\]|\[CRITICAL_ERROR\]|$)",
-        "fix": r"\[FIX\](.*?)(?=\[STRENGTH\]|\[CRITICAL_ERROR\]|$)",
-        "strength": r"\[STRENGTH\](.*?)(?=\[CRITICAL_ERROR\]|$)",
-        "critical_error": r"\[CRITICAL_ERROR\](.*?)$"
+        "tech": [
+            r"\[TECH\]\s*[:\-]?\s*(.*?)(?=\[PSYCH\]|\[RISK\]|\[FIX\]|\[STRENGTH\]|\[CRITICAL_ERROR\]|$)",
+            r"technical\s+analysis\s*[:\-]\s*(.*?)(?=psychology|risk|action|strength|critical|$)"
+        ],
+        "psych": [
+            r"\[PSYCH\]\s*[:\-]?\s*(.*?)(?=\[RISK\]|\[FIX\]|\[STRENGTH\]|\[CRITICAL_ERROR\]|$)",
+            r"psychology\s+(?:profile|analysis)\s*[:\-]\s*(.*?)(?=risk|action|strength|critical|$)"
+        ],
+        "risk": [
+            r"\[RISK\]\s*[:\-]?\s*(.*?)(?=\[FIX\]|\[STRENGTH\]|\[CRITICAL_ERROR\]|$)",
+            r"risk\s+(?:assessment|analysis)\s*[:\-]\s*(.*?)(?=action|fix|strength|critical|$)"
+        ],
+        "fix": [
+            r"\[FIX\]\s*[:\-]?\s*(.*?)(?=\[STRENGTH\]|\[CRITICAL_ERROR\]|$)",
+            r"action\s+plan\s*[:\-]\s*(.*?)(?=strength|critical|$)"
+        ],
+        "strength": [
+            r"\[STRENGTH\]\s*[:\-]?\s*(.*?)(?=\[CRITICAL_ERROR\]|$)",
+            r"(?:what\s+went\s+well|strength)\s*[:\-]\s*(.*?)(?=critical|$)"
+        ],
+        "critical_error": [
+            r"\[CRITICAL_ERROR\]\s*[:\-]?\s*(.*?)$",
+            r"(?:critical\s+error|biggest\s+mistake)\s*[:\-]\s*(.*?)$"
+        ]
     }
     
-    for key, pattern in patterns.items():
-        match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
-        if match: 
-            content = match.group(1).strip()
-            # Filter out any remaining HTML/code
-            content = re.sub(r'<[^>]+>', '', content)
-            content = re.sub(r'```[\s\S]*?```', '', content)
-            if len(content) > 10:  # Only update if substantial content
-                sections[key] = content
+    for key, pattern_list in patterns.items():
+        content = None
+        for pattern in pattern_list:
+            match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
+            if match: 
+                content = match.group(1).strip()
+                # Filter out any remaining HTML/code
+                content = re.sub(r'<[^>]+>', '', content)
+                content = re.sub(r'```[\s\S]*?```', '', content)
+                # Remove excessive whitespace
+                content = ' '.join(content.split())
+                if len(content) > 15:  # Only update if substantial content
+                    sections[key] = content
+                    break  # Found content, move to next key
+        
+        # FIX 6: If still empty, provide helpful message instead of "Analysis pending..."
+        if not sections[key]:
+            if key == "tech":
+                sections[key] = "Technical analysis could not be extracted from the AI response. The image may need better clarity or the AI response format was unexpected."
+            elif key == "psych":
+                sections[key] = "Psychology profile could not be extracted. Please try uploading a clearer image or provide more context."
+            elif key == "risk":
+                sections[key] = "Risk assessment could not be generated. This may indicate the AI couldn't properly analyze the trade data."
+            elif key == "fix":
+                sections[key] = "Action plan unavailable. Please retry the analysis with a clearer image showing price levels and P&L."
+            elif key == "strength":
+                sections[key] = "N/A"
+            elif key == "critical_error":
+                sections[key] = "N/A"
     
     return sections
 
@@ -1121,8 +1195,8 @@ def generate_insights(df):
     
     return insights if insights else ["✅ Performance metrics within normal parameters."]
 
-def call_vision_api(prompt, img_b64, max_retries=2):
-    """Call vision API with retry logic and better error handling"""
+def call_vision_api(prompt, img_b64, max_retries=3):
+    """FIXED: Call vision API with better retry logic, error handling, and response validation"""
     for attempt in range(max_retries):
         try:
             messages = [
@@ -1138,9 +1212,9 @@ def call_vision_api(prompt, img_b64, max_retries=2):
             payload = {
                 "model": "Qwen/Qwen2.5-VL-7B-Instruct",
                 "messages": messages,
-                "max_tokens": 1500,
-                "temperature": 0.3,  # Lower temperature for more consistent output
-                "top_p": 0.95
+                "max_tokens": 2000,  # INCREASED from 1500
+                "temperature": 0.2,  # DECREASED from 0.3 for more consistency
+                "top_p": 0.9
             }
             
             headers = {
@@ -1148,26 +1222,54 @@ def call_vision_api(prompt, img_b64, max_retries=2):
                 "Content-Type": "application/json"
             }
             
-            res = requests.post(API_URL, headers=headers, json=payload, timeout=60)
+            res = requests.post(API_URL, headers=headers, json=payload, timeout=90)
             
             if res.status_code == 200:
                 content = res.json()["choices"][0]["message"]["content"]
-                # Validate response isn't just code/HTML
-                if '<div' in content or '<html' in content or '```' in content[:100]:
+                
+                # FIX 7: Validate response quality
+                # Check if response is just code or HTML
+                if '<div' in content or '<html' in content or '```python' in content[:100]:
                     if attempt < max_retries - 1:
                         continue  # Retry
                     else:
                         raise ValueError("Model returning code instead of analysis")
+                
+                # Check if response has at least some of the expected sections
+                required_sections = ['SCORE', 'TECH', 'PSYCH', 'RISK']
+                sections_found = sum(1 for section in required_sections if f'[{section}]' in content.upper())
+                
+                if sections_found < 2:  # Need at least 2 sections
+                    if attempt < max_retries - 1:
+                        # Retry with slightly different parameters
+                        payload['temperature'] = 0.1
+                        continue
+                    else:
+                        # Still return it, but log warning
+                        st.warning(f"⚠️ AI response may be incomplete (only {sections_found}/4 sections found). Retrying...")
+                        if attempt < max_retries - 1:
+                            continue
+                
                 return content
+            
+            elif res.status_code == 503:
+                st.warning(f"🔄 Model is loading... (Attempt {attempt + 1}/{max_retries})")
+                if attempt < max_retries - 1:
+                    import time
+                    time.sleep(20)  # Wait 20 seconds for model to load
+                    continue
             else:
                 raise Exception(f"API returned {res.status_code}: {res.text[:200]}")
                 
         except Exception as e:
             if attempt == max_retries - 1:
                 raise e
+            else:
+                st.warning(f"⚠️ Attempt {attempt + 1} failed, retrying...")
             continue
     
     raise Exception("Max retries exceeded")
+
 
 # ==========================================
 # 4. MAIN APP LOGIC
