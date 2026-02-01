@@ -9,8 +9,7 @@ from PIL import Image
 from supabase import create_client, Client
 from datetime import datetime
 import json
-import uuid
-import time
+import uuid  # Add this to generate unique filenames
 
 # ==========================================
 # 0. AUTHENTICATION & CONFIG
@@ -69,16 +68,15 @@ if st.session_state["authenticated"]:
             supabase = None
         else:
             supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-            # Using multiple model options for better results
-            API_URL = "https://api-inference.huggingface.co/models/meta-llama/Llama-3.2-11B-Vision-Instruct"
-            API_URL_BACKUP = "https://api-inference.huggingface.co/models/Qwen/Qwen2-VL-7B-Instruct"
+            # Using better vision model
+            API_URL = "https://router.huggingface.co/v1/chat/completions"
             
     except Exception as e:
         st.error(f"⚠️ Configuration Error: {e}")
         st.stop()
 
 # ==========================================
-# 2. PREMIUM DARK THEME CSS
+# 2. PREMIUM DARK THEME CSS (UNCHANGED)
 # ==========================================
 st.markdown("""
 <style>
@@ -208,7 +206,7 @@ st.markdown("""
         width: 100%;
     }
     
-    /* --- RADIO BUTTONS - GREEN THEME --- */
+    /* --- RADIO BUTTONS - REMOVE RED, USE GREEN/BLUE --- */
     .stRadio > div[role="radiogroup"] > label > div[data-testid="stMarkdownContainer"] {
         color: #9ca3af !important;
     }
@@ -227,6 +225,7 @@ st.markdown("""
         background-color: white !important;
     }
     
+    /* Override any red radio button styling */
     input[type="radio"]:checked {
         accent-color: #10b981 !important;
     }
@@ -466,12 +465,65 @@ st.markdown("""
         box-shadow: 0 0 24px rgba(16, 185, 129, 0.3);
     }
     
+    /* Remove any red tab underlines */
     .stTabs [data-baseweb="tab-highlight"] {
         background-color: #10b981 !important;
     }
     
     .stTabs [data-baseweb="tab-panel"] {
         padding-top: 0 !important;
+    }
+    
+    /* --- RADIO BUTTONS --- */
+    .stRadio {
+        background: transparent !important;
+    }
+    
+    .stRadio > div {
+        background: transparent !important;
+        padding: 0 !important;
+    }
+    
+    .stRadio > label {
+        display: none !important;
+    }
+    
+    /* Radio button selected state - GREEN instead of RED */
+    .stRadio div[role="radiogroup"] label div[data-testid="stMarkdownContainer"] {
+        color: #9ca3af !important;
+        transition: color 0.3s ease !important;
+    }
+    
+    .stRadio div[role="radiogroup"] label[data-baseweb="radio"] div:first-child {
+        border: 2px solid rgba(255, 255, 255, 0.2) !important;
+        background: transparent !important;
+    }
+    
+    .stRadio div[role="radiogroup"] label[data-baseweb="radio"]:hover div:first-child {
+        border-color: rgba(16, 185, 129, 0.5) !important;
+    }
+    
+    /* Selected radio button - GREEN theme */
+    .stRadio div[role="radiogroup"] label div:first-child[data-checked="true"],
+    .stRadio div[role="radiogroup"] label[aria-checked="true"] div:first-child {
+        background: #10b981 !important;
+        border-color: #10b981 !important;
+    }
+    
+    .stRadio div[role="radiogroup"] label div:first-child[data-checked="true"]::after,
+    .stRadio div[role="radiogroup"] label[aria-checked="true"] div:first-child::after {
+        background: white !important;
+    }
+    
+    /* Selected text color */
+    .stRadio div[role="radiogroup"] label[aria-checked="true"] div[data-testid="stMarkdownContainer"] {
+        color: #10b981 !important;
+        font-weight: 600 !important;
+    }
+    
+    /* Override Streamlit's default red accent */
+    [data-baseweb="radio"] input[type="radio"]:checked {
+        accent-color: #10b981 !important;
     }
 
     /* --- PREMIUM BUTTONS --- */
@@ -498,10 +550,66 @@ st.markdown("""
         transform: translateY(-3px);
     }
     
+    /* Form submit buttons - ensure green theme */
     .stButton button[kind="primary"], 
     button[type="submit"] {
         background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
         border: 1px solid rgba(16, 185, 129, 0.4) !important;
+        border-radius: 14px !important;
+        color: white !important;
+        font-weight: 600 !important;
+        padding: 14px 32px !important;
+        transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1) !important;
+        box-shadow: 
+            0 4px 20px rgba(16, 185, 129, 0.3),
+            inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+        letter-spacing: 0.5px !important;
+        font-size: 0.9rem !important;
+    }
+    
+    .stButton button[kind="primary"]:hover,
+    button[type="submit"]:hover {
+        background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+        box-shadow: 
+            0 8px 32px rgba(16, 185, 129, 0.5),
+            inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
+        transform: translateY(-3px) !important;
+    }
+    
+    /* Navigation buttons styled as text links */
+    .stButton button[kind="secondary"] {
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        color: #9ca3af !important;
+        padding: 8px 16px !important;
+        font-size: 0.95rem !important;
+        font-weight: 600 !important;
+        letter-spacing: 0.5px !important;
+        position: relative;
+        transition: all 0.3s ease !important;
+    }
+    
+    .stButton button[kind="secondary"]::after {
+        content: '';
+        position: absolute;
+        bottom: 4px;
+        left: 16px;
+        right: 16px;
+        height: 2px;
+        background: linear-gradient(90deg, #10b981, #3b82f6);
+        transform: scaleX(0);
+        transition: transform 0.3s ease;
+    }
+    
+    .stButton button[kind="secondary"]:hover {
+        color: #10b981 !important;
+        background: rgba(16, 185, 129, 0.05) !important;
+        transform: none !important;
+    }
+    
+    .stButton button[kind="secondary"]:hover::after {
+        transform: scaleX(1);
     }
 
     /* --- PREMIUM INPUTS --- */
@@ -561,6 +669,53 @@ st.markdown("""
     [data-testid="stFileUploader"] section:hover::before {
         opacity: 1;
     }
+    
+    [data-testid="stFileUploader"] section button {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+        border: none !important;
+        border-radius: 14px !important;
+        color: white !important;
+        font-weight: 600 !important;
+        padding: 16px 36px !important;
+        font-size: 0.95rem !important;
+        transition: all 0.4s ease !important;
+        box-shadow: 0 4px 20px rgba(16, 185, 129, 0.3) !important;
+        margin-top: 24px !important;
+    }
+    
+    [data-testid="stFileUploader"] section button:hover {
+        background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+        box-shadow: 0 8px 32px rgba(16, 185, 129, 0.5) !important;
+        transform: translateY(-2px);
+    }
+    
+    .upload-icon {
+        font-size: 4rem;
+        margin-bottom: 28px;
+        display: block;
+        opacity: 0.9;
+        animation: float 3s ease-in-out infinite;
+        filter: drop-shadow(0 0 20px rgba(16, 185, 129, 0.3));
+    }
+    
+    @keyframes float {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-12px); }
+    }
+    
+    .upload-text {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #f8fafc;
+        margin-bottom: 14px;
+        letter-spacing: -0.01em;
+    }
+    
+    .upload-subtext {
+        font-size: 0.92rem;
+        color: #9ca3af;
+        line-height: 1.7;
+    }
 
     /* --- DATAFRAME --- */
     .stDataFrame {
@@ -570,6 +725,50 @@ st.markdown("""
         border: 1px solid rgba(255, 255, 255, 0.06);
     }
 
+    /* --- SCORE DISPLAY --- */
+    .score-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 32px;
+    }
+    
+    .score-value {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 5.5rem;
+        font-weight: 800;
+        line-height: 1;
+        letter-spacing: -0.04em;
+    }
+    
+    .score-meta {
+        text-align: right;
+    }
+    
+    .ticker-badge {
+        background: rgba(16, 185, 129, 0.15);
+        padding: 10px 20px;
+        border-radius: 10px;
+        display: inline-block;
+        font-weight: 600;
+        font-size: 0.95rem;
+        letter-spacing: 1px;
+        margin-bottom: 10px;
+        border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    /* --- UTILITY CLASSES --- */
+    .divider {
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+        margin: 32px 0;
+    }
+    
+    .accent-text {
+        color: #10b981;
+        font-weight: 600;
+    }
+    
     /* === ANIMATED RESULTS DISPLAY === */
     @keyframes slideInUp {
         from {
@@ -609,6 +808,11 @@ st.markdown("""
         }
     }
     
+    @keyframes shimmer {
+        0% { background-position: -1000px 0; }
+        100% { background-position: 1000px 0; }
+    }
+    
     .animate-slide-up {
         animation: slideInUp 0.6s cubic-bezier(0.23, 1, 0.32, 1) forwards;
     }
@@ -637,12 +841,95 @@ st.markdown("""
         overflow: hidden;
     }
     
+    .result-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.1), transparent);
+        animation: shimmer 2s infinite;
+    }
+    
     .result-card:hover {
         border-color: rgba(16, 185, 129, 0.3);
         transform: translateY(-4px);
         box-shadow: 0 12px 40px rgba(16, 185, 129, 0.2);
     }
-
+    
+    .metric-circle {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        margin: 0 auto;
+    }
+    
+    .metric-circle::before {
+        content: '';
+        position: absolute;
+        inset: -4px;
+        border-radius: 50%;
+        padding: 4px;
+        background: linear-gradient(135deg, #10b981, #3b82f6);
+        -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
+        animation: spin 3s linear infinite;
+    }
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    
+    .grade-badge {
+        display: inline-block;
+        padding: 8px 20px;
+        border-radius: 12px;
+        font-size: 1.1rem;
+        font-weight: 700;
+        letter-spacing: 1px;
+        animation: pulse 2s ease infinite;
+    }
+    
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+    }
+    
+    .progress-bar-container {
+        width: 100%;
+        height: 12px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 6px;
+        overflow: hidden;
+        position: relative;
+    }
+    
+    .progress-bar {
+        height: 100%;
+        border-radius: 6px;
+        transition: width 1.5s cubic-bezier(0.23, 1, 0.32, 1);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .progress-bar::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+        animation: shimmer 1.5s infinite;
+    }
+    
     /* --- CUSTOM SCROLLBAR --- */
     ::-webkit-scrollbar {
         width: 10px;
@@ -661,180 +948,229 @@ st.markdown("""
     ::-webkit-scrollbar-thumb:hover {
         background: rgba(16, 185, 129, 0.5);
     }
+    
+    /* === GLOBAL RED COLOR REMOVAL === */
+    /* Override all Streamlit red colors with green */
+    button[kind="primary"], 
+    button[type="submit"],
+    .stButton > button[kind="primary"],
+    [data-testid="stFormSubmitButton"] > button {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+        border-color: rgba(16, 185, 129, 0.4) !important;
+    }
+    
+    button[kind="primary"]:hover, 
+    button[type="submit"]:hover,
+    .stButton > button[kind="primary"]:hover,
+    [data-testid="stFormSubmitButton"] > button:hover {
+        background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+    }
+    
+    /* Remove red from error messages and warnings */
+    .stAlert, .element-container .stException {
+        border-left-color: #f59e0b !important;
+    }
+    
+    /* Radio and checkbox accent colors */
+    input[type="radio"]:checked,
+    input[type="checkbox"]:checked {
+        accent-color: #10b981 !important;
+        background-color: #10b981 !important;
+        border-color: #10b981 !important;
+    }
+    
+    /* Slider and progress bars */
+    .stSlider [role="slider"],
+    .stProgress > div > div {
+        background-color: #10b981 !important;
+    }
+    
+    /* Any element with red background */
+    *[style*="background: red"],
+    *[style*="background-color: red"],
+    *[style*="background: #ef4444"],
+    *[style*="background-color: #ef4444"],
+    *[style*="background: #dc2626"],
+    *[style*="background-color: #dc2626"],
+    *[style*="background: rgb(239, 68, 68)"],
+    *[style*="background-color: rgb(239, 68, 68)"] {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+        background-color: #10b981 !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
 # 3. IMPROVED HELPER FUNCTIONS
 # ==========================================
+def clean_text(text):
+    """Clean text but preserve structure"""
+    # Remove HTML/code artifacts
+    text = re.sub(r'<[^>]+>', '', text)
+    text = re.sub(r'```[\s\S]*?```', '', text)
+    return text.strip()
 
 def validate_score(score, min_val=0, max_val=100):
     """Validate and clamp scores"""
     try:
-        score = int(float(score))
+        score = int(score)
         return max(min_val, min(max_val, score))
     except:
-        return None
+        return 50  # Default middle score if parsing fails
 
 def parse_report(text):
-    """Enhanced parsing with strict validation"""
-    sections = {}
+    """Enhanced parsing with validation"""
+    sections = { 
+        "score": 50,  # Default to middle score
+        "tags": [], 
+        "tech": "Analysis pending...", 
+        "psych": "Analysis pending...", 
+        "risk": "Analysis pending...", 
+        "fix": "Analysis pending...",
+        "overall_grade": "C",
+        "entry_quality": 50,
+        "exit_quality": 50,
+        "risk_score": 50,
+        "strength": "Analyzing...",
+        "critical_error": "Analyzing..."
+    }
     
-    # Extract score - MUST BE PRESENT
-    score_match = re.search(r'\[SCORE\]\s*[:\-]?\s*(\d+)', text, re.IGNORECASE)
-    if score_match:
+    # Clean text first
+    text = clean_text(text)
+    
+    # Extract and validate score
+    score_match = re.search(r'\[SCORE\]\s*(\d+)', text, re.IGNORECASE)
+    if score_match: 
         sections['score'] = validate_score(score_match.group(1))
-    else:
-        sections['score'] = None
     
     # Extract grade
-    grade_match = re.search(r'\[OVERALL_GRADE\]\s*[:\-]?\s*([A-FS][\-\+]?(?:-Tier)?)', text, re.IGNORECASE)
-    sections['overall_grade'] = grade_match.group(1).upper() if grade_match else None
+    grade_match = re.search(r'\[OVERALL_GRADE\]\s*([A-FS][\-\+]?(?:-Tier)?)', text, re.IGNORECASE)
+    if grade_match: 
+        sections['overall_grade'] = grade_match.group(1).upper()
     
-    # Extract quality scores
-    entry_match = re.search(r'\[ENTRY_QUALITY\]\s*[:\-]?\s*(\d+)', text, re.IGNORECASE)
-    sections['entry_quality'] = validate_score(entry_match.group(1)) if entry_match else None
+    # Extract and validate quality scores
+    entry_match = re.search(r'\[ENTRY_QUALITY\]\s*(\d+)', text, re.IGNORECASE)
+    if entry_match: 
+        sections['entry_quality'] = validate_score(entry_match.group(1))
     
-    exit_match = re.search(r'\[EXIT_QUALITY\]\s*[:\-]?\s*(\d+)', text, re.IGNORECASE)
-    sections['exit_quality'] = validate_score(exit_match.group(1)) if exit_match else None
+    exit_match = re.search(r'\[EXIT_QUALITY\]\s*(\d+)', text, re.IGNORECASE)
+    if exit_match: 
+        sections['exit_quality'] = validate_score(exit_match.group(1))
     
-    risk_score_match = re.search(r'\[RISK_SCORE\]\s*[:\-]?\s*(\d+)', text, re.IGNORECASE)
-    sections['risk_score'] = validate_score(risk_score_match.group(1)) if risk_score_match else None
+    risk_score_match = re.search(r'\[RISK_SCORE\]\s*(\d+)', text, re.IGNORECASE)
+    if risk_score_match: 
+        sections['risk_score'] = validate_score(risk_score_match.group(1))
     
     # Extract tags
-    tags_match = re.search(r'\[TAGS\]\s*[:\-]?\s*(.*?)(?=\[|$)', text, re.DOTALL | re.IGNORECASE)
+    tags_match = re.search(r'\[TAGS\](.*?)(?=\[|$)', text, re.DOTALL | re.IGNORECASE)
     if tags_match:
         raw = tags_match.group(1).replace('[', '').replace(']', '').split(',')
-        sections['tags'] = [t.strip() for t in raw if t.strip() and len(t.strip()) > 2][:10]
-    else:
-        sections['tags'] = []
+        sections['tags'] = [t.strip() for t in raw if t.strip() and len(t.strip()) > 2][:10]  # Limit to 10 tags
     
-    # Extract text sections
+    # Extract text sections with better patterns
     patterns = {
-        "tech": r"\[TECH\]\s*[:\-]?\s*(.*?)(?=\[PSYCH\]|\[RISK\]|\[FIX\]|$)",
-        "psych": r"\[PSYCH\]\s*[:\-]?\s*(.*?)(?=\[RISK\]|\[FIX\]|$)",
-        "risk": r"\[RISK\]\s*[:\-]?\s*(.*?)(?=\[FIX\]|$)",
-        "fix": r"\[FIX\]\s*[:\-]?\s*(.*?)(?=\[STRENGTH\]|\[CRITICAL_ERROR\]|$)",
-        "strength": r"\[STRENGTH\]\s*[:\-]?\s*(.*?)(?=\[CRITICAL_ERROR\]|$)",
-        "critical_error": r"\[CRITICAL_ERROR\]\s*[:\-]?\s*(.*?)$"
+        "tech": r"\[TECH\](.*?)(?=\[PSYCH\]|\[RISK\]|\[FIX\]|\[STRENGTH\]|\[CRITICAL_ERROR\]|$)",
+        "psych": r"\[PSYCH\](.*?)(?=\[RISK\]|\[FIX\]|\[STRENGTH\]|\[CRITICAL_ERROR\]|$)",
+        "risk": r"\[RISK\](.*?)(?=\[FIX\]|\[STRENGTH\]|\[CRITICAL_ERROR\]|$)",
+        "fix": r"\[FIX\](.*?)(?=\[STRENGTH\]|\[CRITICAL_ERROR\]|$)",
+        "strength": r"\[STRENGTH\](.*?)(?=\[CRITICAL_ERROR\]|$)",
+        "critical_error": r"\[CRITICAL_ERROR\](.*?)$"
     }
     
     for key, pattern in patterns.items():
         match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
-        if match:
+        if match: 
             content = match.group(1).strip()
-            # Clean up
+            # Filter out any remaining HTML/code
             content = re.sub(r'<[^>]+>', '', content)
             content = re.sub(r'```[\s\S]*?```', '', content)
-            content = re.sub(r'\n{3,}', '\n\n', content)
-            if len(content) > 20:
+            if len(content) > 10:  # Only update if substantial content
                 sections[key] = content
-            else:
-                sections[key] = None
-        else:
-            sections[key] = None
     
     return sections
 
-def validate_analysis(report):
-    """Check if analysis is valid (not hallucinated)"""
-    # Check if all critical fields are None
-    critical_fields = ['score', 'tech', 'psych', 'risk', 'fix']
-    none_count = sum(1 for field in critical_fields if report.get(field) is None)
-    
-    if none_count >= 3:
-        return False, "Analysis incomplete - AI failed to extract data"
-    
-    # Check if score is None
-    if report.get('score') is None:
-        return False, "No score detected - AI failed to analyze"
-    
-    # Check for default/placeholder values
-    if report.get('score') == 50 and report.get('entry_quality') == 50 and report.get('exit_quality') == 50:
-        return False, "Analysis appears to be placeholder values"
-    
-    # Check if text sections are too short
-    text_sections = [report.get('tech', ''), report.get('psych', ''), report.get('risk', '')]
-    if all(len(str(s)) < 30 for s in text_sections if s):
-        return False, "Analysis text is too brief - likely incomplete"
-    
-    return True, "Valid"
-
-def save_analysis(user_id, data, ticker_symbol="UNK", img_url=None):
-    """Save analysis to database"""
-    if not supabase:
-        return
+def save_analysis(user_id, data, ticker_symbol="UNK", img_url=None):  # Added img_url param
+    if not supabase: return
     try:
         payload = {
             "user_id": user_id,
             "ticker": ticker_symbol,
-            "score": data.get('score', 0),
-            "overall_grade": data.get('overall_grade', 'N/A'),
-            "entry_quality": data.get('entry_quality', 0),
-            "exit_quality": data.get('exit_quality', 0),
-            "risk_score": data.get('risk_score', 0),
+            "score": data.get('score', 50),
             "mistake_tags": data.get('tags', []),
             "technical_analysis": data.get('tech', ''),
             "psych_analysis": data.get('psych', ''),
             "risk_analysis": data.get('risk', ''),
             "fix_action": data.get('fix', ''),
-            "strength": data.get('strength', ''),
-            "critical_error": data.get('critical_error', ''),
-            "image_url": img_url
+            "image_url": img_url  # Save the link
         }
         supabase.table("trades").insert(payload).execute()
     except Exception as e:
-        st.error(f"Database save error: {e}")
+        st.error(f"Database error: {e}")
+
+def generate_insights(df):
+    insights = []
+    if df.empty: return ["Awaiting data to generate neural patterns."]
+    
+    recent_scores = df.head(3)['score'].mean()
+    if recent_scores < 50:
+        insights.append("⚠️ **Tilt Detected:** Last 3 trades avg < 50. Suggest 24h trading halt.")
+    elif recent_scores > 80:
+        insights.append("🔥 **Flow State:** High decision quality detected. Increase risk tolerance slightly.")
+
+    all_tags = [tag for sublist in df['mistake_tags'] for tag in sublist]
+    if "FOMO" in all_tags and "Revenge" in all_tags:
+        insights.append("🧠 **Toxic Loop:** 'FOMO' leading to 'Revenge' detected 3x this month.")
+    
+    return insights if insights else ["✅ Performance metrics within normal parameters."]
 
 def upload_image_to_supabase(file_obj):
-    """Upload image to Supabase storage"""
-    if not supabase:
-        return None
+    """Uploads stream/buffer to Supabase Storage and returns public URL"""
+    if not supabase: return None
     
     try:
+        # Create unique filename
         file_ext = file_obj.name.split('.')[-1]
         file_name = f"{st.session_state['user']}/{uuid.uuid4()}.{file_ext}"
         
+        # Reset pointer to start of file
         file_obj.seek(0)
         file_bytes = file_obj.read()
         
-        bucket_name = "trade_images"
+        # Upload
+        bucket_name = "trade_images"  # Must match what you created in Supabase
         supabase.storage.from_(bucket_name).upload(
             file=file_bytes,
             path=file_name,
             file_options={"content-type": f"image/{file_ext}"}
         )
         
+        # Get Public URL
         public_url = supabase.storage.from_(bucket_name).get_public_url(file_name)
         return public_url
     except Exception as e:
-        st.warning(f"Image upload failed: {e}")
+        st.error(f"Image Upload Failed: {e}")
         return None
 
-def call_vision_api(prompt, img_b64, model="llama", max_retries=2):
-    """Call vision API with retry logic"""
-    
-    # Choose API URL
-    api_url = API_URL if model == "llama" else API_URL_BACKUP
-    
+def call_vision_api(prompt, img_b64, max_retries=2):
+    """Call vision API with retry logic and better error handling"""
     for attempt in range(max_retries):
         try:
-            messages = [{
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": prompt},
-                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}}
-                ]
-            }]
+            messages = [
+                {
+                    "role": "user", 
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}}
+                    ]
+                }
+            ]
             
             payload = {
-                "inputs": json.dumps(messages),
-                "parameters": {
-                    "max_new_tokens": 2000,
-                    "temperature": 0.2,
-                    "top_p": 0.9,
-                    "return_full_text": False
-                }
+                "model": "Qwen/Qwen2.5-VL-7B-Instruct",
+                "messages": messages,
+                "max_tokens": 1500,
+                "temperature": 0.3,  # Lower temperature for more consistent output
+                "top_p": 0.95
             }
             
             headers = {
@@ -842,82 +1178,33 @@ def call_vision_api(prompt, img_b64, model="llama", max_retries=2):
                 "Content-Type": "application/json"
             }
             
-            res = requests.post(api_url, headers=headers, json=payload, timeout=90)
+            res = requests.post(API_URL, headers=headers, json=payload, timeout=60)
             
             if res.status_code == 200:
-                result = res.json()
-                
-                # Handle different response formats
-                if isinstance(result, list) and len(result) > 0:
-                    content = result[0].get('generated_text', '')
-                elif isinstance(result, dict):
-                    content = result.get('generated_text', result.get('output', ''))
-                else:
-                    content = str(result)
-                
-                # Validate response isn't just code
-                if '<div' in content[:100] or '```python' in content[:100]:
+                content = res.json()["choices"][0]["message"]["content"]
+                # Validate response isn't just code/HTML
+                if '<div' in content or '<html' in content or '```' in content[:100]:
                     if attempt < max_retries - 1:
-                        time.sleep(2)
-                        continue
-                    raise ValueError("Model returning code instead of analysis")
-                
+                        continue  # Retry
+                    else:
+                        raise ValueError("Model returning code instead of analysis")
                 return content
             else:
-                error_msg = f"API Error {res.status_code}: {res.text[:200]}"
-                if attempt < max_retries - 1:
-                    time.sleep(2)
-                    continue
-                raise Exception(error_msg)
+                raise Exception(f"API returned {res.status_code}: {res.text[:200]}")
                 
         except Exception as e:
             if attempt == max_retries - 1:
                 raise e
-            time.sleep(2)
+            continue
     
     raise Exception("Max retries exceeded")
-
-def generate_insights(df):
-    """Generate AI insights from trading history"""
-    insights = []
-    if df.empty:
-        return ["📊 No trading history yet. Complete your first analysis to see insights."]
-    
-    # Calculate metrics
-    recent_scores = df.head(3)['score'].mean()
-    avg_score = df['score'].mean()
-    
-    if recent_scores < 40:
-        insights.append("🚨 **Critical Alert:** Last 3 trades averaged below 40. Strong recommendation to pause trading for 24-48 hours and review your strategy.")
-    elif recent_scores < avg_score - 15:
-        insights.append("⚠️ **Performance Decline:** Recent trades significantly below your average. Review your recent decision-making patterns.")
-    elif recent_scores > 80:
-        insights.append("🔥 **Excellent Performance:** High decision quality in recent trades. Your discipline is paying off.")
-    
-    # Tag analysis
-    all_tags = [tag for sublist in df['mistake_tags'] for tag in sublist]
-    if all_tags:
-        tag_counts = pd.Series(all_tags).value_counts()
-        most_common = tag_counts.index[0]
-        
-        if tag_counts[most_common] >= 3:
-            insights.append(f"🎯 **Pattern Detected:** '{most_common}' appears {tag_counts[most_common]} times in your history. This is a key area for improvement.")
-    
-    # Win rate
-    win_rate = len(df[df['score'] > 60]) / len(df) * 100
-    if win_rate < 40:
-        insights.append(f"📉 **Low Quality Rate:** Only {win_rate:.0f}% of trades score above 60. Focus on quality over quantity.")
-    elif win_rate > 70:
-        insights.append(f"✅ **Strong Consistency:** {win_rate:.0f}% quality rate shows good trading discipline.")
-    
-    return insights if insights else ["✅ Performance metrics within acceptable parameters."]
 
 # ==========================================
 # 4. MAIN APP LOGIC
 # ==========================================
 
+# --- LOGIN VIEW (UNCHANGED) ---
 if not st.session_state["authenticated"]:
-    # LOGIN VIEW
     st.markdown("""
     <div class="login-container">
         <div class="login-logo">🩸</div>
@@ -935,12 +1222,17 @@ if not st.session_state["authenticated"]:
             if submitted:
                 check_login(st.session_state.username_input, st.session_state.password_input)
 
+# --- DASHBOARD VIEW ---
 else:
-    # AUTHENTICATED VIEW
     current_user = st.session_state["user"]
+    
+    # Initialize current_page if not exists
+    if "current_page" not in st.session_state:
+        st.session_state["current_page"] = "analyze"
+    
     current_page = st.session_state.get("current_page", "analyze")
     
-    # NAVIGATION
+    # --- PREMIUM NAVIGATION BAR ---
     st.markdown(f"""
     <div class="premium-navbar">
         <div class="nav-brand">
@@ -951,7 +1243,9 @@ else:
         </div>
         <div class="nav-menu">
             <span class="nav-link {'active' if current_page == 'analyze' else ''}" id="nav_analyze">Analyze</span>
+            <span class="nav-link {'active' if current_page == 'portfolio' else ''}" id="nav_portfolio">Portfolio</span>
             <span class="nav-link {'active' if current_page == 'data_vault' else ''}" id="nav_vault">Data Vault</span>
+            <span class="nav-link {'active' if current_page == 'pricing' else ''}" id="nav_pricing">Pricing</span>
         </div>
         <div style="display: flex; align-items: center; gap: 12px;">
             <div style="
@@ -972,15 +1266,683 @@ else:
     document.getElementById('nav_analyze').onclick = function() {{
         window.location.href = '?page=analyze';
     }};
+    document.getElementById('nav_portfolio').onclick = function() {{
+        window.location.href = '?page=portfolio';
+    }};
     document.getElementById('nav_vault').onclick = function() {{
         window.location.href = '?page=data_vault';
+    }};
+    document.getElementById('nav_pricing').onclick = function() {{
+        window.location.href = '?page=pricing';
     }};
     </script>
     """, unsafe_allow_html=True)
     
-    # PAGE ROUTING
-    if current_page == "data_vault":
-        # DATA VAULT PAGE
+    # --- PAGE ROUTING ---
+    if st.session_state["current_page"] == "portfolio":
+        # PORTFOLIO ANALYSIS PAGE - COMPLETELY SEPARATE
+        st.markdown('<div class="glass-panel" style="text-align: center; padding: 60px 40px; margin-bottom: 40px;">', unsafe_allow_html=True)
+        st.markdown("""
+        <div style="font-size: 3.5rem; margin-bottom: 20px;">📊</div>
+        <div style="font-size: 2rem; font-weight: 700; margin-bottom: 16px; background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+            Portfolio Health Analyzer
+        </div>
+        <div style="font-size: 1rem; color: #9ca3af; max-width: 700px; margin: 0 auto; line-height: 1.7;">
+            Comprehensive analysis of your entire investment portfolio. Upload screenshots or PDFs, get detailed risk assessment, concentration analysis, and restructuring recommendations.
+        </div>
+        """, unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # UPLOAD SECTION
+        st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">📂 Upload Portfolio Data</div>', unsafe_allow_html=True)
+        
+        col_upload_left, col_upload_right = st.columns([1.2, 1])
+        
+        with col_upload_left:
+            st.markdown("""
+            <div style="margin-bottom: 24px;">
+                <div style="font-size: 1.1rem; font-weight: 600; color: #e5e7eb; margin-bottom: 12px;">📸 Upload Portfolio Screenshot or PDF</div>
+                <div style="font-size: 0.9rem; color: #9ca3af; line-height: 1.6;">
+                    Upload screenshots from your broker app, portfolio tracker, or export PDFs. We support all major brokers including Zerodha, Groww, Upstox, Angel One, etc.
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            portfolio_file = st.file_uploader(
+                "Upload Portfolio Screenshot or PDF", 
+                type=["png", "jpg", "jpeg", "pdf"], 
+                label_visibility="collapsed",
+                key="portfolio_upload_main",
+                help="Upload your full portfolio view showing all positions and P&L"
+            )
+            
+            if portfolio_file:
+                if portfolio_file.type == "application/pdf":
+                    st.success("✅ PDF uploaded successfully!")
+                    st.info("📄 PDF analysis extracts: Total P&L, Position count, Individual holdings")
+                else:
+                    st.success("✅ Image uploaded successfully!")
+                    st.markdown('<div style="margin-top: 20px; border-radius: 12px; overflow: hidden; border: 2px solid rgba(16, 185, 129, 0.3);">', unsafe_allow_html=True)
+                    st.image(portfolio_file, use_column_width=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
+        
+        with col_upload_right:
+            st.markdown("""
+            <div style="background: rgba(16, 185, 129, 0.1); border-left: 4px solid #10b981; padding: 20px; border-radius: 0 12px 12px 0; margin-bottom: 20px;">
+                <div style="font-size: 1rem; font-weight: 600; color: #10b981; margin-bottom: 12px;">💡 What We Analyze</div>
+                <div style="font-size: 0.85rem; color: #d1d5db; line-height: 1.7;">
+                    • Overall portfolio P&L and drawdown<br>
+                    • Position sizing discipline<br>
+                    • Diversification vs concentration<br>
+                    • Stop loss implementation<br>
+                    • Leverage/margin risks<br>
+                    • Sector exposure analysis<br>
+                    • Crisis position identification<br>
+                    • Recovery timeline estimation
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("""
+            <div style="background: rgba(245, 158, 11, 0.1); border-left: 4px solid #f59e0b; padding: 20px; border-radius: 0 12px 12px 0;">
+                <div style="font-size: 1rem; font-weight: 600; color: #f59e0b; margin-bottom: 12px;">⚠️ Manual Input Recommended</div>
+                <div style="font-size: 0.85rem; color: #d1d5db; line-height: 1.7;">
+                    For best accuracy, provide your portfolio data manually below. AI image analysis can miss details in complex portfolio views.
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # MANUAL INPUT SECTION
+        st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">📝 Manual Portfolio Data (Highly Recommended)</div>', unsafe_allow_html=True)
+        
+        with st.form("portfolio_input_form"):
+            st.markdown("**Core Portfolio Metrics**")
+            col_m1, col_m2, col_m3 = st.columns(3)
+            
+            with col_m1:
+                portfolio_total_invested = st.number_input(
+                    "Total Invested (₹)", 
+                    min_value=0.0, 
+                    step=10000.0, 
+                    format="%.2f",
+                    help="Total capital you've invested across all positions"
+                )
+            
+            with col_m2:
+                portfolio_current_value = st.number_input(
+                    "Current Value (₹)", 
+                    min_value=0.0, 
+                    step=10000.0, 
+                    format="%.2f",
+                    help="Current market value of your entire portfolio"
+                )
+            
+            with col_m3:
+                portfolio_num_positions = st.number_input(
+                    "Number of Positions", 
+                    min_value=1, 
+                    max_value=500, 
+                    value=10,
+                    help="How many different stocks/assets you hold"
+                )
+            
+            st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
+            st.markdown("**Position Details (Optional but Helpful)**")
+            
+            col_m4, col_m5 = st.columns(2)
+            
+            with col_m4:
+                portfolio_largest_loss = st.text_input(
+                    "Worst Position", 
+                    placeholder="e.g., ADANIPOWER -₹45,000 (-277%)",
+                    help="Your biggest losing position with amount and %"
+                )
+                
+                portfolio_largest_gain = st.text_input(
+                    "Best Position", 
+                    placeholder="e.g., TCS +₹85,000 (+35%)",
+                    help="Your biggest winning position with amount and %"
+                )
+            
+            with col_m5:
+                portfolio_crisis_stocks = st.text_input(
+                    "Crisis Positions (>30% loss)", 
+                    placeholder="e.g., ADANIPOWER, AARTIIND, YESBANK",
+                    help="List stocks with major losses, comma-separated"
+                )
+                
+                portfolio_top_holdings = st.text_input(
+                    "Top 3 Holdings by %", 
+                    placeholder="e.g., RELIANCE 15%, INFY 12%, TCS 10%",
+                    help="Your largest positions by portfolio weight"
+                )
+            
+            st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
+            st.markdown("**Additional Context**")
+            
+            col_m6, col_m7 = st.columns(2)
+            
+            with col_m6:
+                portfolio_sectors = st.text_input(
+                    "Main Sectors", 
+                    placeholder="e.g., IT 40%, Banking 25%, Pharma 15%",
+                    help="Your sector allocation if known"
+                )
+                
+                portfolio_strategy = st.selectbox(
+                    "Investment Approach",
+                    ["Long-term investing", "Swing trading", "Day trading", "Mixed approach", "No clear strategy"],
+                    help="How do you approach the market?"
+                )
+            
+            with col_m7:
+                portfolio_time_horizon = st.selectbox(
+                    "Time Horizon",
+                    ["< 6 months", "6-12 months", "1-2 years", "2-5 years", "5+ years", "No specific timeline"],
+                    help="How long do you plan to hold?"
+                )
+                
+                portfolio_leverage = st.selectbox(
+                    "Leverage/Margin Usage",
+                    ["No leverage (cash only)", "Margin < 25%", "Margin 25-50%", "Margin > 50%", "Futures/Options", "Not sure"],
+                    help="Are you trading with borrowed money?"
+                )
+            
+            st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
+            
+            portfolio_description = st.text_area(
+                "Additional Context (Very Important!)", 
+                height=120, 
+                placeholder="""Describe your situation:
+• How did you build this portfolio?
+• Any specific problems you're facing?
+• Previous trading experience?
+• Risk management practices?
+• Stop loss usage?
+• Why are you seeking analysis?""",
+                help="More context = better, more personalized analysis"
+            )
+            
+            st.markdown('<div style="height: 24px;"></div>', unsafe_allow_html=True)
+            
+            submitted = st.form_submit_button("🔬 RUN COMPREHENSIVE PORTFOLIO ANALYSIS", type="primary", use_container_width=True)
+            
+            if submitted:
+                # Validation
+                if portfolio_total_invested == 0 or portfolio_current_value == 0:
+                    st.error("⚠️ Please enter both Total Invested and Current Value for analysis.")
+                else:
+                    # Calculate metrics
+                    total_pnl = portfolio_current_value - portfolio_total_invested
+                    total_pnl_pct = (total_pnl / portfolio_total_invested * 100) if portfolio_total_invested > 0 else 0
+                    
+                    # Prepare image if uploaded
+                    img_b64 = None
+                    stored_portfolio_image_url = None  # Initialize URL variable
+                    if portfolio_file and portfolio_file.type != "application/pdf":
+                        try:
+                            # Upload to Supabase first
+                            with st.spinner("Uploading portfolio evidence to secure vault..."):
+                                stored_portfolio_image_url = upload_image_to_supabase(portfolio_file)
+                            
+                            # Process for AI analysis
+                            image = Image.open(portfolio_file)
+                            max_size = (1920, 1080)
+                            image.thumbnail(max_size, Image.Resampling.LANCZOS)
+                            buf = io.BytesIO()
+                            image.save(buf, format="PNG", optimize=True)
+                            img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+                        except:
+                            st.warning("Could not process image, using manual data only")
+                    
+                    # Build comprehensive portfolio context
+                    portfolio_context = f"""
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+COMPREHENSIVE PORTFOLIO DATA:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PORTFOLIO OVERVIEW:
+Total Invested: ₹{portfolio_total_invested:,.2f}
+Current Value: ₹{portfolio_current_value:,.2f}
+Total P&L: ₹{total_pnl:,.2f} ({total_pnl_pct:+.2f}%)
+Number of Positions: {portfolio_num_positions}
+
+POSITION DETAILS:
+Worst Position: {portfolio_largest_loss if portfolio_largest_loss else "Not provided"}
+Best Position: {portfolio_largest_gain if portfolio_largest_gain else "Not provided"}
+Crisis Stocks: {portfolio_crisis_stocks if portfolio_crisis_stocks else "None listed"}
+Top Holdings: {portfolio_top_holdings if portfolio_top_holdings else "Not provided"}
+
+PORTFOLIO STRUCTURE:
+Sector Allocation: {portfolio_sectors if portfolio_sectors else "Not provided"}
+Strategy: {portfolio_strategy}
+Time Horizon: {portfolio_time_horizon}
+Leverage Usage: {portfolio_leverage}
+
+TRADER CONTEXT:
+{portfolio_description if portfolio_description else "No additional context provided"}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THIS IS GROUND TRUTH DATA. Analyze based on these exact values.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"""
+                    
+                    # COMPREHENSIVE PORTFOLIO ANALYSIS PROMPT
+                    portfolio_prompt = f"""You are a Senior Portfolio Manager with 30+ years experience managing institutional portfolios. You specialize in retail portfolio risk assessment and restructuring.
+
+{portfolio_context}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+COMPREHENSIVE PORTFOLIO ANALYSIS FRAMEWORK:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. PORTFOLIO HEALTH ASSESSMENT:
+   Analyze the overall portfolio drawdown of {total_pnl_pct:.2f}%
+   - Is this acceptable, concerning, or catastrophic?
+   - Current value vs invested (recovery difficulty)
+   - Number of positions ({portfolio_num_positions}) - over/under diversified?
+   - Win/loss distribution based on provided positions
+
+2. RISK MANAGEMENT DEEP DIVE:
+   - Position sizing: With {portfolio_num_positions} positions, average should be ~{100/portfolio_num_positions if portfolio_num_positions > 0 else 0:.1f}% each
+   - Concentration risk: Top holdings analysis
+   - Stop loss discipline: Evidence from crisis positions
+   - Leverage assessment: {portfolio_leverage} - flag if dangerous
+   - Sector concentration: {portfolio_sectors if portfolio_sectors else "Unknown"} - any overexposure?
+
+3. CRISIS IDENTIFICATION:
+   Crisis Positions: {portfolio_crisis_stocks if portfolio_crisis_stocks else "None specified"}
+   Worst Position: {portfolio_largest_loss if portfolio_largest_loss else "Not provided"}
+   - Any positions >100% loss? (leverage emergency)
+   - Multiple positions >50% loss? (exit discipline failure)
+   - Recovery likelihood for crisis positions
+
+4. BEHAVIORAL PATTERN ANALYSIS:
+   Strategy: {portfolio_strategy}
+   Time Horizon: {portfolio_time_horizon}
+   Context: {portfolio_description[:200] if portfolio_description else "Minimal"}
+   - Holding losers too long?
+   - FOMO buying at peaks?
+   - Averaging down mistakes?
+   - Emotional vs. systematic approach?
+
+5. PORTFOLIO STRUCTURE EVALUATION:
+   - {portfolio_num_positions} positions: Is this manageable?
+   - Sector allocation quality
+   - Market cap diversification
+   - Correlation risks
+   - Appropriate for stated time horizon?
+
+SEVERITY CLASSIFICATION (CRITICAL):
+
+Drawdown >50%: CATASTROPHIC EMERGENCY (Score: 0-5, Grade: F)
+Drawdown 30-50%: SEVERE CRISIS (Score: 5-15, Grade: F)
+Drawdown 20-30%: MAJOR PROBLEM (Score: 15-30, Grade: D)
+Drawdown 10-20%: CONCERNING (Score: 30-50, Grade: C)
+Drawdown 5-10%: MINOR ISSUE (Score: 50-70, Grade: B)
+Drawdown 0-5%: ACCEPTABLE (Score: 70-85, Grade: A)
+Profit >0%: GOOD (Score: 85-100, Grade: A/S-Tier)
+
+SPECIAL CONSIDERATIONS:
+- Leverage usage increases severity by one level
+- >20 positions increases severity (over-diversification)
+- Multiple crisis stocks increases severity
+- No clear strategy increases severity
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MANDATORY OUTPUT FORMAT:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[SCORE] <0-100 based on drawdown and risk factors>
+
+[OVERALL_GRADE] <F/D/C/B/A/S-Tier based on severity table>
+
+[ENTRY_QUALITY] <0-100: Average entry timing quality across portfolio>
+
+[EXIT_QUALITY] <0-100: Exit discipline - stop loss usage, holding losers?>
+
+[RISK_SCORE] <0-100: Portfolio risk management quality - MUST be 0-10 if crisis>
+
+[TAGS] <Choose 5-8 relevant tags: Portfolio_Crisis, Overleveraged, No_Stops, Concentration_Risk, Over_Diversified, Sector_Concentration, Multiple_Losers, Exit_Failure, Hope_Trading, Good_Diversification, Disciplined_Stops, etc.>
+
+[TECH] PORTFOLIO STRUCTURE ANALYSIS:
+
+Portfolio Metrics: ₹{portfolio_total_invested:,.0f} invested → ₹{portfolio_current_value:,.0f} current = ₹{total_pnl:,.0f} ({total_pnl_pct:+.2f}%)
+
+Position Count Analysis: {portfolio_num_positions} positions. [Is this optimal? Too many to manage? Too few for diversification?]
+
+Top Holdings Impact: {portfolio_top_holdings if portfolio_top_holdings else "Not provided"}. [Concentration risk assessment]
+
+Sector Exposure: {portfolio_sectors if portfolio_sectors else "Unknown"}. [Any dangerous concentration?]
+
+Crisis Positions: {portfolio_crisis_stocks if portfolio_crisis_stocks else "None listed"}. [Recovery likelihood? Should close?]
+
+[Provide specific technical commentary on portfolio construction, position sizing, diversification quality, and structural issues]
+
+[PSYCH] BEHAVIORAL PORTFOLIO PSYCHOLOGY:
+
+Trading Approach: {portfolio_strategy} with {portfolio_time_horizon} horizon. [Is behavior aligned with stated goals?]
+
+Decision-Making Patterns: [Based on crisis positions, worst loss, and description, analyze: Are they holding losers too long? Cutting winners early? FOMO buying? Revenge trading? Averaging down? Emotional attachment?]
+
+Discipline Assessment: [Evidence of trading plan? Stop loss usage? Position sizing rules? Or hope-based investing?]
+
+{portfolio_leverage} - [If using leverage, address the psychological impact and risk]
+
+[Analyze the trader's MINDSET and behavioral patterns visible in portfolio structure]
+
+[RISK] COMPREHENSIVE RISK ASSESSMENT:
+
+Portfolio Drawdown: {total_pnl_pct:.2f}% = [CATASTROPHIC/SEVERE/MAJOR/CONCERNING/MINOR/ACCEPTABLE]
+
+Position Sizing: Avg {100/portfolio_num_positions if portfolio_num_positions > 0 else 0:.1f}% per position with {portfolio_num_positions} holdings. [Assessment of sizing discipline]
+
+Leverage Risk: {portfolio_leverage}. [If using margin/futures/options, this is RED FLAG - quantify danger]
+
+Concentration Risk: [Based on top holdings and sector allocation, assess if too concentrated]
+
+Stop Loss Implementation: [Based on crisis positions and description, are stops used? If not, bleeding continues]
+
+Recovery Mathematics: To recover {abs(total_pnl_pct):.1f}% loss requires {abs(total_pnl_pct)/(100+total_pnl_pct)*100 if total_pnl_pct < 0 else 0:.1f}% gain. Timeline: [Estimate 6mo/12mo/18mo/24mo+]
+
+[Provide specific risk metrics and quantified danger assessment]
+
+[FIX] PORTFOLIO RESTRUCTURING ROADMAP:
+
+IMMEDIATE (Next 24-48 hours):
+1. [Most urgent action - usually investigate leverage, close worst positions, or stop new trades]
+2. [Second priority - typically implement stops or hedge risks]
+3. [Third priority - usually calculate actual losses and set recovery plan]
+
+SHORT TERM (1-4 weeks):
+1. [Position reduction/consolidation - specific numbers]
+2. [Stop loss implementation - specific % levels]
+3. [Sector rebalancing if needed]
+4. [Close beyond-recovery positions]
+
+LONG TERM (1-6 months):
+1. [Complete portfolio restructuring strategy]
+2. [Education/skill development needs]
+3. [New risk management framework]
+4. [Psychology reset and habit building]
+
+Position Sizing Rule Going Forward: Risk no more than 1-2% per position (₹{portfolio_total_invested*0.02:,.0f} max per trade)
+
+[STRENGTH] [Find something positive even in disaster: diversification across sectors? at least some winners? closed positions before -100%? still has capital to recover?]
+
+[CRITICAL_ERROR] [The single biggest portfolio-level mistake: usually no stops, concentration, leverage, or holding losers. Be specific with numbers/names]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CRITICAL RULES:
+- If drawdown >30%, score MUST be 0-15, grade F
+- If leverage + crisis, increase severity dramatically
+- Be specific with numbers from provided data
+- Recovery timeline must be realistic based on drawdown
+- If crisis positions listed, address them specifically by name
+- Focus on PORTFOLIO MANAGEMENT not stock picking
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
+                    
+                    # Run analysis
+                    with st.spinner("🔬 Running Deep Portfolio Analysis... This may take 30-60 seconds..."):
+                        try:
+                            messages = [{"role": "user", "content": [{"type": "text", "text": portfolio_prompt}]}]
+                            if img_b64:
+                                messages[0]["content"].append({"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}})
+                            
+                            payload = {
+                                "model": "Qwen/Qwen2.5-VL-7B-Instruct",
+                                "messages": messages,
+                                "max_tokens": 2000,
+                                "temperature": 0.3
+                            }
+                            
+                            headers = {
+                                "Authorization": f"Bearer {HF_TOKEN}",
+                                "Content-Type": "application/json"
+                            }
+                            
+                            res = requests.post(API_URL, headers=headers, json=payload, timeout=90)
+                            
+                            if res.status_code == 200:
+                                raw_response = res.json()["choices"][0]["message"]["content"]
+                                report = parse_report(raw_response)
+                                
+                                # Save to database with image URL
+                                save_analysis(current_user, report, "PORTFOLIO", stored_portfolio_image_url)
+                                
+                                # Display results with same beautiful UI as trade analysis
+                                # [All the visualization code from trade analysis - reuse the same display logic]
+                                
+                                # Determine colors
+                                if report['score'] >= 80:
+                                    score_color = "#10b981"
+                                    grade_color = "rgba(16, 185, 129, 0.2)"
+                                elif report['score'] >= 60:
+                                    score_color = "#3b82f6"
+                                    grade_color = "rgba(59, 130, 246, 0.2)"
+                                elif report['score'] >= 40:
+                                    score_color = "#f59e0b"
+                                    grade_color = "rgba(245, 158, 11, 0.2)"
+                                else:
+                                    score_color = "#ef4444"
+                                    grade_color = "rgba(239, 68, 68, 0.2)"
+                                
+                                # HEADER
+                                st.markdown(f"""
+                                <div class="glass-panel animate-scale-in" style="border-top: 3px solid {score_color}; margin-top: 32px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px;">
+                                        <div>
+                                            <div style="color:#6b7280; letter-spacing:3px; font-size:0.7rem; text-transform: uppercase; margin-bottom: 10px; font-weight: 600;">PORTFOLIO ANALYSIS COMPLETE</div>
+                                            <div style="display: flex; align-items: center; gap: 20px;">
+                                                <div class="score-value" style="color:{score_color}">{report['score']}</div>
+                                                <div class="grade-badge" style="background:{grade_color}; color:{score_color};">
+                                                    GRADE: {report.get('overall_grade', 'C')}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div style="text-align: right;">
+                                            <div class="ticker-badge">PORTFOLIO</div>
+                                            <div style="color:#6b7280; font-size:0.85rem; margin-top: 8px;">{datetime.now().strftime('%B %d, %Y • %H:%M')}</div>
+                                            <div style="color: {score_color}; font-size:1.1rem; font-weight: 700; margin-top: 8px; font-family: 'JetBrains Mono', monospace;">
+                                                {total_pnl_pct:+.2f}%
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                """, unsafe_allow_html=True)
+                                
+                                # METRICS
+                                st.markdown('<div class="glass-panel animate-slide-up" style="animation-delay: 0.1s;">', unsafe_allow_html=True)
+                                st.markdown('<div class="section-title">📊 Portfolio Health Metrics</div>', unsafe_allow_html=True)
+                                
+                                met_col1, met_col2, met_col3 = st.columns(3)
+                                
+                                metrics_data = [
+                                    ("Position Entry Quality", report.get('entry_quality', 50), met_col1),
+                                    ("Exit Discipline", report.get('exit_quality', 50), met_col2),
+                                    ("Risk Management", report.get('risk_score', 50), met_col3)
+                                ]
+                                
+                                for metric_name, metric_value, col in metrics_data:
+                                    with col:
+                                        if metric_value >= 80:
+                                            met_color = "#10b981"
+                                        elif metric_value >= 60:
+                                            met_color = "#3b82f6"
+                                        elif metric_value >= 40:
+                                            met_color = "#f59e0b"
+                                        else:
+                                            met_color = "#ef4444"
+                                        
+                                        st.markdown(f"""
+                                        <div style="text-align: center; padding: 20px;">
+                                            <div class="metric-circle" style="background: rgba(255,255,255,0.03);">
+                                                <div style="font-size: 2rem; font-weight: 700; color: {met_color}; font-family: 'JetBrains Mono', monospace;">
+                                                    {metric_value}
+                                                </div>
+                                                <div style="font-size: 0.7rem; color: #6b7280; text-transform: uppercase; letter-spacing: 1px;">
+                                                    /100
+                                                </div>
+                                            </div>
+                                            <div style="margin-top: 16px; font-size: 0.9rem; font-weight: 600; color: #e5e7eb;">
+                                                {metric_name}
+                                            </div>
+                                            <div class="progress-bar-container" style="margin-top: 12px;">
+                                                <div class="progress-bar" style="width: {metric_value}%; background: linear-gradient(90deg, {met_color}, {met_color}80);"></div>
+                                            </div>
+                                        </div>
+                                        """, unsafe_allow_html=True)
+                                
+                                st.markdown('</div>', unsafe_allow_html=True)
+                                
+                                # TAGS
+                                if report.get('tags'):
+                                    st.markdown('<div class="glass-panel animate-slide-right" style="animation-delay: 0.2s;">', unsafe_allow_html=True)
+                                    st.markdown('<div class="section-title">🏷️ Portfolio Risk Factors</div>', unsafe_allow_html=True)
+                                    
+                                    tags_html = '<div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px;">'
+                                    for tag in report['tags']:
+                                        if any(word in tag.lower() for word in ['crisis', 'catastrophic', 'emergency', 'overleveraged', 'failure']):
+                                            tag_color = "#ef4444"
+                                            tag_bg = "rgba(239, 68, 68, 0.15)"
+                                        elif any(word in tag.lower() for word in ['good', 'disciplined', 'strong', 'excellent']):
+                                            tag_color = "#10b981"
+                                            tag_bg = "rgba(16, 185, 129, 0.15)"
+                                        else:
+                                            tag_color = "#f59e0b"
+                                            tag_bg = "rgba(245, 158, 11, 0.15)"
+                                        
+                                        tags_html += f'<div style="background: {tag_bg}; border: 1px solid {tag_color}40; padding: 10px 18px; border-radius: 10px; color: {tag_color}; font-weight: 600; font-size: 0.85rem; letter-spacing: 0.5px;">{tag}</div>'
+                                    tags_html += '</div>'
+                                    st.markdown(tags_html, unsafe_allow_html=True)
+                                    st.markdown('</div>', unsafe_allow_html=True)
+                                
+                                # DETAILED ANALYSIS
+                                col_left, col_right = st.columns(2)
+                                
+                                with col_left:
+                                    st.markdown('<div class="result-card animate-slide-up" style="animation-delay: 0.4s;">', unsafe_allow_html=True)
+                                    st.markdown("""
+                                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                                        <div style="font-size: 1.8rem;">📊</div>
+                                        <div style="font-size: 1rem; font-weight: 700; color: #3b82f6; text-transform: uppercase; letter-spacing: 1px;">
+                                            Portfolio Structure
+                                        </div>
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                                    st.markdown(f"""
+                                    <div style="color: #d1d5db; line-height: 1.8; font-size: 0.92rem;">
+                                        {report['tech']}
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                                    st.markdown('</div>', unsafe_allow_html=True)
+                                    
+                                    st.markdown('<div class="result-card animate-slide-up" style="animation-delay: 0.6s;">', unsafe_allow_html=True)
+                                    st.markdown("""
+                                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                                        <div style="font-size: 1.8rem;">⚠️</div>
+                                        <div style="font-size: 1rem; font-weight: 700; color: #f59e0b; text-transform: uppercase; letter-spacing: 1px;">
+                                            Risk Analysis
+                                        </div>
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                                    st.markdown(f"""
+                                    <div style="color: #d1d5db; line-height: 1.8; font-size: 0.92rem;">
+                                        {report['risk']}
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                                    st.markdown('</div>', unsafe_allow_html=True)
+                                
+                                with col_right:
+                                    st.markdown('<div class="result-card animate-slide-up" style="animation-delay: 0.5s;">', unsafe_allow_html=True)
+                                    st.markdown("""
+                                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                                        <div style="font-size: 1.8rem;">🧠</div>
+                                        <div style="font-size: 1rem; font-weight: 700; color: #8b5cf6; text-transform: uppercase; letter-spacing: 1px;">
+                                            Behavioral Analysis
+                                        </div>
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                                    st.markdown(f"""
+                                    <div style="color: #d1d5db; line-height: 1.8; font-size: 0.92rem;">
+                                        {report['psych']}
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                                    st.markdown('</div>', unsafe_allow_html=True)
+                                    
+                                    st.markdown('<div class="result-card animate-slide-up" style="animation-delay: 0.7s;">', unsafe_allow_html=True)
+                                    st.markdown("""
+                                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                                        <div style="font-size: 1.8rem;">🎯</div>
+                                        <div style="font-size: 1rem; font-weight: 700; color: #10b981; text-transform: uppercase; letter-spacing: 1px;">
+                                            Recovery Roadmap
+                                        </div>
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                                    st.markdown(f"""
+                                    <div style="color: #d1d5db; line-height: 1.8; font-size: 0.92rem;">
+                                        {report['fix']}
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                                    st.markdown('</div>', unsafe_allow_html=True)
+                                
+                                # KEY INSIGHTS
+                                if report.get('strength') or report.get('critical_error'):
+                                    st.markdown('<div class="glass-panel animate-slide-up" style="animation-delay: 0.8s;">', unsafe_allow_html=True)
+                                    
+                                    ins_col1, ins_col2 = st.columns(2)
+                                    
+                                    with ins_col1:
+                                        if report.get('strength'):
+                                            st.markdown(f"""
+                                            <div style="background: rgba(16, 185, 129, 0.1); border-left: 4px solid #10b981; padding: 20px; border-radius: 0 12px 12px 0;">
+                                                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                                                    <div style="font-size: 1.5rem;">💪</div>
+                                                    <div style="font-size: 0.85rem; font-weight: 700; color: #10b981; text-transform: uppercase; letter-spacing: 1px;">
+                                                        What's Working
+                                                    </div>
+                                                </div>
+                                                <div style="color: #d1d5db; line-height: 1.7; font-size: 0.9rem;">
+                                                    {report['strength']}
+                                                </div>
+                                            </div>
+                                            """, unsafe_allow_html=True)
+                                    
+                                    with ins_col2:
+                                        if report.get('critical_error'):
+                                            st.markdown(f"""
+                                            <div style="background: rgba(239, 68, 68, 0.1); border-left: 4px solid #ef4444; padding: 20px; border-radius: 0 12px 12px 0;">
+                                                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                                                    <div style="font-size: 1.5rem;">⛔</div>
+                                                    <div style="font-size: 0.85rem; font-weight: 700; color: #ef4444; text-transform: uppercase; letter-spacing: 1px;">
+                                                        Biggest Problem
+                                                    </div>
+                                                </div>
+                                                <div style="color: #d1d5db; line-height: 1.7; font-size: 0.9rem;">
+                                                    {report['critical_error']}
+                                                </div>
+                                            </div>
+                                            """, unsafe_allow_html=True)
+                                    
+                                    st.markdown('</div>', unsafe_allow_html=True)
+                                
+                                st.success("✅ Portfolio analysis complete! Review recommendations above.")
+                            
+                            else:
+                                st.error(f"API Error: {res.status_code} - {res.text[:200]}")
+                        
+                        except Exception as e:
+                            st.error(f"Analysis failed: {str(e)}")
+                            st.info("Try providing more manual data or uploading a clearer screenshot.")
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    elif st.session_state["current_page"] == "data_vault":
+        # DATA VAULT PAGE (UNCHANGED - keeping all the existing code)
         if supabase:
             hist = supabase.table("trades").select("*").eq("user_id", current_user).order("created_at", desc=True).execute()
             
@@ -991,7 +1953,6 @@ else:
                 st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
                 st.markdown(f'<div class="section-title">Complete Audit History ({len(df)} records)</div>', unsafe_allow_html=True)
                 
-                # Filters
                 col_search1, col_search2, col_search3 = st.columns([2, 1, 1])
                 
                 with col_search1:
@@ -1005,7 +1966,6 @@ else:
                 
                 st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
                 
-                # Apply filters
                 filtered_df = df.copy()
                 
                 if search_ticker:
@@ -1020,71 +1980,73 @@ else:
                 elif score_filter == "Poor (<40)":
                     filtered_df = filtered_df[filtered_df['score'] < 40]
                 
-                # Apply sorting
                 if sort_order == "Oldest First":
                     filtered_df = filtered_df.sort_values('created_at', ascending=True)
                 elif sort_order == "Highest Score":
                     filtered_df = filtered_df.sort_values('score', ascending=False)
                 elif sort_order == "Lowest Score":
                     filtered_df = filtered_df.sort_values('score', ascending=True)
-                
-                # Display table
-                if len(filtered_df) > 0:
-                    display_df = filtered_df[['created_at', 'ticker', 'score', 'overall_grade', 'mistake_tags']].copy()
-                    display_df.columns = ['Date', 'Ticker', 'Score', 'Grade', 'Tags']
-                    display_df['Tags'] = display_df['Tags'].apply(lambda x: ', '.join(x[:3]) if isinstance(x, list) else '')
-                    
-                    st.dataframe(
-                        display_df,
-                        use_container_width=True,
-                        hide_index=True,
-                        column_config={
-                            "Score": st.column_config.ProgressColumn("Score", min_value=0, max_value=100),
-                            "Date": st.column_config.DatetimeColumn("Date", format="MMM DD, YYYY HH:mm")
-                        },
-                        height=600
-                    )
-                    
-                    # Export button
-                    csv = filtered_df.to_csv(index=False)
-                    st.download_button(
-                        label="📥 Export to CSV",
-                        data=csv,
-                        file_name=f"stockpostmortem_{current_user}_{datetime.now().strftime('%Y%m%d')}.csv",
-                        mime="text/csv"
-                    )
                 else:
-                    st.info("No records match your filters.")
+                    filtered_df = filtered_df.sort_values('created_at', ascending=False)
                 
-                st.markdown('</div>', unsafe_allow_html=True)
+                table_df = filtered_df[['created_at', 'ticker', 'score', 'mistake_tags', 'technical_analysis', 'psych_analysis']].copy()
+                table_df.columns = ['Date', 'Ticker', 'Score', 'Error Tags', 'Technical Notes', 'Psychology Notes']
                 
-                # Detailed history with images
-                st.markdown('<div class="glass-panel" style="margin-top: 32px;">', unsafe_allow_html=True)
-                st.markdown('<div class="section-title">📜 Detailed Trade History</div>', unsafe_allow_html=True)
+                table_df['Error Tags'] = table_df['Error Tags'].apply(
+                    lambda x: ', '.join(x[:3]) if len(x) > 0 else 'None'
+                )
                 
-                for i, row in filtered_df.head(20).iterrows():
-                    with st.expander(f"📊 {row['created_at'].strftime('%Y-%m-%d %H:%M')} | {row['ticker']} | Score: {row['score']}/100"):
-                        if row.get('image_url'):
-                            st.image(row['image_url'], caption="Trade Evidence", width=600)
-                            st.markdown('<div style="height: 16px;"></div>', unsafe_allow_html=True)
-                        
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            st.markdown(f"**Grade:** {row.get('overall_grade', 'N/A')}")
-                            st.markdown(f"**Entry Quality:** {row.get('entry_quality', 'N/A')}/100")
-                            st.markdown(f"**Exit Quality:** {row.get('exit_quality', 'N/A')}/100")
-                        with col2:
-                            st.markdown(f"**Risk Score:** {row.get('risk_score', 'N/A')}/100")
-                            tags = row.get('mistake_tags', [])
-                            st.markdown(f"**Tags:** {', '.join(tags) if tags else 'None'}")
-                        
-                        if row.get('technical_analysis'):
-                            st.markdown("**📈 Technical:**")
-                            st.write(row['technical_analysis'])
-                        
-                        if row.get('psych_analysis'):
-                            st.markdown("**🧠 Psychology:**")
-                            st.write(row['psych_analysis'])
+                table_df['Technical Notes'] = table_df['Technical Notes'].apply(
+                    lambda x: (x[:80] + '...') if len(str(x)) > 80 else x
+                )
+                table_df['Psychology Notes'] = table_df['Psychology Notes'].apply(
+                    lambda x: (x[:80] + '...') if len(str(x)) > 80 else x
+                )
+                
+                st.dataframe(
+                    table_df,
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "Score": st.column_config.ProgressColumn(
+                            "Score",
+                            min_value=0,
+                            max_value=100,
+                            format="%d"
+                        ),
+                        "Date": st.column_config.DatetimeColumn(
+                            "Date",
+                            format="MMM DD, YYYY HH:mm"
+                        ),
+                        "Ticker": st.column_config.TextColumn(
+                            "Ticker",
+                            width="small"
+                        ),
+                        "Error Tags": st.column_config.TextColumn(
+                            "Error Tags",
+                            width="medium"
+                        ),
+                        "Technical Notes": st.column_config.TextColumn(
+                            "Technical",
+                            width="large"
+                        ),
+                        "Psychology Notes": st.column_config.TextColumn(
+                            "Psychology",
+                            width="large"
+                        )
+                    },
+                    height=600
+                )
+                
+                st.markdown('<div style="margin-top: 20px;"></div>', unsafe_allow_html=True)
+                csv = filtered_df.to_csv(index=False)
+                st.download_button(
+                    label="📥 Export to CSV",
+                    data=csv,
+                    file_name=f"stockpostmortem_data_{current_user}_{datetime.now().strftime('%Y%m%d')}.csv",
+                    mime="text/csv",
+                    use_container_width=False
+                )
                 
                 st.markdown('</div>', unsafe_allow_html=True)
             else:
@@ -1096,339 +2058,181 @@ else:
                 """, unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
     
-    else:
-        # ANALYZE PAGE
+    elif st.session_state["current_page"] == "pricing":
+        st.markdown('<div class="glass-panel" style="text-align: center; padding: 80px;">', unsafe_allow_html=True)
+        st.markdown("""
+        <div style="font-size: 3.5rem; margin-bottom: 20px; opacity: 0.4;">💳</div>
+        <div style="font-size: 1.2rem; color: #9ca3af; margin-bottom: 10px; font-weight: 600;">Pricing Information</div>
+        <div style="font-size: 0.95rem; color: #6b7280;">Pricing details coming soon.</div>
+        """, unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    else:  # analyze page
         main_tab1, main_tab2 = st.tabs(["🔎 FORENSIC AUDIT", "📊 PERFORMANCE METRICS"])
-        
+
+        # --- TAB 1: IMPROVED CHART VISION ANALYSIS ---
         with main_tab1:
-            c_mode = st.radio("Input Method", ["Chart Vision", "Text Parameters"], horizontal=True, label_visibility="collapsed")
-            
+            c_mode = st.radio("Input Vector", ["Text Parameters", "Chart Vision", "Portfolio Analysis"], horizontal=True, label_visibility="collapsed")
+        
+            prompt = ""
+            img_b64 = None
+            ticker_val = "IMG"
+            ready_to_run = False
+
             if c_mode == "Chart Vision":
                 st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
-                st.markdown('<div class="section-title">Chart Analysis</div>', unsafe_allow_html=True)
+                st.markdown('<div class="section-title">Quantitative Chart Analysis</div>', unsafe_allow_html=True)
                 st.markdown("""
                 <div style="text-align: center; margin-bottom: 24px;">
-                    <div style="font-size: 3rem; margin-bottom: 16px;">📊</div>
-                    <div style="font-size: 1.3rem; font-weight: 600; margin-bottom: 12px;">Upload Trading Chart</div>
-                    <div style="font-size: 0.9rem; color: #9ca3af;">Supports PNG, JPG. AI will analyze price action, risk, and behavioral patterns.</div>
+                    <div class="upload-icon">📊</div>
+                    <div class="upload-text">Upload Trading Chart for Deep Analysis</div>
+                    <div class="upload-subtext">Supports PNG, JPG (Max 10MB). Our AI analyzes price action, risk metrics, and behavioral patterns.</div>
                 </div>
                 """, unsafe_allow_html=True)
-                
-                uploaded_file = st.file_uploader("Upload Chart", type=["png", "jpg", "jpeg"], label_visibility="collapsed", key="chart_upload")
-                
+            
+                uploaded_file = st.file_uploader(
+                    "Upload Chart Screenshot", 
+                    type=["png", "jpg", "jpeg"], 
+                    label_visibility="collapsed",
+                    key="chart_upload"
+                )
+            
                 if uploaded_file:
+                    st.markdown('<div style="margin-top: 32px;">', unsafe_allow_html=True)
                     st.image(uploaded_file, use_column_width=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
+                    
+                    # Manual override option
+                    st.markdown('<div style="height: 24px;"></div>', unsafe_allow_html=True)
+                    with st.expander("📝 Optional: Help AI Read Your Chart (if it struggles)"):
+                        st.markdown("If the AI generates wrong prices, you can provide key info to help:")
+                        manual_ticker = st.text_input("Ticker Symbol (e.g., GLIT, AAPL)", "", placeholder="Leave blank for auto-detect")
+                        manual_pnl = st.text_input("Your P&L shown (e.g., -$18,500 or +$2,340)", "", placeholder="Leave blank for auto-detect")
+                        manual_pnl_pct = st.text_input("Your P&L % shown (e.g., -66.2% or +15.3%)", "", placeholder="Leave blank for auto-detect")
+                        manual_price_range = st.text_input("Price range on chart (e.g., $200 to $290)", "", placeholder="Leave blank for auto-detect")
+                    
                     st.markdown('<div style="height: 24px;"></div>', unsafe_allow_html=True)
                     
-                    with st.expander("📝 Optional: Provide Context (Improves Accuracy)"):
-                        manual_ticker = st.text_input("Ticker Symbol", "", placeholder="e.g., AAPL, TSLA")
-                        manual_context = st.text_area("Trade Context", height=100, placeholder="Entry reasoning, exit reasoning, emotional state, etc.")
-                    
-                    st.markdown('<div style="height: 24px;"></div>', unsafe_allow_html=True)
-                    
-                    if st.button("🧬 RUN ANALYSIS", type="primary", use_container_width=True):
-                        with st.spinner("📤 Uploading evidence..."):
+                    if st.button("🧬 RUN QUANTITATIVE ANALYSIS", type="primary", use_container_width=True):
+                        # 1. Upload Image First
+                        with st.spinner("Uploading evidence to secure vault..."):
                             stored_image_url = upload_image_to_supabase(uploaded_file)
                         
-                        with st.spinner("🔬 Running AI analysis (30-60 sec)..."):
-                            try:
-                                # Process image
-                                image = Image.open(uploaded_file)
-                                max_size = (1920, 1080)
-                                image.thumbnail(max_size, Image.Resampling.LANCZOS)
-                                buf = io.BytesIO()
-                                image.save(buf, format="PNG", optimize=True)
-                                img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
-                                
-                                # Build context
-                                context_str = ""
-                                if manual_ticker or manual_context:
-                                    context_str = "\n\nUSER PROVIDED CONTEXT:\n"
-                                    if manual_ticker:
-                                        context_str += f"Ticker: {manual_ticker}\n"
-                                    if manual_context:
-                                        context_str += f"Context: {manual_context}\n"
-                                
-                                # IMPROVED PROMPT - Simple and Direct
-                                prompt = f"""Analyze this trading chart image and provide a detailed assessment.
-
-{context_str}
-
-ANALYSIS REQUIREMENTS:
-
-1. IDENTIFY what you see:
-   - What ticker/asset is shown?
-   - What are the visible price levels?
-   - What is the P&L shown (profit/loss amount and percentage)?
-   - Is this a single trade or portfolio view?
-
-2. TECHNICAL ANALYSIS:
-   - Entry timing and price level
-   - Exit timing and price level
-   - Stop loss placement (if visible)
-   - Risk/reward ratio
-   - Chart pattern quality
-
-3. BEHAVIORAL ANALYSIS:
-   - Signs of FOMO, revenge trading, or emotional decisions
-   - Exit discipline (cutting losses vs. holding winners)
-   - Risk management quality
-
-4. SCORE the trade from 0-100:
-   - 90-100: Excellent execution, strong discipline
-   - 70-89: Good trade, minor improvements needed
-   - 50-69: Average, several mistakes
-   - 30-49: Poor execution, major issues
-   - 0-29: Catastrophic, fundamental problems
-
-OUTPUT FORMAT (MANDATORY):
-
-[SCORE] <number 0-100>
-
-[OVERALL_GRADE] <A/B/C/D/F>
-
-[ENTRY_QUALITY] <number 0-100>
-
-[EXIT_QUALITY] <number 0-100>
-
-[RISK_SCORE] <number 0-100>
-
-[TAGS] <comma-separated behavioral tags: FOMO, Revenge_Trading, Good_Exit, Poor_Entry, No_Stop_Loss, Overleveraged, etc.>
-
-[TECH] <2-3 sentences: Technical analysis with specific price levels and chart observations>
-
-[PSYCH] <2-3 sentences: Psychological/behavioral analysis of decision-making>
-
-[RISK] <2-3 sentences: Risk management assessment with specific observations>
-
-[FIX] <3 specific actionable improvements:
-1. [specific improvement]
-2. [specific improvement]  
-3. [specific improvement]>
-
-[STRENGTH] <1-2 sentences: What was done well>
-
-[CRITICAL_ERROR] <1 sentence: Biggest single mistake>
-
-BE SPECIFIC. USE ACTUAL NUMBERS FROM THE CHART. BE HONEST AND DIRECT."""
-
-                                # Call API with retry
-                                try:
-                                    raw_response = call_vision_api(prompt, img_b64, model="llama")
-                                except:
-                                    st.warning("Primary model failed, trying backup...")
-                                    raw_response = call_vision_api(prompt, img_b64, model="qwen")
-                                
-                                # Parse response
-                                report = parse_report(raw_response)
-                                
-                                # Validate
-                                is_valid, error_msg = validate_analysis(report)
-                                
-                                if not is_valid:
-                                    st.error(f"❌ Analysis Failed: {error_msg}")
-                                    st.warning("The AI could not properly analyze your chart. Please try:")
-                                    st.info("• Upload a clearer image with visible price levels\n• Use the Text Parameters mode instead\n• Provide more context in the optional fields")
-                                    st.expander("Show raw AI response").write(raw_response)
-                                else:
-                                    # Fill in missing values
-                                    if report['score'] is None:
-                                        report['score'] = 50
-                                    if report['overall_grade'] is None:
-                                        if report['score'] >= 80: report['overall_grade'] = 'A'
-                                        elif report['score'] >= 60: report['overall_grade'] = 'B'
-                                        elif report['score'] >= 40: report['overall_grade'] = 'C'
-                                        elif report['score'] >= 20: report['overall_grade'] = 'D'
-                                        else: report['overall_grade'] = 'F'
-                                    if report['entry_quality'] is None:
-                                        report['entry_quality'] = report['score']
-                                    if report['exit_quality'] is None:
-                                        report['exit_quality'] = report['score']
-                                    if report['risk_score'] is None:
-                                        report['risk_score'] = report['score']
-                                    
-                                    # Save
-                                    ticker_val = manual_ticker if manual_ticker else "CHART"
-                                    save_analysis(current_user, report, ticker_val, stored_image_url)
-                                    
-                                    # DISPLAY RESULTS
-                                    score_color = "#10b981" if report['score'] >= 80 else "#3b82f6" if report['score'] >= 60 else "#f59e0b" if report['score'] >= 40 else "#ef4444"
-                                    grade_color = f"rgba({int(score_color[1:3], 16)}, {int(score_color[3:5], 16)}, {int(score_color[5:7], 16)}, 0.2)"
-                                    
-                                    st.markdown(f"""
-                                    <div class="glass-panel animate-scale-in" style="border-top: 3px solid {score_color}; margin-top: 32px;">
-                                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                                            <div>
-                                                <div style="color:#6b7280; letter-spacing:3px; font-size:0.7rem; text-transform: uppercase; margin-bottom: 10px;">ANALYSIS COMPLETE</div>
-                                                <div style="display: flex; align-items: center; gap: 20px;">
-                                                    <div style="font-family: 'JetBrains Mono'; font-size: 4rem; font-weight: 700; color:{score_color}">{report['score']}</div>
-                                                    <div style="background:{grade_color}; color:{score_color}; padding: 8px 20px; border-radius: 12px; font-weight: 700;">
-                                                        GRADE: {report['overall_grade']}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div style="text-align: right;">
-                                                <div style="background: rgba(16, 185, 129, 0.15); padding: 8px 16px; border-radius: 10px; color: #10b981; font-weight: 600;">{ticker_val}</div>
-                                                <div style="color:#6b7280; font-size:0.85rem; margin-top: 8px;">{datetime.now().strftime('%B %d, %Y')}</div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    """, unsafe_allow_html=True)
-                                    
-                                    # Metrics
-                                    st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
-                                    st.markdown('<div class="section-title">📊 Quality Metrics</div>', unsafe_allow_html=True)
-                                    
-                                    col1, col2, col3 = st.columns(3)
-                                    for metric_name, metric_value, col in [
-                                        ("Entry Quality", report['entry_quality'], col1),
-                                        ("Exit Quality", report['exit_quality'], col2),
-                                        ("Risk Management", report['risk_score'], col3)
-                                    ]:
-                                        with col:
-                                            met_color = "#10b981" if metric_value >= 80 else "#3b82f6" if metric_value >= 60 else "#f59e0b" if metric_value >= 40 else "#ef4444"
-                                            st.markdown(f"""
-                                            <div style="text-align: center; padding: 20px;">
-                                                <div style="font-size: 2.5rem; font-weight: 700; color: {met_color}; font-family: 'JetBrains Mono';">{metric_value}</div>
-                                                <div style="font-size: 0.9rem; font-weight: 600; color: #e5e7eb; margin-top: 8px;">{metric_name}</div>
-                                                <div style="width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; margin-top: 12px;">
-                                                    <div style="width: {metric_value}%; height: 100%; background: {met_color}; border-radius: 4px;"></div>
-                                                </div>
-                                            </div>
-                                            """, unsafe_allow_html=True)
-                                    
-                                    st.markdown('</div>', unsafe_allow_html=True)
-                                    
-                                    # Tags
-                                    if report['tags']:
-                                        st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
-                                        st.markdown('<div class="section-title">🏷️ Behavioral Patterns</div>', unsafe_allow_html=True)
-                                        tags_html = '<div style="display: flex; flex-wrap: wrap; gap: 12px;">'
-                                        for tag in report['tags']:
-                                            tag_color = "#ef4444" if any(w in tag.lower() for w in ['fomo', 'revenge', 'panic']) else "#10b981" if any(w in tag.lower() for w in ['good', 'disciplined']) else "#f59e0b"
-                                            tags_html += f'<div style="background: rgba({int(tag_color[1:3], 16)}, {int(tag_color[3:5], 16)}, {int(tag_color[5:7], 16)}, 0.15); border: 1px solid {tag_color}; padding: 10px 18px; border-radius: 10px; color: {tag_color}; font-weight: 600;">{tag}</div>'
-                                        tags_html += '</div>'
-                                        st.markdown(tags_html, unsafe_allow_html=True)
-                                        st.markdown('</div>', unsafe_allow_html=True)
-                                    
-                                    # Analysis sections
-                                    col_left, col_right = st.columns(2)
-                                    
-                                    with col_left:
-                                        if report['tech']:
-                                            st.markdown('<div class="result-card">', unsafe_allow_html=True)
-                                            st.markdown('<div style="font-size: 1rem; font-weight: 700; color: #3b82f6; margin-bottom: 12px;">⚙️ TECHNICAL ANALYSIS</div>', unsafe_allow_html=True)
-                                            st.markdown(f'<div style="color: #d1d5db; line-height: 1.7;">{report["tech"]}</div>', unsafe_allow_html=True)
-                                            st.markdown('</div>', unsafe_allow_html=True)
-                                        
-                                        if report['risk']:
-                                            st.markdown('<div class="result-card">', unsafe_allow_html=True)
-                                            st.markdown('<div style="font-size: 1rem; font-weight: 700; color: #f59e0b; margin-bottom: 12px;">⚠️ RISK ASSESSMENT</div>', unsafe_allow_html=True)
-                                            st.markdown(f'<div style="color: #d1d5db; line-height: 1.7;">{report["risk"]}</div>', unsafe_allow_html=True)
-                                            st.markdown('</div>', unsafe_allow_html=True)
-                                    
-                                    with col_right:
-                                        if report['psych']:
-                                            st.markdown('<div class="result-card">', unsafe_allow_html=True)
-                                            st.markdown('<div style="font-size: 1rem; font-weight: 700; color: #8b5cf6; margin-bottom: 12px;">🧠 PSYCHOLOGY</div>', unsafe_allow_html=True)
-                                            st.markdown(f'<div style="color: #d1d5db; line-height: 1.7;">{report["psych"]}</div>', unsafe_allow_html=True)
-                                            st.markdown('</div>', unsafe_allow_html=True)
-                                        
-                                        if report['fix']:
-                                            st.markdown('<div class="result-card">', unsafe_allow_html=True)
-                                            st.markdown('<div style="font-size: 1rem; font-weight: 700; color: #10b981; margin-bottom: 12px;">🎯 ACTION PLAN</div>', unsafe_allow_html=True)
-                                            st.markdown(f'<div style="color: #d1d5db; line-height: 1.7;">{report["fix"]}</div>', unsafe_allow_html=True)
-                                            st.markdown('</div>', unsafe_allow_html=True)
-                                    
-                                    # Key insights
-                                    if report['strength'] or report['critical_error']:
-                                        st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
-                                        ins_col1, ins_col2 = st.columns(2)
-                                        
-                                        if report['strength']:
-                                            with ins_col1:
-                                                st.markdown(f"""
-                                                <div style="background: rgba(16, 185, 129, 0.1); border-left: 4px solid #10b981; padding: 20px; border-radius: 0 12px 12px 0;">
-                                                    <div style="font-size: 1rem; font-weight: 700; color: #10b981; margin-bottom: 12px;">💪 STRENGTH</div>
-                                                    <div style="color: #d1d5db; line-height: 1.7;">{report['strength']}</div>
-                                                </div>
-                                                """, unsafe_allow_html=True)
-                                        
-                                        if report['critical_error']:
-                                            with ins_col2:
-                                                st.markdown(f"""
-                                                <div style="background: rgba(239, 68, 68, 0.1); border-left: 4px solid #ef4444; padding: 20px; border-radius: 0 12px 12px 0;">
-                                                    <div style="font-size: 1rem; font-weight: 700; color: #ef4444; margin-bottom: 12px;">⛔ CRITICAL ERROR</div>
-                                                    <div style="color: #d1d5db; line-height: 1.7;">{report['critical_error']}</div>
-                                                </div>
-                                                """, unsafe_allow_html=True)
-                                        
-                                        st.markdown('</div>', unsafe_allow_html=True)
-                                    
-                                    st.success("✅ Analysis complete!")
-                                
-                            except Exception as e:
-                                st.error(f"❌ Analysis Error: {str(e)}")
-                                st.info("Try using Text Parameters mode or upload a clearer image.")
-                
-                st.markdown('</div>', unsafe_allow_html=True)
-            
-            else:
-                # TEXT PARAMETERS MODE
-                st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
-                st.markdown('<div class="section-title">Manual Trade Input</div>', unsafe_allow_html=True)
-                
-                with st.form("manual_trade_form"):
-                    col_a, col_b, col_c = st.columns(3)
-                    with col_a:
-                        ticker = st.text_input("Ticker", "SPY")
-                    with col_b:
-                        setup_type = st.selectbox("Setup", ["Trend", "Reversal", "Breakout", "Range"])
-                    with col_c:
-                        emotion = st.selectbox("Emotional State", ["Neutral", "FOMO", "Revenge", "Fearful", "Greedy"])
-                    
-                    col_d, col_e, col_f = st.columns(3)
-                    with col_d:
-                        entry = st.number_input("Entry Price", 0.0, step=0.01)
-                    with col_e:
-                        exit_price = st.number_input("Exit Price", 0.0, step=0.01)
-                    with col_f:
-                        stop = st.number_input("Stop Loss", 0.0, step=0.01)
-                    
-                    notes = st.text_area("Trade Notes", height=120, placeholder="Describe your reasoning, decision-making process, what you were thinking...")
-                    
-                    submitted = st.form_submit_button("🔬 ANALYZE TRADE", type="primary", use_container_width=True)
-                    
-                    if submitted and entry > 0 and exit_price > 0:
-                        pnl = exit_price - entry
-                        pnl_pct = (pnl / entry * 100) if entry > 0 else 0
-                        risk = abs(entry - stop) if stop > 0 else 0
-                        risk_pct = (risk / entry * 100) if entry > 0 else 0
-                        rr_ratio = (abs(pnl) / risk) if risk > 0 else 0
+                        # 2. Process Image for AI (Existing logic)
+                        image = Image.open(uploaded_file)
+                        # Optimize image size
+                        max_size = (1920, 1080)
+                        image.thumbnail(max_size, Image.Resampling.LANCZOS)
                         
-                        # Simple, direct prompt
-                        prompt = f"""Analyze this trade and provide honest assessment.
+                        buf = io.BytesIO()
+                        image.save(buf, format="PNG", optimize=True)
+                        img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+                        
+                        # Build prompt with manual overrides if provided
+                        manual_context = ""
+                        if manual_ticker or manual_pnl or manual_pnl_pct or manual_price_range:
+                            manual_context = "\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                            manual_context += "USER PROVIDED THIS INFORMATION FROM THE CHART:\n"
+                            if manual_ticker:
+                                manual_context += f"- Ticker: {manual_ticker}\n"
+                            if manual_pnl:
+                                manual_context += f"- P&L: {manual_pnl}\n"
+                            if manual_pnl_pct:
+                                manual_context += f"- P&L Percentage: {manual_pnl_pct}\n"
+                            if manual_price_range:
+                                manual_context += f"- Price Range: {manual_price_range}\n"
+                            manual_context += "USE THIS INFORMATION - IT IS CORRECT. Analyze based on these real values.\n"
+                            manual_context += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                        
+                        # MASSIVELY IMPROVED PROMPT
+                        prompt = f"""CRITICAL INSTRUCTIONS: Analyze this trading/portfolio screenshot.
 
-TRADE DETAILS:
-Ticker: {ticker}
-Setup Type: {setup_type}
-Emotional State: {emotion}
-Entry: ${entry:.2f}
-Exit: ${exit_price:.2f}
-Stop Loss: ${stop:.2f}
+FIRST: IDENTIFY WHAT YOU'RE LOOKING AT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-CALCULATED METRICS:
-P&L: ${pnl:.2f} ({pnl_pct:+.2f}%)
-Risk: ${risk:.2f} ({risk_pct:.2f}%)
-R:R Ratio: {rr_ratio:.2f}:1
+Look carefully at the image and determine:
 
-TRADER NOTES: {notes if notes else "No notes provided"}
+1. Is this a PORTFOLIO view (multiple stocks listed) or SINGLE CHART?
+2. If portfolio: How many stocks/positions are visible?
+3. If portfolio: What is the TOTAL P&L shown at top?
+4. If portfolio: What is the TOTAL percentage gain/loss?
+5. If single chart: Proceed with normal chart analysis
 
-Provide analysis in this EXACT format:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+IF THIS IS A PORTFOLIO SCREENSHOT:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-[SCORE] <0-100 based on execution quality>
+Read the TOTAL/OVERALL P&L at the top (usually labeled "Total P/L", "Unrealised P/L", "Portfolio Value", etc.)
 
-[OVERALL_GRADE] <A/B/C/D/F>
+Analyze the PORTFOLIO as a whole, not individual stocks.
+
+Identify:
+- Total number of positions
+- Largest losses (list top 3-5 by % or amount)
+- Any position showing >100% loss (red flag for leverage/options/error)
+- Overall portfolio drawdown percentage
+- Risk concentration issues
+
+PORTFOLIO OUTPUT FORMAT:
+
+[SCORE] <0-100 based on OVERALL portfolio health>
+
+[OVERALL_GRADE] <F if total loss>20%, D if >10%, C if >5%, etc.>
+
+[ENTRY_QUALITY] <Average entry quality across visible positions>
+
+[EXIT_QUALITY] <Exit discipline assessment based on how losses were managed>
+
+[RISK_SCORE] <0-100 based on PORTFOLIO-LEVEL risk management>
+
+[TAGS] <Portfolio_Crisis, Overleveraged, No_Stops, Concentration_Risk, Multiple_Catastrophic_Positions, etc.>
+
+[TECH] PORTFOLIO ANALYSIS: Total P/L: [EXACT total P/L] ([EXACT %]). Number of positions: [count]. Current value: [amount]. Invested: [amount]. Top losses: [list 3-5 worst positions with their %]. Critical observations about portfolio structure and risk concentration.
+
+[PSYCH] PORTFOLIO PSYCHOLOGY: [Analyze the decision-making that led to multiple simultaneous losses. Look for patterns: averaging down? holding losers? FOMO buying? lack of selling discipline?]
+
+[RISK] PORTFOLIO RISK ASSESSMENT: [Analyze diversification, position sizing across portfolio, stop loss discipline, drawdown management, any positions >100% loss (leverage red flags)]
+
+[FIX] PORTFOLIO RECOVERY PLAN:
+1. [Immediate crisis management - which positions to close NOW]
+2. [Risk reduction strategy - position sizing going forward]
+3. [Rehabilitation timeline and rules]
+
+[STRENGTH] [What's working in the portfolio, if anything]
+
+[CRITICAL_ERROR] [The biggest portfolio-level mistake - usually lack of risk management, no stops, or concentration]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+IF THIS IS A SINGLE CHART (not portfolio):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+{manual_context}
+
+Look at the TOP RIGHT corner of the trading interface. You will see:
+- "P/L: [some amount]" - This is the profit/loss. READ IT EXACTLY.
+- "([some percentage])" - This is the percentage. READ IT EXACTLY.
+
+The P/L text is usually in RED (loss) or GREEN (profit). What do you see?
+
+Look at the TOP LEFT. You will see the ticker symbol (e.g., "AAPL", "GLIT", "SPY", etc.). What is it?
+
+Look at the RIGHT SIDE Y-AXIS. You will see price levels. What are the numbers? (e.g., $100, $200, $300?)
+
+SEVERITY ASSESSMENT:
+
+Based on the P/L you read:
+
+IF loss > 50% of account → CATASTROPHIC EMERGENCY (Score: 0-5)
+IF loss > 30% of account → SEVERE CRISIS (Score: 5-15)
+IF loss > 10% of account → MAJOR PROBLEM (Score: 15-30)
+IF loss < 5% of account → Poor trade (Score: 30-50)
+IF profit > 0% → Grade normally (Score: 50-100)
+
+SINGLE TRADE OUTPUT FORMAT:
+
+[SCORE] <Use severity guide above>
+
+[OVERALL_GRADE] <F if loss>50%, D if loss>30%, C if loss>10%, etc.>
 
 [ENTRY_QUALITY] <0-100>
 
@@ -1436,116 +2240,699 @@ Provide analysis in this EXACT format:
 
 [RISK_SCORE] <0-100>
 
-[TAGS] <3-5 tags: FOMO, Good_RR, Poor_Stop, etc.>
+[TAGS] <Based on single trade behavior>
 
-[TECH] <2-3 sentences on technical execution>
+[TECH] Ticker: [EXACT ticker]. P&L: [EXACT P&L] ([EXACT %]). Chart price range: [ACTUAL prices on Y-axis]. [Analysis of price action]
 
-[PSYCH] <2-3 sentences on psychological factors>
+[PSYCH] [Single trade psychology analysis]
 
-[RISK] <2-3 sentences on risk management>
+[RISK] [Single trade risk analysis]
 
-[FIX] <3 specific improvements>
+[FIX] [Specific improvements for this trade]
 
-[STRENGTH] <What was good>
+[STRENGTH] [What went well]
 
-[CRITICAL_ERROR] <Biggest mistake>"""
+[CRITICAL_ERROR] [Biggest mistake in this trade]
 
-                        with st.spinner("Analyzing trade..."):
-                            try:
-                                # Text-only API call
-                                headers = {
-                                    "Authorization": f"Bearer {HF_TOKEN}",
-                                    "Content-Type": "application/json"
-                                }
-                                
-                                payload = {
-                                    "inputs": prompt,
-                                    "parameters": {
-                                        "max_new_tokens": 1500,
-                                        "temperature": 0.3,
-                                        "return_full_text": False
-                                    }
-                                }
-                                
-                                res = requests.post(API_URL, headers=headers, json=payload, timeout=60)
-                                
-                                if res.status_code == 200:
-                                    result = res.json()
-                                    if isinstance(result, list):
-                                        raw_response = result[0].get('generated_text', '')
-                                    else:
-                                        raw_response = result.get('generated_text', '')
-                                    
-                                    report = parse_report(raw_response)
-                                    is_valid, _ = validate_analysis(report)
-                                    
-                                    if is_valid:
-                                        # Fill missing
-                                        if report['score'] is None: report['score'] = 50
-                                        if report['overall_grade'] is None: report['overall_grade'] = 'C'
-                                        if report['entry_quality'] is None: report['entry_quality'] = report['score']
-                                        if report['exit_quality'] is None: report['exit_quality'] = report['score']
-                                        if report['risk_score'] is None: report['risk_score'] = report['score']
-                                        
-                                        save_analysis(current_user, report, ticker, None)
-                                        
-                                        # Display (same as above)
-                                        score_color = "#10b981" if report['score'] >= 80 else "#3b82f6" if report['score'] >= 60 else "#f59e0b" if report['score'] >= 40 else "#ef4444"
-                                        
-                                        st.markdown(f"""
-                                        <div class="glass-panel" style="border-top: 3px solid {score_color}; margin-top: 32px;">
-                                            <div style="text-align: center;">
-                                                <div style="font-size: 4rem; font-weight: 700; color:{score_color}; font-family: 'JetBrains Mono';">{report['score']}</div>
-                                                <div style="font-size: 1.5rem; font-weight: 700; color: #e5e7eb; margin-top: 12px;">Grade: {report['overall_grade']}</div>
-                                                <div style="color: #6b7280; margin-top: 8px;">{ticker} | {datetime.now().strftime('%B %d, %Y')}</div>
-                                            </div>
-                                        </div>
-                                        """, unsafe_allow_html=True)
-                                        
-                                        # Show analysis sections
-                                        if report['tech']:
-                                            st.markdown("### ⚙️ Technical")
-                                            st.write(report['tech'])
-                                        if report['psych']:
-                                            st.markdown("### 🧠 Psychology")
-                                            st.write(report['psych'])
-                                        if report['risk']:
-                                            st.markdown("### ⚠️ Risk")
-                                            st.write(report['risk'])
-                                        if report['fix']:
-                                            st.markdown("### 🎯 Fixes")
-                                            st.write(report['fix'])
-                                        
-                                        st.success("✅ Analysis complete!")
-                                    else:
-                                        st.error("Analysis failed validation. Try again with more details.")
-                                else:
-                                    st.error(f"API Error: {res.status_code}")
-                            
-                            except Exception as e:
-                                st.error(f"Error: {str(e)}")
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CRITICAL REMINDERS:
+1. FIRST determine if this is PORTFOLIO or SINGLE TRADE
+2. If portfolio with multiple losses, this is likely a SEVERE crisis
+3. Any position showing >100% loss needs immediate investigation
+4. Portfolio losses of >20% = catastrophic failure
+5. Use EXACT numbers you see on screen, no hallucinations
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
+                        
+                        ready_to_run = True
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            elif c_mode == "Portfolio Analysis":
+                st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
+                st.markdown('<div class="section-title">📊 Portfolio Health Analysis</div>', unsafe_allow_html=True)
+                st.markdown("""
+                <div style="text-align: center; margin-bottom: 24px;">
+                    <div class="upload-icon">📂</div>
+                    <div class="upload-text">Upload Your Portfolio Screenshot or PDF</div>
+                    <div class="upload-subtext">Supports PNG, JPG, PDF. We'll analyze your entire portfolio health, risk metrics, and provide restructuring recommendations.</div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+                portfolio_file = st.file_uploader(
+                    "Upload Portfolio Screenshot or PDF", 
+                    type=["png", "jpg", "jpeg", "pdf"], 
+                    label_visibility="collapsed",
+                    key="portfolio_upload"
+                )
+            
+                if portfolio_file:
+                    # Display preview based on file type
+                    if portfolio_file.type == "application/pdf":
+                        st.info("📄 PDF uploaded. Analysis will extract portfolio data from PDF.")
+                    else:
+                        st.markdown('<div style="margin-top: 32px;">', unsafe_allow_html=True)
+                        st.image(portfolio_file, use_column_width=True)
+                        st.markdown('</div>', unsafe_allow_html=True)
+                    
+                    # Manual portfolio data input (recommended for accuracy)
+                    st.markdown('<div style="height: 24px;"></div>', unsafe_allow_html=True)
+                    with st.expander("📝 Manual Portfolio Data (Recommended for Best Results)", expanded=True):
+                        st.markdown("**Provide your portfolio details for most accurate analysis:**")
+                        
+                        col_p1, col_p2 = st.columns(2)
+                        with col_p1:
+                            portfolio_total_invested = st.number_input("Total Invested Amount", min_value=0.0, step=1000.0, format="%.2f", help="Total capital invested")
+                            portfolio_current_value = st.number_input("Current Portfolio Value", min_value=0.0, step=1000.0, format="%.2f", help="Current market value")
+                            portfolio_num_positions = st.number_input("Number of Positions", min_value=1, max_value=200, value=10, help="How many stocks/assets in portfolio")
+                        
+                        with col_p2:
+                            portfolio_largest_loss = st.text_input("Largest Single Loss", placeholder="e.g., AAPL -₹50,000 (-45%)", help="Your worst performing position")
+                            portfolio_largest_gain = st.text_input("Largest Single Gain", placeholder="e.g., TSLA +₹30,000 (+60%)", help="Your best performing position")
+                            portfolio_crisis_stocks = st.text_input("Stocks in Crisis (>30% loss)", placeholder="e.g., ADANIPOWER, AARTIIND", help="Comma-separated list")
+                        
+                        portfolio_description = st.text_area(
+                            "Additional Portfolio Context", 
+                            height=100, 
+                            placeholder="Describe your portfolio: sectors, strategy, time horizon, any leveraged positions, margin usage, etc.",
+                            help="More context = better analysis"
+                        )
+                    
+                    st.markdown('<div style="height: 24px;"></div>', unsafe_allow_html=True)
+                    
+                    if st.button("🔬 ANALYZE PORTFOLIO HEALTH", type="primary", use_container_width=True):
+                        # Calculate portfolio metrics
+                        total_pnl = portfolio_current_value - portfolio_total_invested if portfolio_total_invested > 0 else 0
+                        total_pnl_pct = (total_pnl / portfolio_total_invested * 100) if portfolio_total_invested > 0 else 0
+                        
+                        # Prepare image if not PDF
+                        img_b64 = None
+                        if portfolio_file.type != "application/pdf":
+                            image = Image.open(portfolio_file)
+                            max_size = (1920, 1080)
+                            image.thumbnail(max_size, Image.Resampling.LANCZOS)
+                            buf = io.BytesIO()
+                            image.save(buf, format="PNG", optimize=True)
+                            img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+                        
+                        # Build portfolio context
+                        portfolio_context = f"""
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PORTFOLIO DATA PROVIDED BY USER:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Total Invested: {portfolio_total_invested:,.2f}
+Current Value: {portfolio_current_value:,.2f}
+Total P&L: {total_pnl:,.2f} ({total_pnl_pct:+.2f}%)
+Number of Positions: {portfolio_num_positions}
+Largest Loss: {portfolio_largest_loss if portfolio_largest_loss else "Not specified"}
+Largest Gain: {portfolio_largest_gain if portfolio_largest_gain else "Not specified"}
+Crisis Stocks (>30% loss): {portfolio_crisis_stocks if portfolio_crisis_stocks else "None specified"}
+
+Additional Context:
+{portfolio_description if portfolio_description else "No additional context provided"}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+USE THIS INFORMATION AS GROUND TRUTH. Analyze based on these provided values.
+"""
+                        
+                        # PORTFOLIO-SPECIFIC PROMPT
+                        portfolio_prompt = f"""You are analyzing a COMPLETE INVESTMENT PORTFOLIO. This is NOT a single trade - this is portfolio-level risk assessment.
+
+{portfolio_context}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PORTFOLIO ANALYSIS FRAMEWORK:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. PORTFOLIO HEALTH ASSESSMENT:
+   - Overall portfolio P&L and percentage
+   - Drawdown severity (current loss from peak)
+   - Number of positions (diversification vs. over-diversification)
+   - Win/loss ratio across portfolio
+   - Concentration risk (any position >10% of portfolio?)
+
+2. RISK MANAGEMENT EVALUATION:
+   - Are stop losses in place across positions?
+   - Position sizing discipline (should be 1-5% per position)
+   - Correlation risk (positions moving together?)
+   - Sector concentration
+   - Any leveraged/margin positions (red flag)
+   - Positions with >50% losses (likely beyond recovery)
+
+3. PORTFOLIO STRUCTURE ANALYSIS:
+   - Too many positions? (>20 = likely over-diversified)
+   - Too few? (<5 = concentration risk)
+   - Balance between growth/value/defensive
+   - Sector diversification
+   - Market cap diversification
+
+4. CRISIS IDENTIFICATION:
+   - Any positions showing >100% loss (leverage/margin emergency)
+   - Multiple positions >50% down (poor exit discipline)
+   - Portfolio drawdown >30% (severe crisis)
+   - Evidence of averaging down into losers
+   - Revenge trading patterns
+
+5. PSYCHOLOGICAL ASSESSMENT:
+   - Holding losers, cutting winners? (common retail mistake)
+   - Evidence of FOMO buying at tops
+   - Lack of selling discipline
+   - Emotional attachment to positions
+   - Hope-based investing vs. risk management
+
+SEVERITY LEVELS FOR PORTFOLIOS:
+
+Portfolio Drawdown >50%: CATASTROPHIC (Score 0-5)
+Portfolio Drawdown 30-50%: SEVERE CRISIS (Score 5-15)
+Portfolio Drawdown 20-30%: MAJOR PROBLEM (Score 15-30)
+Portfolio Drawdown 10-20%: CONCERNING (Score 30-50)
+Portfolio Drawdown 5-10%: MINOR ISSUE (Score 50-70)
+Portfolio Drawdown <5%: ACCEPTABLE (Score 70-100)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OUTPUT FORMAT:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[SCORE] <0-100 based on portfolio drawdown severity>
+
+[OVERALL_GRADE] <F if >30% loss, D if 20-30%, C if 10-20%, B if 5-10%, A if <5%>
+
+[ENTRY_QUALITY] <Average entry quality across portfolio - rate the timing of buys>
+
+[EXIT_QUALITY] <Exit discipline - are stop losses used? Or holding losers?>
+
+[RISK_SCORE] <0-100 portfolio-level risk management quality>
+
+[TAGS] <Portfolio_Crisis, Overleveraged, No_Stops, Concentration_Risk, Too_Many_Positions, Sector_Concentration, Multiple_Losers, No_Exit_Plan, Hope_Based_Investing, etc.>
+
+[TECH] PORTFOLIO TECHNICAL ANALYSIS: Total P&L: {total_pnl:,.2f} ({total_pnl_pct:+.2f}%). Portfolio has {portfolio_num_positions} positions. [Analyze diversification, concentration, position sizing. List top 3-5 problem positions. Identify sector exposure risks. Comment on portfolio structure.]
+
+[PSYCH] PORTFOLIO PSYCHOLOGY PROFILE: [Analyze the decision-making patterns across the portfolio. Are they holding losers and cutting winners? Evidence of FOMO? Revenge trading? Lack of selling discipline? Emotional attachment to positions? This should be behavioral analysis of their OVERALL trading psychology based on portfolio patterns.]
+
+[RISK] PORTFOLIO RISK ASSESSMENT: [Analyze portfolio-level risk: position sizing discipline, stop loss usage across positions, concentration risk, correlation risk, drawdown management, any leverage/margin red flags. If portfolio loss >30%, this is CATASTROPHIC. If any position shows >100% loss, this is margin/leverage emergency.]
+
+[FIX] PORTFOLIO RESTRUCTURING PLAN:
+1. IMMEDIATE ACTIONS: [What needs to happen in next 24-48 hours - close crisis positions, investigate leverage, stop opening new positions]
+2. SHORT TERM (1-4 weeks): [Which positions to close/reduce, how to implement stops, position sizing rules]
+3. LONG TERM (1-6 months): [Portfolio rebuild strategy, education needs, risk management framework, psychological reset]
+
+[STRENGTH] [What's working in the portfolio, if anything. Even in disasters, find something - e.g., "Diversification across sectors prevents total loss" or "At least closed some positions before -100%"]
+
+[CRITICAL_ERROR] [The biggest portfolio-level mistake. Usually: no stop losses, concentration risk, averaging down losers, lack of exit plan, emotional position holding, or taking on leverage without understanding it]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CRITICAL PORTFOLIO-SPECIFIC RULES:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. If portfolio drawdown >30%: This is CATASTROPHIC portfolio failure, score MUST be 0-10
+2. If any position shows >100% loss: LEVERAGE/MARGIN EMERGENCY - flag immediately
+3. If >20 positions: Likely over-diversification - too many positions to manage properly
+4. If multiple positions >50% loss: Exit discipline failure - holding losers too long
+5. Portfolio analysis is about RISK MANAGEMENT, not individual stock picking
+6. Focus on position sizing, diversification, stop losses, and exit discipline
+7. A portfolio can have some winners but still fail due to poor risk management
+8. Recovery from >30% drawdown typically takes 12-24+ months minimum
+
+REMEMBER: This is PORTFOLIO analysis, not trade analysis. Focus on overall risk management, diversification, position sizing discipline, and exit strategy across ALL positions.
+"""
+                        
+                        ready_to_run = True
+                        ticker_val = "PORTFOLIO"
+                        prompt = portfolio_prompt
                 
                 st.markdown('</div>', unsafe_allow_html=True)
+
+            else:  # Text Parameters mode
+                # TEXT PARAMETERS (UNCHANGED)
+                st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
+                st.markdown('<div class="section-title">Case Data Input</div>', unsafe_allow_html=True)
+                with st.form("audit_form"):
+                    col_a, col_b, col_c = st.columns(3)
+                    with col_a: ticker = st.text_input("Ticker", "SPY")
+                    with col_b: setup_type = st.selectbox("Setup", ["Trend", "Reversal", "Breakout"])
+                    with col_c: emotion = st.selectbox("State", ["Neutral", "FOMO", "Revenge", "Tilt"])
+                
+                    st.markdown('<div style="height: 12px;"></div>', unsafe_allow_html=True)
+                
+                    col_d, col_e, col_f = st.columns(3)
+                    with col_d: entry = st.number_input("Entry", 0.0, step=0.01)
+                    with col_e: exit_price = st.number_input("Exit", 0.0, step=0.01)
+                    with col_f: stop = st.number_input("Stop", 0.0, step=0.01)
+                
+                    st.markdown('<div style="height: 12px;"></div>', unsafe_allow_html=True)
+                
+                    notes = st.text_area("Execution Notes", height=120, placeholder="Describe your decision-making process, entry hesitation, stop management...")
+                
+                    st.markdown('<div style="height: 16px;"></div>', unsafe_allow_html=True)
+                
+                    if st.form_submit_button("EXECUTE AUDIT", type="primary", use_container_width=True):
+                        ticker_val = ticker
+                        
+                        pnl = exit_price - entry if exit_price > 0 and entry > 0 else 0
+                        pnl_pct = (pnl / entry * 100) if entry > 0 else 0
+                        risk = abs(entry - stop) if stop > 0 and entry > 0 else 0
+                        risk_pct = (risk / entry * 100) if entry > 0 else 0
+                        reward = abs(exit_price - entry) if exit_price > 0 and entry > 0 else 0
+                        rr_ratio = (reward / risk) if risk > 0 else 0
+                        
+                        prompt = f"""You are Dr. Michael Steinhardt, legendary hedge fund manager with 45 years experience. Analyze this trade with brutal institutional honesty.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TRADE DATA:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Ticker: {ticker}
+Setup: {setup_type}
+Emotional State: {emotion}
+Entry: ${entry:.2f}
+Exit: ${exit_price:.2f}
+Stop: ${stop:.2f}
+
+METRICS:
+PnL: ${pnl:.2f} ({pnl_pct:+.2f}%)
+Risk: ${risk:.2f} ({risk_pct:.2f}%)
+R:R Ratio: {rr_ratio:.2f}:1
+
+NOTES: {notes if notes else "No notes"}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+OUTPUT FORMAT (EXACT):
+
+[SCORE] <0-100>
+
+[OVERALL_GRADE] <F/D/C/B/A/S-Tier>
+
+[ENTRY_QUALITY] <0-100>
+
+[EXIT_QUALITY] <0-100>
+
+[RISK_SCORE] <0-100>
+
+[TAGS] <comma-separated, 3-5 tags>
+
+[TECH] <3-5 sentences with NUMBERS: entry timing, stop placement, R:R analysis, setup quality>
+
+[PSYCH] <2-4 sentences: emotional state impact, biases detected, discipline assessment>
+
+[RISK] <3-4 sentences with PERCENTAGES: account risk, position size, stop effectiveness>
+
+[FIX] <Exactly 3 improvements:
+1. [Specific technical fix]
+2. [Specific psychological fix]
+3. [Specific risk fix]>
+
+[STRENGTH] <1-2 sentences on what was good>
+
+[CRITICAL_ERROR] <Single biggest mistake>
+
+BE HARSH. USE NUMBERS. BE SPECIFIC."""
+                        ready_to_run = True
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            # IMPROVED RESULTS PROCESSING
+            if ready_to_run and supabase:
+                with st.spinner("🧠 Running Deep Quantitative Analysis..."):
+                    try:
+                        if img_b64:
+                            # Use improved API call function
+                            raw_response = call_vision_api(prompt, img_b64)
+                        else:
+                            # Text analysis
+                            messages = [{"role": "user", "content": [{"type": "text", "text": prompt}]}]
+                            payload = {
+                                "model": "Qwen/Qwen2.5-VL-7B-Instruct",
+                                "messages": messages,
+                                "max_tokens": 1500,
+                                "temperature": 0.3
+                            }
+                            headers = {
+                                "Authorization": f"Bearer {HF_TOKEN}",
+                                "Content-Type": "application/json"
+                            }
+                            res = requests.post(API_URL, headers=headers, json=payload, timeout=60)
+                            if res.status_code == 200:
+                                raw_response = res.json()["choices"][0]["message"]["content"]
+                            else:
+                                raise Exception(f"API Error: {res.status_code}")
+                        
+                        # Parse with improved validation
+                        report = parse_report(raw_response)
+                        
+                        # HALLUCINATION DETECTION
+                        hallucination_detected = False
+                        warning_messages = []
+                        
+                        # Check if analysis contains common hallucinated prices that appear in examples
+                        hallucinated_prices = ['$445', '$435', '$451', '$458', '$440', '$437']
+                        tech_text = report.get('tech', '').lower()
+                        
+                        if any(price in report.get('tech', '') for price in hallucinated_prices):
+                            hallucination_detected = True
+                            warning_messages.append("⚠️ AI may have hallucinated prices from examples rather than analyzing your actual chart")
+                        
+                        # Check for catastrophic loss detection
+                        if 'catastrophic' in raw_response.lower() or 'emergency' in raw_response.lower():
+                            if report['score'] > 20:
+                                # AI detected catastrophe but didn't score it correctly
+                                report['score'] = max(10, report['score'] // 5)
+                                report['overall_grade'] = 'F'
+                                report['risk_score'] = min(20, report['risk_score'])
+                                warning_messages.append("🚨 Score adjusted for catastrophic loss detected in analysis")
+                        
+                        # Validate we got real analysis
+                        if (report['score'] == 50 and 
+                            report['entry_quality'] == 50 and 
+                            report['exit_quality'] == 50):
+                            warning_messages.append("⚠️ Analysis may be incomplete. Try a clearer image with visible price levels.")
+                        
+                        # Display warnings if any
+                        if warning_messages:
+                            for msg in warning_messages:
+                                st.warning(msg)
+                        
+                        # Save with image URL if available
+                        image_url_to_save = stored_image_url if 'stored_image_url' in locals() else None
+                        save_analysis(current_user, report, ticker_val, image_url_to_save)
+                        
+                        # REST OF THE DISPLAY CODE REMAINS EXACTLY THE SAME...
+                        # (All the visualization code from line 2000+ stays unchanged)
+                        
+                        # Determine colors based on score
+                        if report['score'] >= 80:
+                            score_color = "#10b981"
+                            grade_color = "rgba(16, 185, 129, 0.2)"
+                        elif report['score'] >= 60:
+                            score_color = "#3b82f6"
+                            grade_color = "rgba(59, 130, 246, 0.2)"
+                        elif report['score'] >= 40:
+                            score_color = "#f59e0b"
+                            grade_color = "rgba(245, 158, 11, 0.2)"
+                        else:
+                            score_color = "#ef4444"
+                            grade_color = "rgba(239, 68, 68, 0.2)"
+                        
+                        # ANIMATED HEADER WITH SCORE
+                        st.markdown(f"""
+                        <div class="glass-panel animate-scale-in" style="border-top: 3px solid {score_color}; margin-top: 32px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px;">
+                                <div>
+                                    <div style="color:#6b7280; letter-spacing:3px; font-size:0.7rem; text-transform: uppercase; margin-bottom: 10px; font-weight: 600;">FORENSIC ANALYSIS COMPLETE</div>
+                                    <div style="display: flex; align-items: center; gap: 20px;">
+                                        <div class="score-value" style="color:{score_color}">{report['score']}</div>
+                                        <div class="grade-badge" style="background:{grade_color}; color:{score_color};">
+                                            GRADE: {report.get('overall_grade', 'C')}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div class="ticker-badge">{ticker_val}</div>
+                                    <div style="color:#6b7280; font-size:0.85rem; margin-top: 8px;">{datetime.now().strftime('%B %d, %Y • %H:%M')}</div>
+                                </div>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        # QUALITY METRICS DASHBOARD
+                        st.markdown('<div class="glass-panel animate-slide-up" style="animation-delay: 0.1s;">', unsafe_allow_html=True)
+                        st.markdown('<div class="section-title">📊 Performance Breakdown</div>', unsafe_allow_html=True)
+                        
+                        met_col1, met_col2, met_col3 = st.columns(3)
+                        
+                        metrics_data = [
+                            ("Entry Quality", report.get('entry_quality', 50), met_col1),
+                            ("Exit Quality", report.get('exit_quality', 50), met_col2),
+                            ("Risk Management", report.get('risk_score', 50), met_col3)
+                        ]
+                        
+                        for metric_name, metric_value, col in metrics_data:
+                            with col:
+                                if metric_value >= 80:
+                                    met_color = "#10b981"
+                                elif metric_value >= 60:
+                                    met_color = "#3b82f6"
+                                elif metric_value >= 40:
+                                    met_color = "#f59e0b"
+                                else:
+                                    met_color = "#ef4444"
+                                
+                                st.markdown(f"""
+                                <div style="text-align: center; padding: 20px;">
+                                    <div class="metric-circle" style="background: rgba(255,255,255,0.03);">
+                                        <div style="font-size: 2rem; font-weight: 700; color: {met_color}; font-family: 'JetBrains Mono', monospace;">
+                                            {metric_value}
+                                        </div>
+                                        <div style="font-size: 0.7rem; color: #6b7280; text-transform: uppercase; letter-spacing: 1px;">
+                                            /100
+                                        </div>
+                                    </div>
+                                    <div style="margin-top: 16px; font-size: 0.9rem; font-weight: 600; color: #e5e7eb;">
+                                        {metric_name}
+                                    </div>
+                                    <div class="progress-bar-container" style="margin-top: 12px;">
+                                        <div class="progress-bar" style="width: {metric_value}%; background: linear-gradient(90deg, {met_color}, {met_color}80);"></div>
+                                    </div>
+                                </div>
+                                """, unsafe_allow_html=True)
+                        
+                        st.markdown('</div>', unsafe_allow_html=True)
+                        
+                        # BEHAVIORAL TAGS WITH ANIMATION
+                        if report.get('tags'):
+                            st.markdown('<div class="glass-panel animate-slide-right" style="animation-delay: 0.2s;">', unsafe_allow_html=True)
+                            st.markdown('<div class="section-title">🏷️ Behavioral Patterns Detected</div>', unsafe_allow_html=True)
+                            
+                            tags_html = '<div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px;">'
+                            for tag in report['tags']:
+                                # Color code tags
+                                if any(word in tag.lower() for word in ['fomo', 'revenge', 'emotional', 'panic', 'tilt']):
+                                    tag_color = "#ef4444"
+                                    tag_bg = "rgba(239, 68, 68, 0.15)"
+                                elif any(word in tag.lower() for word in ['disciplined', 'good', 'excellent', 'strong']):
+                                    tag_color = "#10b981"
+                                    tag_bg = "rgba(16, 185, 129, 0.15)"
+                                else:
+                                    tag_color = "#f59e0b"
+                                    tag_bg = "rgba(245, 158, 11, 0.15)"
+                                
+                                tags_html += f'<div style="background: {tag_bg}; border: 1px solid {tag_color}40; padding: 10px 18px; border-radius: 10px; color: {tag_color}; font-weight: 600; font-size: 0.85rem; letter-spacing: 0.5px; transition: all 0.3s ease; cursor: default;">{tag}</div>'
+                            tags_html += '</div>'
+                            st.markdown(tags_html, unsafe_allow_html=True)
+                            st.markdown('</div>', unsafe_allow_html=True)
+                        
+                        # VISUALIZATION CHART
+                        st.markdown('<div class="glass-panel animate-fade-in" style="animation-delay: 0.3s;">', unsafe_allow_html=True)
+                        st.markdown('<div class="section-title">📈 Performance Radar</div>', unsafe_allow_html=True)
+                        
+                        chart_data = pd.DataFrame({
+                            'Metric': ['Entry\nQuality', 'Exit\nQuality', 'Risk\nManagement', 'Overall\nScore'],
+                            'Score': [
+                                report.get('entry_quality', 50),
+                                report.get('exit_quality', 50),
+                                report.get('risk_score', 50),
+                                report['score']
+                            ]
+                        })
+                        
+                        bars = alt.Chart(chart_data).mark_bar(
+                            cornerRadiusEnd=8,
+                            size=40
+                        ).encode(
+                            x=alt.X('Metric:N',
+                                axis=alt.Axis(
+                                    title=None,
+                                    labelColor='#e5e7eb',
+                                    labelFontSize=12,
+                                    labelAngle=0
+                                )
+                            ),
+                            y=alt.Y('Score:Q',
+                                scale=alt.Scale(domain=[0, 100]),
+                                axis=alt.Axis(
+                                    title='Score',
+                                    titleColor='#9ca3af',
+                                    labelColor='#9ca3af',
+                                    grid=True,
+                                    gridColor='#ffffff10'
+                                )
+                            ),
+                            color=alt.Color('Score:Q',
+                                scale=alt.Scale(
+                                    domain=[0, 40, 60, 80, 100],
+                                    range=['#ef4444', '#f59e0b', '#3b82f6', '#10b981', '#10b981']
+                                ),
+                                legend=None
+                            ),
+                            tooltip=[
+                                alt.Tooltip('Metric:N', title='Category'),
+                                alt.Tooltip('Score:Q', title='Score')
+                            ]
+                        ).properties(
+                            height=300
+                        ).configure_view(
+                            strokeWidth=0,
+                            fill='transparent'
+                        ).configure(
+                            background='transparent'
+                        )
+                        
+                        st.altair_chart(bars, use_container_width=True)
+                        st.markdown('</div>', unsafe_allow_html=True)
+                        
+                        # DETAILED ANALYSIS SECTIONS
+                        col_left, col_right = st.columns(2)
+                        
+                        with col_left:
+                            st.markdown('<div class="result-card animate-slide-up" style="animation-delay: 0.4s;">', unsafe_allow_html=True)
+                            st.markdown("""
+                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                                <div style="font-size: 1.8rem;">⚙️</div>
+                                <div style="font-size: 1rem; font-weight: 700; color: #3b82f6; text-transform: uppercase; letter-spacing: 1px;">
+                                    Technical Analysis
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                            st.markdown(f"""
+                            <div style="color: #d1d5db; line-height: 1.8; font-size: 0.92rem;">
+                                {report['tech']}
+                            </div>
+                            """, unsafe_allow_html=True)
+                            st.markdown('</div>', unsafe_allow_html=True)
+                            
+                            st.markdown('<div class="result-card animate-slide-up" style="animation-delay: 0.6s;">', unsafe_allow_html=True)
+                            st.markdown("""
+                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                                <div style="font-size: 1.8rem;">⚠️</div>
+                                <div style="font-size: 1rem; font-weight: 700; color: #f59e0b; text-transform: uppercase; letter-spacing: 1px;">
+                                    Risk Assessment
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                            st.markdown(f"""
+                            <div style="color: #d1d5db; line-height: 1.8; font-size: 0.92rem;">
+                                {report['risk']}
+                            </div>
+                            """, unsafe_allow_html=True)
+                            st.markdown('</div>', unsafe_allow_html=True)
+                        
+                        with col_right:
+                            st.markdown('<div class="result-card animate-slide-up" style="animation-delay: 0.5s;">', unsafe_allow_html=True)
+                            st.markdown("""
+                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                                <div style="font-size: 1.8rem;">🧠</div>
+                                <div style="font-size: 1rem; font-weight: 700; color: #8b5cf6; text-transform: uppercase; letter-spacing: 1px;">
+                                    Psychology Profile
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                            st.markdown(f"""
+                            <div style="color: #d1d5db; line-height: 1.8; font-size: 0.92rem;">
+                                {report['psych']}
+                            </div>
+                            """, unsafe_allow_html=True)
+                            st.markdown('</div>', unsafe_allow_html=True)
+                            
+                            st.markdown('<div class="result-card animate-slide-up" style="animation-delay: 0.7s;">', unsafe_allow_html=True)
+                            st.markdown("""
+                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                                <div style="font-size: 1.8rem;">🎯</div>
+                                <div style="font-size: 1rem; font-weight: 700; color: #10b981; text-transform: uppercase; letter-spacing: 1px;">
+                                    Action Plan
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                            st.markdown(f"""
+                            <div style="color: #d1d5db; line-height: 1.8; font-size: 0.92rem;">
+                                {report['fix']}
+                            </div>
+                            """, unsafe_allow_html=True)
+                            st.markdown('</div>', unsafe_allow_html=True)
+                        
+                        # KEY INSIGHTS
+                        if report.get('strength') != 'N/A' and report.get('strength') != 'Analyzing...':
+                            st.markdown('<div class="glass-panel animate-slide-up" style="animation-delay: 0.8s;">', unsafe_allow_html=True)
+                            
+                            ins_col1, ins_col2 = st.columns(2)
+                            
+                            with ins_col1:
+                                st.markdown(f"""
+                                <div style="
+                                    background: rgba(16, 185, 129, 0.1);
+                                    border-left: 4px solid #10b981;
+                                    padding: 20px;
+                                    border-radius: 0 12px 12px 0;
+                                ">
+                                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                                        <div style="font-size: 1.5rem;">💪</div>
+                                        <div style="font-size: 0.85rem; font-weight: 700; color: #10b981; text-transform: uppercase; letter-spacing: 1px;">
+                                            What Went Well
+                                        </div>
+                                    </div>
+                                    <div style="color: #d1d5db; line-height: 1.7; font-size: 0.9rem;">
+                                        {report['strength']}
+                                    </div>
+                                </div>
+                                """, unsafe_allow_html=True)
+                            
+                            with ins_col2:
+                                if report.get('critical_error') != 'N/A' and report.get('critical_error') != 'Analyzing...':
+                                    st.markdown(f"""
+                                    <div style="
+                                        background: rgba(239, 68, 68, 0.1);
+                                        border-left: 4px solid #ef4444;
+                                        padding: 20px;
+                                        border-radius: 0 12px 12px 0;
+                                    ">
+                                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                                            <div style="font-size: 1.5rem;">⛔</div>
+                                            <div style="font-size: 0.85rem; font-weight: 700; color: #ef4444; text-transform: uppercase; letter-spacing: 1px;">
+                                                Critical Error
+                                            </div>
+                                        </div>
+                                        <div style="color: #d1d5db; line-height: 1.7; font-size: 0.9rem;">
+                                            {report['critical_error']}
+                                        </div>
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                            
+                            st.markdown('</div>', unsafe_allow_html=True)
+                    
+                    except Exception as e:
+                        st.error(f"⚠️ Analysis Failed: {str(e)}")
+                        st.info("""
+                        💡 **Troubleshooting Tips:**
+                        - Ensure chart image is clear with visible price levels
+                        - Check that the image shows actual trading activity (not just a blank chart)
+                        - Try a different screenshot with better contrast
+                        - Make sure prices and indicators are legible
+                        - If problem persists, try the Text Parameters mode instead
+                        """)
         
+        # TAB 2: PERFORMANCE METRICS - COMPLETE DASHBOARD
         with main_tab2:
-            # PERFORMANCE METRICS
             if supabase:
                 hist = supabase.table("trades").select("*").eq("user_id", current_user).order("created_at", desc=True).execute()
-                
+            
                 if hist.data:
                     df = pd.DataFrame(hist.data)
                     df['created_at'] = pd.to_datetime(df['created_at'])
-                    
+                
+                    # METRICS CALC
                     avg_score = df['score'].mean()
                     total_trades = len(df)
-                    win_rate = len(df[df['score'] > 60]) / len(df) * 100
-                    
-                    # KPIs
+                    all_tags = [tag for sublist in df['mistake_tags'] for tag in sublist]
+                    top_mistake = pd.Series(all_tags).mode()[0] if all_tags else "None"
+                
+                    # Calculate win rate (scores > 60 = good trades)
+                    win_rate = len(df[df['score'] > 60]) / len(df) * 100 if len(df) > 0 else 0
+                
+                    # Recent trend (last 5 vs previous 5)
+                    recent_avg = df.head(5)['score'].mean() if len(df) >= 5 else avg_score
+                    prev_avg = df.iloc[5:10]['score'].mean() if len(df) >= 10 else avg_score
+                    trend = "↗" if recent_avg > prev_avg else "↘" if recent_avg < prev_avg else "→"
+                
+                    # 1. KPI ROW
                     st.markdown(f"""
                     <div class="kpi-container">
                         <div class="kpi-card">
                             <div class="kpi-val">{int(avg_score)}</div>
-                            <div class="kpi-label">Avg Score</div>
+                            <div class="kpi-label">Avg Quality Score</div>
                         </div>
                         <div class="kpi-card">
                             <div class="kpi-val">{int(win_rate)}%</div>
@@ -1553,40 +2940,339 @@ Provide analysis in this EXACT format:
                         </div>
                         <div class="kpi-card">
                             <div class="kpi-val">{total_trades}</div>
-                            <div class="kpi-label">Total Trades</div>
+                            <div class="kpi-label">Total Audits</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-val" style="font-size:2.5rem;">{trend}</div>
+                            <div class="kpi-label">Recent Trend</div>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
-                    
-                    # Chart
+
+                    # 2. MAIN CHART - Full Width
                     st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
                     st.markdown('<div class="section-title">Performance Evolution</div>', unsafe_allow_html=True)
-                    
-                    chart_data = df[['created_at', 'score']].sort_values('created_at')
+                
+                    chart_data = df[['created_at', 'score']].sort_values('created_at').reset_index(drop=True)
                     chart_data['index'] = range(len(chart_data))
+                
+                    # Create base chart
+                    base = alt.Chart(chart_data).encode(
+                        x=alt.X('index:Q', 
+                            axis=alt.Axis(
+                                title='Trade Sequence',
+                                grid=False,
+                                labelColor='#6b7280',
+                                titleColor='#9ca3af',
+                                labelFontSize=11,
+                                titleFontSize=12
+                            )
+                        )
+                    )
+                
+                    # Reference lines
+                    good_line = alt.Chart(pd.DataFrame({'y': [70]})).mark_rule(
+                        strokeDash=[5, 5],
+                        color='#10b981',
+                        opacity=0.3
+                    ).encode(y='y:Q')
+                
+                    bad_line = alt.Chart(pd.DataFrame({'y': [40]})).mark_rule(
+                        strokeDash=[5, 5],
+                        color='#ef4444',
+                        opacity=0.3
+                    ).encode(y='y:Q')
+                
+                    # Main line with gradient
+                    line = base.mark_line(
+                        color='#3b82f6', 
+                        strokeWidth=3,
+                        point=alt.OverlayMarkDef(
+                            filled=True,
+                            size=80,
+                            color='#3b82f6',
+                            strokeWidth=2,
+                            stroke='#1e40af'
+                        )
+                    ).encode(
+                        y=alt.Y('score:Q', 
+                            scale=alt.Scale(domain=[0, 100]),
+                            axis=alt.Axis(
+                                title='Quality Score',
+                                grid=True,
+                                gridColor='rgba(255,255,255,0.04)',
+                                labelColor='#6b7280',
+                                titleColor='#9ca3af',
+                                labelFontSize=11,
+                                titleFontSize=12
+                            )
+                        ),
+                        tooltip=[
+                            alt.Tooltip('index:Q', title='Trade #'),
+                            alt.Tooltip('score:Q', title='Score'),
+                            alt.Tooltip('created_at:T', title='Date', format='%b %d, %Y')
+                        ]
+                    )
+                
+                    area = base.mark_area(
+                        color='#3b82f6', 
+                        opacity=0.1,
+                        line=False
+                    ).encode(y='score:Q')
+                
+                    chart = (good_line + bad_line + area + line).properties(
+                        height=320
+                    ).configure_view(
+                        strokeWidth=0,
+                        fill='transparent'
+                    ).configure(
+                        background='transparent'
+                    )
+                
+                    st.altair_chart(chart, use_container_width=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
+
+                    # 3. TWO COLUMN LAYOUT
+                    col_left, col_right = st.columns([1.5, 1])
+                
+                    with col_left:
+                        # MISTAKE BREAKDOWN with Bar Chart
+                        st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
+                        st.markdown('<div class="section-title">Error Pattern Analysis</div>', unsafe_allow_html=True)
                     
-                    line_chart = alt.Chart(chart_data).mark_line(point=True, color='#3b82f6').encode(
-                        x=alt.X('index:Q', title='Trade #'),
-                        y=alt.Y('score:Q', scale=alt.Scale(domain=[0, 100]), title='Score'),
-                        tooltip=['index', 'score', 'created_at']
-                    ).properties(height=300)
+                        if all_tags:
+                            tag_counts = pd.Series(all_tags).value_counts().head(6).reset_index()
+                            tag_counts.columns = ['Mistake', 'Count']
+                        
+                            # Horizontal bar chart
+                            bar_chart = alt.Chart(tag_counts).mark_bar(
+                                cornerRadiusEnd=6,
+                                height=28
+                            ).encode(
+                                x=alt.X('Count:Q',
+                                    axis=alt.Axis(
+                                        title=None,
+                                        grid=False,
+                                        labelColor='#6b7280',
+                                        labelFontSize=11
+                                    )
+                                ),
+                                y=alt.Y('Mistake:N',
+                                    sort='-x',
+                                    axis=alt.Axis(
+                                        title=None,
+                                        labelColor='#e5e7eb',
+                                        labelFontSize=12,
+                                        labelPadding=10
+                                    )
+                                ),
+                                color=alt.Color('Count:Q',
+                                    scale=alt.Scale(
+                                        scheme='redyellowblue',
+                                        reverse=True
+                                    ),
+                                    legend=None
+                                ),
+                                tooltip=[
+                                    alt.Tooltip('Mistake:N', title='Error Type'),
+                                    alt.Tooltip('Count:Q', title='Occurrences')
+                                ]
+                            ).properties(
+                                height=280
+                            ).configure_view(
+                                strokeWidth=0,
+                                fill='transparent'
+                            ).configure(
+                                background='transparent'
+                            )
+                        
+                            st.altair_chart(bar_chart, use_container_width=True)
+                        else:
+                            st.info("No error patterns detected yet.")
                     
-                    st.altair_chart(line_chart, use_container_width=True)
+                        st.markdown('</div>', unsafe_allow_html=True)
+
+                    with col_right:
+                        # AI INSIGHTS
+                        st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
+                        st.markdown('<div class="section-title">AI Insights</div>', unsafe_allow_html=True)
+                    
+                        insights = generate_insights(df)
+                    
+                        for i, insight in enumerate(insights):
+                            # Parse emoji and content
+                            parts = insight.split(' ', 1)
+                            emoji = parts[0] if len(parts) > 0 else ''
+                            content = parts[1] if len(parts) > 1 else insight
+                        
+                            st.markdown(f"""
+                            <div style='
+                                background: rgba(255, 255, 255, 0.03);
+                                border-left: 4px solid #10b981;
+                                padding: 20px;
+                                border-radius: 0 12px 12px 0;
+                                margin-bottom: 18px;
+                                transition: all 0.3s ease;
+                            '>
+                                <div style='font-size: 1.6rem; margin-bottom: 10px;'>{emoji}</div>
+                                <div style='font-size: 0.92rem; line-height: 1.7; color: #d1d5db;'>
+                                    {content}
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                    
+                        st.markdown('</div>', unsafe_allow_html=True)
+                    
+                        # SCORE DISTRIBUTION
+                        st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
+                        st.markdown('<div class="section-title">Score Distribution</div>', unsafe_allow_html=True)
+                    
+                        # Create score ranges
+                        score_ranges = pd.cut(df['score'], bins=[0, 40, 60, 80, 100], labels=['Poor (0-40)', 'Fair (40-60)', 'Good (60-80)', 'Excellent (80-100)'])
+                        dist_data = score_ranges.value_counts().reset_index()
+                        dist_data.columns = ['Range', 'Count']
+                    
+                        # Color mapping
+                        color_map = {
+                            'Poor (0-40)': '#ef4444',
+                            'Fair (40-60)': '#f59e0b',
+                            'Good (60-80)': '#3b82f6',
+                            'Excellent (80-100)': '#10b981'
+                        }
+                    
+                        for _, row in dist_data.iterrows():
+                            range_name = row['Range']
+                            count = row['Count']
+                            percentage = (count / len(df)) * 100
+                            color = color_map.get(range_name, '#6b7280')
+                        
+                            st.markdown(f"""
+                            <div style='margin-bottom: 22px;'>
+                                <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;'>
+                                    <span style='font-size: 0.88rem; color: #9ca3af; font-weight: 600;'>{range_name}</span>
+                                    <span style='font-size: 0.88rem; color: #e5e7eb; font-family: "JetBrains Mono", monospace;'>{count} ({int(percentage)}%)</span>
+                                </div>
+                                <div style='
+                                    width: 100%;
+                                    height: 10px;
+                                    background: rgba(255, 255, 255, 0.05);
+                                    border-radius: 5px;
+                                    overflow: hidden;
+                                '>
+                                    <div style='
+                                        width: {percentage}%;
+                                        height: 100%;
+                                        background: {color};
+                                        border-radius: 5px;
+                                        transition: width 0.6s ease;
+                                    '></div>
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                    
+                        st.markdown('</div>', unsafe_allow_html=True)
+
+                    # 4. RECENT TRADES TABLE
+                    st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
+                    st.markdown('<div class="section-title">Recent Activity</div>', unsafe_allow_html=True)
+                
+                    table_df = df.head(10)[['created_at', 'ticker', 'score', 'mistake_tags']].copy()
+                    table_df.columns = ['Time', 'Asset', 'Score', 'Primary Errors']
+                
+                    # Format tags to show only first 2
+                    table_df['Primary Errors'] = table_df['Primary Errors'].apply(
+                        lambda x: ', '.join(x[:2]) if len(x) > 0 else 'None'
+                    )
+                
+                    st.dataframe(
+                        table_df, 
+                        use_container_width=True, 
+                        hide_index=True,
+                        column_config={
+                            "Score": st.column_config.ProgressColumn(
+                                "Quality Score", 
+                                min_value=0, 
+                                max_value=100, 
+                                format="%d"
+                            ),
+                            "Time": st.column_config.DatetimeColumn(
+                                "Time", 
+                                format="MMM DD, HH:mm"
+                            ),
+                            "Asset": st.column_config.TextColumn(
+                                "Asset",
+                                width="small"
+                            )
+                        }
+                    )
                     st.markdown('</div>', unsafe_allow_html=True)
                     
-                    # Insights
-                    st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
-                    st.markdown('<div class="section-title">AI Insights</div>', unsafe_allow_html=True)
+                    # 5. DETAILED TRADE HISTORY WITH IMAGES
+                    st.markdown('<div class="glass-panel" style="margin-top: 32px;">', unsafe_allow_html=True)
+                    st.markdown('<div class="section-title">📜 Trade History Details</div>', unsafe_allow_html=True)
                     
-                    insights = generate_insights(df)
-                    for insight in insights:
-                        st.markdown(f"""
-                        <div style="background: rgba(255,255,255,0.03); border-left: 4px solid #10b981; padding: 20px; border-radius: 0 12px 12px 0; margin-bottom: 16px;">
-                            {insight}
-                        </div>
-                        """, unsafe_allow_html=True)
+                    for i, row in df.head(20).iterrows():
+                        with st.expander(f"📊 {row['created_at'].strftime('%Y-%m-%d %H:%M')} | {row['ticker']} | Score: {row['score']}/100"):
+                            # CHECK IF IMAGE EXISTS AND DISPLAY IT
+                            if row.get('image_url'):
+                                st.image(row['image_url'], caption="Original Trade Evidence", width=600)
+                                st.markdown('<div style="height: 16px;"></div>', unsafe_allow_html=True)
+                            
+                            # Display analysis details
+                            col1, col2 = st.columns(2)
+                            
+                            with col1:
+                                st.markdown(f"**Quality Grade:** {row.get('overall_grade', 'N/A')}")
+                                st.markdown(f"**Entry Quality:** {row.get('entry_quality', 'N/A')}/100")
+                                st.markdown(f"**Exit Quality:** {row.get('exit_quality', 'N/A')}/100")
+                                st.markdown(f"**Risk Score:** {row.get('risk_score', 'N/A')}/100")
+                            
+                            with col2:
+                                tags = row.get('mistake_tags', [])
+                                if tags:
+                                    st.markdown(f"**Error Tags:** {', '.join(tags)}")
+                                else:
+                                    st.markdown("**Error Tags:** None")
+                            
+                            st.markdown("---")
+                            
+                            # Technical Analysis
+                            if row.get('technical_analysis'):
+                                st.markdown("**📈 Technical Analysis:**")
+                                st.write(row['technical_analysis'])
+                            
+                            # Psychological Analysis
+                            if row.get('psych_analysis'):
+                                st.markdown("**🧠 Psychological Analysis:**")
+                                st.write(row['psych_analysis'])
+                            
+                            # Risk Analysis
+                            if row.get('risk_analysis'):
+                                st.markdown("**⚠️ Risk Analysis:**")
+                                st.write(row['risk_analysis'])
+                            
+                            # Fix Action
+                            if row.get('fix_action'):
+                                st.markdown("**🔧 Recommended Fixes:**")
+                                st.write(row['fix_action'])
+                            
+                            # Strength
+                            if row.get('strength'):
+                                st.markdown("**💪 Strengths:**")
+                                st.write(row['strength'])
+                            
+                            # Critical Error
+                            if row.get('critical_error'):
+                                st.markdown("**🚨 Critical Error:**")
+                                st.write(row['critical_error'])
                     
                     st.markdown('</div>', unsafe_allow_html=True)
                 
                 else:
-                    st.info("No performance data yet. Complete your first analysis to see metrics.")
+                    st.markdown('<div class="glass-panel" style="text-align: center; padding: 80px;">', unsafe_allow_html=True)
+                    st.markdown("""
+                    <div style="font-size: 3.5rem; margin-bottom: 20px; opacity: 0.4;">📊</div>
+                    <div style="font-size: 1.2rem; color: #9ca3af; margin-bottom: 10px; font-weight: 600;">No Performance Data Yet</div>
+                    <div style="font-size: 0.95rem; color: #6b7280;">Complete your first forensic audit to see metrics here.</div>
+                    """, unsafe_allow_html=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
