@@ -11,6 +11,23 @@ from datetime import datetime
 import json
 
 # ==========================================
+# PDF GENERATION IMPORTS
+# ==========================================
+from reportlab.lib.pagesizes import letter, A4
+from reportlab.lib.units import inch
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image as RLImage, PageBreak
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+from reportlab.pdfgen import canvas
+from reportlab.graphics.shapes import Drawing, Rect
+from reportlab.graphics.charts.barcharts import HorizontalBarChart
+from reportlab.graphics import renderPDF
+import tempfile
+import os
+
+
+# ==========================================
 # 0. AUTHENTICATION & CONFIG
 # ==========================================
 st.set_page_config(
@@ -73,6 +90,187 @@ if st.session_state["authenticated"]:
     except Exception as e:
         st.error(f"⚠️ Configuration Error: {e}")
         st.stop()
+
+# ==========================================
+# PDF GENERATION FUNCTION
+# ==========================================
+def generate_pdf_report(df, username):
+    """Generate a high-quality dark-themed PDF report"""
+    temp_pdf = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
+    pdf_filename = temp_pdf.name
+    temp_pdf.close()
+    
+    doc = SimpleDocTemplate(pdf_filename, pagesize=A4, rightMargin=0.5*inch, leftMargin=0.5*inch, topMargin=0.5*inch, bottomMargin=0.5*inch)
+    elements = []
+    styles = getSampleStyleSheet()
+    
+    # Custom styles
+    title_style = ParagraphStyle('CustomTitle', parent=styles['Heading1'], fontSize=28, textColor=colors.HexColor('#10b981'), spaceAfter=10, alignment=TA_CENTER, fontName='Helvetica-Bold')
+    subtitle_style = ParagraphStyle('CustomSubtitle', parent=styles['Normal'], fontSize=10, textColor=colors.HexColor('#6b7280'), spaceAfter=20, alignment=TA_CENTER, fontName='Helvetica')
+    section_style = ParagraphStyle('SectionHeader', parent=styles['Heading2'], fontSize=16, textColor=colors.HexColor('#10b981'), spaceAfter=10, spaceBefore=15, fontName='Helvetica-Bold')
+    
+    # Calculate metrics
+    total_trades = len(df)
+    avg_score = df['score'].mean()
+    good_trades = len(df[df['score'] >= 60])
+    bad_trades = len(df[df['score'] < 60])
+    win_rate = (good_trades / total_trades * 100) if total_trades > 0 else 0
+    all_tags = []
+    for tags in df['mistake_tags']:
+        if isinstance(tags, list):
+            all_tags.extend(tags)
+    
+    # Dark background function
+    def draw_header(canvas, doc):
+        canvas.saveState()
+        canvas.setFillColor(colors.HexColor('#0a0a0f'))
+        canvas.rect(0, 0, A4[0], A4[1], fill=True, stroke=False)
+        canvas.setFillColor(colors.HexColor('#10b981'))
+        canvas.rect(0, A4[1] - 1*inch, A4[0], 1*inch, fill=True, stroke=False)
+        canvas.restoreState()
+    
+    # Header
+    elements.append(Spacer(1, 0.3*inch))
+    elements.append(Paragraph("🩸 StockPostmortem.ai", title_style))
+    elements.append(Paragraph("PERFORMANCE FORENSICS REPORT", subtitle_style))
+    elements.append(Paragraph(f"Generated: {datetime.now().strftime('%B %d, %Y at %H:%M')}", subtitle_style))
+    elements.append(Paragraph(f"Trader: {username}", subtitle_style))
+    elements.append(Spacer(1, 0.3*inch))
+    
+    line_drawing = Drawing(500, 2)
+    line_drawing.add(Rect(0, 0, 500, 2, fillColor=colors.HexColor('#10b981'), strokeColor=None))
+    elements.append(line_drawing)
+    elements.append(Spacer(1, 0.3*inch))
+    
+    # Metrics section
+    elements.append(Paragraph("📊 PERFORMANCE BREAKDOWN", section_style))
+    metrics_data = [['Total Trades', 'Body Quality', 'Good Trades', 'Poor Trades', 'Win Rate'], [str(total_trades), f"{avg_score:.1f}/100", str(good_trades), str(bad_trades), f"{win_rate:.1f}%"]]
+    metrics_table = Table(metrics_data, colWidths=[1.8*inch]*5)
+    metrics_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a1a24')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#10b981')),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 11),
+        ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, 1), colors.HexColor('#0f0f14')),
+        ('TEXTCOLOR', (0, 1), (-1, 1), colors.HexColor('#e5e7eb')),
+        ('FONTNAME', (0, 1), (-1, 1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 1), (-1, 1), 18),
+        ('ALIGN', (0, 1), (-1, 1), 'CENTER'),
+        ('TOPPADDING', (0, 1), (-1, 1), 15),
+        ('BOTTOMPADDING', (0, 1), (-1, 1), 15),
+        ('LINEBELOW', (0, 0), (-1, 0), 2, colors.HexColor('#10b981')),
+        ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#1f2937')),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#374151')),
+    ]))
+    elements.append(metrics_table)
+    elements.append(Spacer(1, 0.4*inch))
+    
+    # Mistake patterns
+    if all_tags:
+        import pandas as pd
+        elements.append(Paragraph("🎯 MISTAKE PATTERNS DETECTED", section_style))
+        tag_counts = pd.Series(all_tags).value_counts().head(6)
+        
+        drawing = Drawing(500, 200)
+        bc = HorizontalBarChart()
+        bc.x = 50
+        bc.y = 20
+        bc.height = 160
+        bc.width = 400
+        bc.data = [list(tag_counts.values)]
+        bc.categoryAxis.categoryNames = [tag[:25] + '...' if len(tag) > 25 else tag for tag in tag_counts.index]
+        bc.bars[0].fillColor = colors.HexColor('#ef4444')
+        bc.valueAxis.valueMin = 0
+        bc.valueAxis.valueMax = max(tag_counts.values) + 1
+        bc.categoryAxis.labels.fontSize = 9
+        bc.categoryAxis.labels.fillColor = colors.HexColor('#e5e7eb')
+        bc.valueAxis.labels.fontSize = 9
+        bc.valueAxis.labels.fillColor = colors.HexColor('#9ca3af')
+        drawing.add(bc)
+        elements.append(drawing)
+        elements.append(Spacer(1, 0.3*inch))
+        
+        mistake_data = [['Error Type', 'Count', 'Percentage']]
+        for tag, count in tag_counts.items():
+            percentage = (count / len(all_tags)) * 100
+            mistake_data.append([tag, str(count), f"{percentage:.1f}%"])
+        
+        mistake_table = Table(mistake_data, colWidths=[3.5*inch, 1.5*inch, 1.5*inch])
+        mistake_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a1a24')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#f59e0b')),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#0f0f14')),
+            ('TEXTCOLOR', (0, 1), (-1, -1), colors.HexColor('#e5e7eb')),
+            ('ALIGN', (1, 1), (-1, -1), 'CENTER'),
+            ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#1f2937')),
+        ]))
+        elements.append(mistake_table)
+        elements.append(Spacer(1, 0.4*inch))
+    
+    # Score distribution
+    elements.append(Paragraph("📈 SCORE DISTRIBUTION", section_style))
+    score_ranges = pd.cut(df['score'], bins=[0, 40, 60, 80, 100], labels=['Poor (0-40)', 'Fair (40-60)', 'Good (60-80)', 'Excellent (80-100)'])
+    dist_data = score_ranges.value_counts()
+    dist_table_data = [['Score Range', 'Count', 'Percentage']]
+    for range_name in ['Poor (0-40)', 'Fair (40-60)', 'Good (60-80)', 'Excellent (80-100)']:
+        count = dist_data.get(range_name, 0)
+        percentage = (count / total_trades * 100) if total_trades > 0 else 0
+        dist_table_data.append([range_name, str(count), f"{percentage:.1f}%"])
+    
+    dist_table = Table(dist_table_data, colWidths=[2.5*inch, 1.5*inch, 1.5*inch])
+    dist_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a1a24')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#3b82f6')),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#0f0f14')),
+        ('TEXTCOLOR', (0, 1), (-1, -1), colors.HexColor('#e5e7eb')),
+        ('ALIGN', (1, 1), (-1, -1), 'CENTER'),
+        ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#1f2937')),
+    ]))
+    elements.append(dist_table)
+    elements.append(Spacer(1, 0.4*inch))
+    
+    # Recent trades
+    elements.append(Paragraph("📋 RECENT ACTIVITY (Last 10 Trades)", section_style))
+    recent_df = df.head(10)[['created_at', 'ticker', 'score', 'mistake_tags']].copy()
+    table_data = [['Date & Time', 'Asset', 'Score', 'Primary Errors']]
+    for _, row in recent_df.iterrows():
+        date_str = row['created_at'].strftime('%b %d, %H:%M') if isinstance(row['created_at'], datetime) else str(row['created_at'])
+        ticker = str(row['ticker'])
+        score = f"{row['score']}/100"
+        errors = ', '.join(row['mistake_tags'][:2]) if len(row['mistake_tags']) > 0 else 'None'
+        if len(errors) > 40:
+            errors = errors[:37] + '...'
+        table_data.append([date_str, ticker, score, errors])
+    
+    recent_table = Table(table_data, colWidths=[1.5*inch, 1*inch, 1*inch, 3*inch])
+    recent_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a1a24')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#8b5cf6')),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#0f0f14')),
+        ('TEXTCOLOR', (0, 1), (-1, -1), colors.HexColor('#e5e7eb')),
+        ('ALIGN', (1, 1), (2, -1), 'CENTER'),
+        ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#1f2937')),
+    ]))
+    elements.append(recent_table)
+    
+    # Footer
+    elements.append(Spacer(1, 0.5*inch))
+    footer_drawing = Drawing(500, 2)
+    footer_drawing.add(Rect(0, 0, 500, 2, fillColor=colors.HexColor('#10b981'), strokeColor=None))
+    elements.append(footer_drawing)
+    footer_style = ParagraphStyle('Footer', parent=styles['Normal'], fontSize=8, textColor=colors.HexColor('#6b7280'), alignment=TA_CENTER)
+    elements.append(Paragraph("StockPostmortem.ai - Your Trading Forensics Partner", footer_style))
+    
+    doc.build(elements, onFirstPage=draw_header, onLaterPages=draw_header)
+    return pdf_filename
+
 
 # ==========================================
 # 2. PREMIUM DARK THEME CSS (UNCHANGED)
@@ -3277,6 +3475,35 @@ NOW PERFORM THE ANALYSIS:
                     total_trades = len(df)
                     all_tags = [tag for sublist in df['mistake_tags'] for tag in sublist]
                     top_mistake = pd.Series(all_tags).mode()[0] if all_tags else "None"
+
+                    # PDF Download Button
+                    st.markdown('<div style="margin-bottom: 20px;">', unsafe_allow_html=True)
+                    col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 2])
+                    with col_btn1:
+                        if st.button("📄 Generate PDF Report", type="primary", key="pdf_button", use_container_width=True):
+                            with st.spinner("Generating PDF..."):
+                                try:
+                                    pdf_file = generate_pdf_report(df, st.session_state['user'])
+                                    with open(pdf_file, 'rb') as f:
+                                        pdf_bytes = f.read()
+                                    st.download_button(
+                                        label="⬇️ Download Report",
+                                        data=pdf_bytes,
+                                        file_name=f"StockPostmortem_Report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                                        mime="application/pdf",
+                                        type="primary",
+                                        key="download_pdf",
+                                        use_container_width=True
+                                    )
+                                    st.success("✅ PDF Ready!")
+                                    try:
+                                        os.unlink(pdf_file)
+                                    except:
+                                        pass
+                                except Exception as e:
+                                    st.error(f"Error: {str(e)}")
+                    st.markdown('</div>', unsafe_allow_html=True)
+                    
                 
                     # Calculate win rate (scores > 60 = good trades)
                     win_rate = len(df[df['score'] > 60]) / len(df) * 100 if len(df) > 0 else 0
