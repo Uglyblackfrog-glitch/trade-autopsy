@@ -23,4 +23,5 @@ pandas
 Pillow
 supabase
 huggingface_hub
+reportlab
 
