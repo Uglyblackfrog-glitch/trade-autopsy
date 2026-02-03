@@ -996,6 +996,68 @@ st.markdown("""
         background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
         background-color: #10b981 !important;
     }
+    
+    /* === NEW: Better Output Formatting === */
+    .analysis-section {
+        margin-bottom: 30px;
+        padding: 24px;
+        background: rgba(255, 255, 255, 0.02);
+        border-radius: 12px;
+        border-left: 4px solid #10b981;
+    }
+    
+    .analysis-section h3 {
+        color: #10b981;
+        font-size: 1.1rem;
+        margin-bottom: 16px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    
+    .analysis-content {
+        color: #d1d5db;
+        line-height: 1.9;
+        font-size: 0.95rem;
+    }
+    
+    .analysis-content p {
+        margin-bottom: 14px;
+    }
+    
+    .analysis-content ul, .analysis-content ol {
+        margin-left: 20px;
+        margin-bottom: 14px;
+    }
+    
+    .analysis-content li {
+        margin-bottom: 10px;
+        padding-left: 8px;
+    }
+    
+    .key-stat {
+        display: inline-block;
+        background: rgba(16, 185, 129, 0.15);
+        color: #10b981;
+        padding: 4px 12px;
+        border-radius: 6px;
+        font-family: 'JetBrains Mono', monospace;
+        font-weight: 600;
+        font-size: 0.9rem;
+        margin: 0 4px;
+    }
+    
+    .warning-stat {
+        display: inline-block;
+        background: rgba(239, 68, 68, 0.15);
+        color: #ef4444;
+        padding: 4px 12px;
+        border-radius: 6px;
+        font-family: 'JetBrains Mono', monospace;
+        font-weight: 600;
+        font-size: 0.9rem;
+        margin: 0 4px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -1015,6 +1077,76 @@ def clean_text(text):
     text = re.sub(r'<[^>]+>', '', text)
     text = re.sub(r'```[\s\S]*?```', '', text)
     return text.strip()
+
+def extract_numbers_safely(text):
+    """
+    CRITICAL FIX #1: Extract numbers from text while handling Indian Rupee symbol
+    and preventing hallucinations like adding "2" prefix
+    """
+    # Remove Indian Rupee symbol and common prefixes that cause hallucination
+    text = str(text).replace('₹', '').replace('Rs', '').replace('INR', '')
+    
+    # Remove commas for Indian number format
+    text = text.replace(',', '')
+    
+    # Extract just the numeric value
+    match = re.search(r'[-]?[\d]+\.?[\d]*', text)
+    if match:
+        try:
+            return float(match.group())
+        except:
+            return 0.0
+    return 0.0
+
+def format_currency(value):
+    """Format currency with proper Indian formatting"""
+    if value is None:
+        return "₹0"
+    try:
+        value = float(value)
+        if value >= 10000000:  # 1 crore
+            return f"₹{value/10000000:.2f}Cr"
+        elif value >= 100000:  # 1 lakh
+            return f"₹{value/100000:.2f}L"
+        elif value >= 1000:
+            return f"₹{value/1000:.2f}K"
+        else:
+            return f"₹{value:.2f}"
+    except:
+        return "₹0"
+
+def detect_trade_state(text):
+    """
+    CRITICAL FIX #2: Detect if trade is REALIZED (closed) or UNREALIZED (open)
+    Returns: 'REALIZED', 'UNREALIZED', or 'UNKNOWN'
+    """
+    text_lower = text.lower()
+    
+    # Strong indicators of realized/closed trade
+    realized_keywords = [
+        'realized p&l', 'realized p/l', 'realized pnl',
+        'closed position', 'trade closed', 'exit completed',
+        'booked profit', 'booked loss', 'settled'
+    ]
+    
+    # Strong indicators of unrealized/open trade
+    unrealized_keywords = [
+        'unrealized p&l', 'unrealized p/l', 'unrealized pnl',
+        'open position', 'current p&l', 'current p/l',
+        'mark to market', 'mtm', 'floating p&l'
+    ]
+    
+    # Check for realized
+    for keyword in realized_keywords:
+        if keyword in text_lower:
+            return 'REALIZED'
+    
+    # Check for unrealized
+    for keyword in unrealized_keywords:
+        if keyword in text_lower:
+            return 'UNREALIZED'
+    
+    return 'UNKNOWN'
 
 def validate_score(score, min_val=0, max_val=100, context=None):
     """
@@ -1063,11 +1195,15 @@ def parse_report(text):
         "exit_quality": 50,
         "risk_score": 50,
         "strength": "",
-        "critical_error": ""
+        "critical_error": "",
+        "trade_state": "UNKNOWN"  # NEW: Track if trade is realized or unrealized
     }
     
     # Clean text first
     text = clean_text(text)
+    
+    # NEW: Detect trade state (realized vs unrealized)
+    sections['trade_state'] = detect_trade_state(text)
     
     # NEW: Crisis detection from content
     is_crisis = False
@@ -1208,10 +1344,19 @@ def parse_report(text):
                 # Filter out HTML/code
                 content = re.sub(r'<[^>]+>', '', content)
                 content = re.sub(r'```[\s\S]*?```', '', content)
-                # Remove excessive whitespace
-                content = ' '.join(content.split())
-                if len(content) > 15:
-                    sections[key] = content
+                
+                # NEW: Better formatting - preserve structure
+                # Split into paragraphs and clean each
+                paragraphs = content.split('\n\n')
+                cleaned_paragraphs = []
+                for para in paragraphs:
+                    # Clean excessive whitespace within paragraph
+                    para = ' '.join(para.split())
+                    if len(para) > 15:
+                        cleaned_paragraphs.append(para)
+                
+                if cleaned_paragraphs:
+                    sections[key] = '\n\n'.join(cleaned_paragraphs)
                     break
         
         # Better fallback messages
@@ -1264,15 +1409,95 @@ def generate_insights(df):
     
     return insights if insights else ["✅ Performance metrics within normal parameters."]
 
+def format_analysis_text(text):
+    """
+    CRITICAL FIX #4: Format analysis text for better readability
+    Converts wall of text into structured, readable format
+    """
+    if not text or len(text) < 20:
+        return text
+    
+    # Split into sentences
+    sentences = re.split(r'(?<=[.!?])\s+', text)
+    
+    # Group sentences into logical paragraphs (every 2-3 sentences)
+    paragraphs = []
+    current_para = []
+    
+    for i, sentence in enumerate(sentences):
+        current_para.append(sentence)
+        # Create new paragraph every 2-3 sentences or at natural breaks
+        if len(current_para) >= 2 and (
+            i == len(sentences) - 1 or 
+            any(marker in sentence for marker in ['However,', 'Additionally,', 'Furthermore,', 'Moreover,', 'Specifically,'])
+        ):
+            paragraphs.append(' '.join(current_para))
+            current_para = []
+    
+    # Add any remaining sentences
+    if current_para:
+        paragraphs.append(' '.join(current_para))
+    
+    # Convert key numbers to highlighted stats
+    formatted_paragraphs = []
+    for para in paragraphs:
+        # Highlight percentages
+        para = re.sub(r'([-]?\d+\.?\d*%)', r'<span class="key-stat">\1</span>', para)
+        # Highlight currency amounts (positive)
+        para = re.sub(r'(₹[\d,]+\.?\d*)', r'<span class="key-stat">\1</span>', para)
+        # Highlight negative amounts as warnings
+        para = re.sub(r'(-₹[\d,]+\.?\d*)', r'<span class="warning-stat">\1</span>', para)
+        formatted_paragraphs.append(f'<p>{para}</p>')
+    
+    return ''.join(formatted_paragraphs)
+
 def call_vision_api(prompt, img_b64, max_retries=3):
-    """FIXED: Call vision API with better retry logic, error handling, and response validation"""
+    """
+    ENHANCED: Call vision API with anti-hallucination instructions
+    This is the MOST CRITICAL fix for preventing number hallucinations
+    """
     for attempt in range(max_retries):
         try:
+            # Add explicit instructions about number reading
+            enhanced_prompt = f"""{prompt}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CRITICAL IMAGE READING INSTRUCTIONS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+When reading numbers from the image:
+1. The Indian Rupee symbol (₹) is NOT the digit "2" - do not add "2" prefix to numbers
+2. Read numbers EXACTLY as shown in the image
+3. If you see "₹66.95", report it as 66.95, NOT 266.95
+4. If you see "₹4,507.5", report it as 4,507.5, NOT 24,507.5
+5. Double-check all numeric values against what's ACTUALLY visible in the image
+6. Pay close attention to whether P&L says "Realized" or "Unrealized"
+7. Count the ACTUAL number of positions visible in the image - do not hallucinate
+8. If the image shows "Realized P&L", the position is CLOSED - do not suggest closing it
+9. If the image shows "Unrealized P&L", the position is OPEN - you can suggest actions
+10. Be consistent: if you count X positions, say X positions throughout your analysis
+
+FORBIDDEN ACTIONS:
+❌ Do NOT add digits that aren't in the image (like adding "2" prefix)
+❌ Do NOT confuse currency symbols with numbers
+❌ Do NOT suggest closing positions that are already closed (Realized P&L)
+❌ Do NOT say "10 positions" in one place and "1 position" in another
+
+VERIFICATION CHECKLIST - Ask yourself before submitting:
+✓ Did I add any extra digits to the numbers shown?
+✓ Did I confuse ₹ symbol with the digit 2?
+✓ Did I correctly identify if this is Realized vs Unrealized P&L?
+✓ Does my position count match the actual image?
+✓ Am I being consistent throughout my analysis?
+
+NOW PROCEED WITH ANALYSIS:
+"""
+            
             messages = [
                 {
                     "role": "user", 
                     "content": [
-                        {"type": "text", "text": prompt},
+                        {"type": "text", "text": enhanced_prompt},
                         {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}}
                     ]
                 }
@@ -1281,8 +1506,8 @@ def call_vision_api(prompt, img_b64, max_retries=3):
             payload = {
                 "model": "Qwen/Qwen2.5-VL-7B-Instruct",
                 "messages": messages,
-                "max_tokens": 2000,  # INCREASED from 1500
-                "temperature": 0.2,  # DECREASED from 0.3 for more consistency
+                "max_tokens": 2500,  # INCREASED from 2000 for better output
+                "temperature": 0.15,  # DECREASED from 0.2 for more consistency
                 "top_p": 0.9
             }
             
@@ -1291,7 +1516,7 @@ def call_vision_api(prompt, img_b64, max_retries=3):
                 "Content-Type": "application/json"
             }
             
-            res = requests.post(API_URL, headers=headers, json=payload, timeout=90)
+            res = requests.post(API_URL, headers=headers, json=payload, timeout=120)
             
             if res.status_code == 200:
                 content = res.json()["choices"][0]["message"]["content"]
@@ -1846,6 +2071,12 @@ CRITICAL RULES:
                                 raw_response = res.json()["choices"][0]["message"]["content"]
                                 report = parse_report(raw_response)
                                 
+                                # Display trade state warning if detected
+                                if report.get('trade_state') == 'REALIZED':
+                                    st.info("ℹ️ **Note:** This analysis includes CLOSED/REALIZED positions. These positions have already been exited.")
+                                elif report.get('trade_state') == 'UNREALIZED':
+                                    st.warning("⚠️ **Note:** This analysis includes OPEN/UNREALIZED positions. Consider the action plan carefully before making changes.")
+                                
                                 # Save to database
                                 save_analysis(current_user, report, "PORTFOLIO")
                                 
@@ -1962,32 +2193,26 @@ CRITICAL RULES:
                                 with col_left:
                                     st.markdown('<div class="result-card animate-slide-up" style="animation-delay: 0.4s;">', unsafe_allow_html=True)
                                     st.markdown("""
-                                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
-                                        <div style="font-size: 1.8rem;">📊</div>
-                                        <div style="font-size: 1rem; font-weight: 700; color: #3b82f6; text-transform: uppercase; letter-spacing: 1px;">
-                                            Portfolio Structure
-                                        </div>
-                                    </div>
+                                    <div class="analysis-section">
+                                        <h3>📊 PORTFOLIO STRUCTURE ANALYSIS</h3>
+                                        <div class="analysis-content">
                                     """, unsafe_allow_html=True)
-                                    st.markdown(f"""
-                                    <div style="color: #d1d5db; line-height: 1.8; font-size: 0.92rem;">
-                                        {report['tech']}
+                                    st.markdown(format_analysis_text(report['tech']), unsafe_allow_html=True)
+                                    st.markdown("""
+                                        </div>
                                     </div>
                                     """, unsafe_allow_html=True)
                                     st.markdown('</div>', unsafe_allow_html=True)
                                     
                                     st.markdown('<div class="result-card animate-slide-up" style="animation-delay: 0.6s;">', unsafe_allow_html=True)
                                     st.markdown("""
-                                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
-                                        <div style="font-size: 1.8rem;">⚠️</div>
-                                        <div style="font-size: 1rem; font-weight: 700; color: #f59e0b; text-transform: uppercase; letter-spacing: 1px;">
-                                            Risk Analysis
-                                        </div>
-                                    </div>
+                                    <div class="analysis-section">
+                                        <h3>⚠️ RISK ASSESSMENT</h3>
+                                        <div class="analysis-content">
                                     """, unsafe_allow_html=True)
-                                    st.markdown(f"""
-                                    <div style="color: #d1d5db; line-height: 1.8; font-size: 0.92rem;">
-                                        {report['risk']}
+                                    st.markdown(format_analysis_text(report['risk']), unsafe_allow_html=True)
+                                    st.markdown("""
+                                        </div>
                                     </div>
                                     """, unsafe_allow_html=True)
                                     st.markdown('</div>', unsafe_allow_html=True)
@@ -1995,32 +2220,26 @@ CRITICAL RULES:
                                 with col_right:
                                     st.markdown('<div class="result-card animate-slide-up" style="animation-delay: 0.5s;">', unsafe_allow_html=True)
                                     st.markdown("""
-                                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
-                                        <div style="font-size: 1.8rem;">🧠</div>
-                                        <div style="font-size: 1rem; font-weight: 700; color: #8b5cf6; text-transform: uppercase; letter-spacing: 1px;">
-                                            Behavioral Analysis
-                                        </div>
-                                    </div>
+                                    <div class="analysis-section">
+                                        <h3>🧠 BEHAVIORAL PATTERN ANALYSIS</h3>
+                                        <div class="analysis-content">
                                     """, unsafe_allow_html=True)
-                                    st.markdown(f"""
-                                    <div style="color: #d1d5db; line-height: 1.8; font-size: 0.92rem;">
-                                        {report['psych']}
+                                    st.markdown(format_analysis_text(report['psych']), unsafe_allow_html=True)
+                                    st.markdown("""
+                                        </div>
                                     </div>
                                     """, unsafe_allow_html=True)
                                     st.markdown('</div>', unsafe_allow_html=True)
                                     
                                     st.markdown('<div class="result-card animate-slide-up" style="animation-delay: 0.7s;">', unsafe_allow_html=True)
                                     st.markdown("""
-                                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
-                                        <div style="font-size: 1.8rem;">🎯</div>
-                                        <div style="font-size: 1rem; font-weight: 700; color: #10b981; text-transform: uppercase; letter-spacing: 1px;">
-                                            Recovery Roadmap
-                                        </div>
-                                    </div>
+                                    <div class="analysis-section">
+                                        <h3>🎯 RECOVERY ROADMAP</h3>
+                                        <div class="analysis-content">
                                     """, unsafe_allow_html=True)
-                                    st.markdown(f"""
-                                    <div style="color: #d1d5db; line-height: 1.8; font-size: 0.92rem;">
-                                        {report['fix']}
+                                    st.markdown(format_analysis_text(report['fix']), unsafe_allow_html=True)
+                                    st.markdown("""
+                                        </div>
                                     </div>
                                     """, unsafe_allow_html=True)
                                     st.markdown('</div>', unsafe_allow_html=True)
@@ -2935,6 +3154,12 @@ NOW PERFORM THE ANALYSIS:
                         
                         # Parse with improved validation
                         report = parse_report(raw_response)
+                        
+                        # Display trade state warning if detected
+                        if report.get('trade_state') == 'REALIZED':
+                            st.info("ℹ️ **Note:** This analysis is for a CLOSED/REALIZED trade. The position has already been exited.")
+                        elif report.get('trade_state') == 'UNREALIZED':
+                            st.warning("⚠️ **Note:** This analysis is for an OPEN/UNREALIZED position. Consider the action plan carefully.")
                         
                         # HALLUCINATION DETECTION
                         hallucination_detected = False
