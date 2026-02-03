@@ -1897,6 +1897,38 @@ THIS IS GROUND TRUTH DATA. Analyze based on these exact values.
 {portfolio_context}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🚨 CRITICAL ANALYSIS INSTRUCTIONS - READ TWICE 🚨
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. USE THE EXACT DATA PROVIDED ABOVE - DO NOT HALLUCINATE
+   - Drawdown is {total_pnl_pct:.2f}% (NOT -100% unless account is literally zero)
+   - Number of positions is {portfolio_num_positions} (say this consistently throughout)
+   - Current value: ₹{portfolio_current_value:,.0f} (they have NOT lost everything)
+
+2. DRAWDOWN CALCULATION IS ALREADY DONE CORRECTLY
+   - Formula used: ({portfolio_current_value:,.0f} - {portfolio_total_invested:,.0f}) / {portfolio_total_invested:,.0f} × 100 = {total_pnl_pct:.2f}%
+   - This means they have {100 + total_pnl_pct:.1f}% of capital remaining
+   - DO NOT recalculate or claim -100% unless numbers actually show zero
+
+3. EACH SECTION MUST PROVIDE UNIQUE VALUE
+   - DO NOT copy-paste "portfolio is not diversified..." in every bullet point
+   - DO NOT repeat same explanation 10 times
+   - Each action item needs a DIFFERENT, SPECIFIC reason
+   - Vary your language - use synonyms, different sentence structures
+
+4. SCORING MUST MATCH ACTUAL SEVERITY
+   Based on drawdown of {total_pnl_pct:.2f}%:
+   - If -10% to -20%: Overall Score 40-60, Risk Score 30-50
+   - If -20% to -30%: Overall Score 20-40, Risk Score 15-30  
+   - If -30% to -50%: Overall Score 5-20, Risk Score 5-15
+   - If worse than -50%: Overall Score 0-10, Risk Score 0-5
+
+5. POSITION COUNT MUST BE CONSISTENT
+   - If data shows {portfolio_num_positions} positions, say "{portfolio_num_positions} positions" everywhere
+   - DO NOT say "10 positions" in one place and "1 position" in another
+   - DO NOT hallucinate additional positions that don't exist
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 COMPREHENSIVE PORTFOLIO ANALYSIS FRAMEWORK:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -1971,70 +2003,138 @@ MANDATORY OUTPUT FORMAT:
 
 [TECH] PORTFOLIO STRUCTURE ANALYSIS:
 
-Portfolio Metrics: ₹{portfolio_total_invested:,.0f} invested → ₹{portfolio_current_value:,.0f} current = ₹{total_pnl:,.0f} ({total_pnl_pct:+.2f}%)
+⚠️ Use EXACT numbers from data provided. Do NOT hallucinate or approximate.
 
-Position Count Analysis: {portfolio_num_positions} positions. [Is this optimal? Too many to manage? Too few for diversification?]
+Portfolio Metrics: ₹{portfolio_total_invested:,.0f} invested → ₹{portfolio_current_value:,.0f} current = ₹{total_pnl:,.0f} P&L ({total_pnl_pct:+.2f}% return)
 
-Top Holdings Impact: {portfolio_top_holdings if portfolio_top_holdings else "Not provided"}. [Concentration risk assessment]
+Drawdown Assessment: The {total_pnl_pct:.2f}% loss is [CATASTROPHIC >50% / SEVERE 30-50% / MAJOR 20-30% / CONCERNING 10-20% / MINOR 5-10% / ACCEPTABLE <5%]. This represents ₹{abs(total_pnl):,.0f} in capital erosion.
 
-Sector Exposure: {portfolio_sectors if portfolio_sectors else "Unknown"}. [Any dangerous concentration?]
+Position Count Analysis: {portfolio_num_positions} positions. [Evaluate:]
+- Is this optimal for portfolio size of ₹{portfolio_total_invested:,.0f}? (Rule of thumb: 8-12 for most retail)
+- Too many to monitor effectively? (>20 = over-diversified)
+- Too few for risk distribution? (<5 = concentration risk)
+- Average position should be ₹{portfolio_total_invested/portfolio_num_positions:,.0f} (₹{portfolio_current_value/portfolio_num_positions:,.0f} current)
 
-Crisis Positions: {portfolio_crisis_stocks if portfolio_crisis_stocks else "None listed"}. [Recovery likelihood? Should close?]
+Top Holdings Impact: {portfolio_top_holdings if portfolio_top_holdings else "Not provided"}.
+[Analyze concentration risk: If top 3 holdings >40% of portfolio, concentration is dangerous. Ideal is 8-12% per position.]
 
-[Provide specific technical commentary on portfolio construction, position sizing, diversification quality, and structural issues]
+Sector Exposure: {portfolio_sectors if portfolio_sectors else "Not specified"}.
+[Assess sector concentration: Any sector >30% is risky. Tech sector correlation can create cascading losses.]
+
+Crisis Positions: {portfolio_crisis_stocks if portfolio_crisis_stocks else "None listed"}. 
+[Evaluate recovery probability: Positions >50% underwater typically need 100%+ gain to recover = unlikely. Positions 30-50% down need 50-70% gain = difficult.]
+
+Position Sizing Discipline: [Based on worst loss {portfolio_largest_loss if portfolio_largest_loss else "unknown"}, was initial position size appropriate? If one position caused >20% portfolio damage, it was oversized.]
+
+Diversification Quality: [With {portfolio_num_positions} positions across {len(portfolio_crisis_stocks.split(',')) if portfolio_crisis_stocks else 0} crisis stocks, assess: Are positions truly diversified or just different names in same sector?]
+
+[Provide specific technical commentary on portfolio construction flaws, not generic statements. Use the actual numbers provided.]
 
 [PSYCH] BEHAVIORAL PORTFOLIO PSYCHOLOGY:
 
-Trading Approach: {portfolio_strategy} with {portfolio_time_horizon} horizon. [Is behavior aligned with stated goals?]
+Trading Approach: {portfolio_strategy} with {portfolio_time_horizon} horizon. [Assess if actual behavior matches stated goals - if claiming "long-term" but has 45% drawdown, they're likely NOT actually long-term]
 
-Decision-Making Patterns: [Based on crisis positions, worst loss, and description, analyze: Are they holding losers too long? Cutting winners early? FOMO buying? Revenge trading? Averaging down? Emotional attachment?]
+Decision-Making Patterns: 
+Based on worst position ({portfolio_largest_loss if portfolio_largest_loss else "see crisis positions"}), crisis stocks ({portfolio_crisis_stocks if portfolio_crisis_stocks else "none specified"}), and {total_pnl_pct:.2f}% overall drawdown, analyze:
 
-Discipline Assessment: [Evidence of trading plan? Stop loss usage? Position sizing rules? Or hope-based investing?]
+- Holding Losers: [If losses exceed -20%, they ARE holding losers too long - be honest]
+- Position Sizing Discipline: [If worst position shows catastrophic loss, sizing was poor - be honest]
+- Entry Timing: [FOMO buying? Chasing? Or disciplined entries at planned levels?]
+- Emotional Attachment: [Are they hoping positions recover? Or cutting losses systematically?]
+- Revenge Trading: [Any evidence of trying to "make it back" quickly?]
+- Fear vs Greed: [What's driving decisions - greed for gains or fear of losses?]
 
-{portfolio_leverage} - [If using leverage, address the psychological impact and risk]
+Discipline Assessment: 
+- Stop Loss Evidence: [Based on crisis positions - if ANY position shows >30% loss, NO stops were used - be direct about this]
+- Trading Plan: [Evidence of systematic approach? Or reactive emotional trading?]
+- Risk Management: [Do position sizes follow a rule? Or varying based on "conviction"?]
+- Journaling/Review: [Any signs of systematic learning? Or repeating same mistakes?]
 
-[Analyze the trader's MINDSET and behavioral patterns visible in portfolio structure]
+Leverage Psychology: {portfolio_leverage} [If using margin/options/futures, address the AMPLIFIED psychological pressure this creates. Margin forces bad decisions under stress.]
+
+[Be BRUTALLY HONEST about what the portfolio structure reveals. A -45% portfolio with no stops shows lack of discipline - say it directly. Don't sugarcoat with "no evidence of issues" when crisis is obvious.]
 
 [RISK] COMPREHENSIVE RISK ASSESSMENT:
 
-Portfolio Drawdown: {total_pnl_pct:.2f}% = [CATASTROPHIC/SEVERE/MAJOR/CONCERNING/MINOR/ACCEPTABLE]
+Portfolio Drawdown: {total_pnl_pct:.2f}% drawdown on ₹{portfolio_total_invested:,.0f} = ₹{abs(total_pnl):,.0f} capital loss.
 
-Position Sizing: Avg {100/portfolio_num_positions if portfolio_num_positions > 0 else 0:.1f}% per position with {portfolio_num_positions} holdings. [Assessment of sizing discipline]
+Severity Classification: [Based on {total_pnl_pct:.2f}% drawdown, classify as:]
+• If 0% to -5%: ACCEPTABLE - Normal market volatility
+• If -5% to -10%: MINOR CONCERN - Tighten risk controls
+• If -10% to -20%: CONCERNING - Review all positions
+• If -20% to -30%: MAJOR PROBLEM - Immediate action needed
+• If -30% to -50%: SEVERE CRISIS - Emergency restructuring required
+• If worse than -50%: CATASTROPHIC - Portfolio survival at risk
 
-Leverage Risk: {portfolio_leverage}. [If using margin/futures/options, this is RED FLAG - quantify danger]
+Current Status: {total_pnl_pct:.2f}% = [State the actual severity level based on above scale]
 
-Concentration Risk: [Based on top holdings and sector allocation, assess if too concentrated]
+Position Sizing Risk: 
+- Current portfolio: {portfolio_num_positions} positions
+- Average allocation: {100/portfolio_num_positions if portfolio_num_positions > 0 else 0:.1f}% per position (₹{portfolio_current_value/portfolio_num_positions if portfolio_num_positions > 0 else 0:,.0f})
+- Optimal allocation: 8-12% per position for most retail portfolios
+- Worst position: {portfolio_largest_loss if portfolio_largest_loss else "Not specified"}
+[If worst position shows >50% loss, it was clearly oversized or held without stops - quantify the damage]
 
-Stop Loss Implementation: [Based on crisis positions and description, are stops used? If not, bleeding continues]
+Leverage/Margin Risk: {portfolio_leverage}
+[Critical assessment:]
+- If using margin: Quantify margin call risk at various market decline levels
+- If using futures/options: Assess notional exposure vs cash
+- If cash only: Acknowledge lower risk but emphasize still need stops
 
-Recovery Mathematics: To recover {abs(total_pnl_pct):.1f}% loss requires {abs(total_pnl_pct)/(100+total_pnl_pct)*100 if total_pnl_pct < 0 else 0:.1f}% gain. Timeline: [Estimate 6mo/12mo/18mo/24mo+]
+Concentration Risk Analysis:
+- Top Holdings: {portfolio_top_holdings if portfolio_top_holdings else "Unknown"}
+- Sector Allocation: {portfolio_sectors if portfolio_sectors else "Unknown"}
+[If top 3 positions >40% or any sector >30%, this is HIGH RISK concentration]
 
-[Provide specific risk metrics and quantified danger assessment]
+Stop Loss Implementation: [Based on crisis positions showing {portfolio_crisis_stocks if portfolio_crisis_stocks else "no major losses"} and worst loss of {portfolio_largest_loss if portfolio_largest_loss else "unknown"}]
+- Evidence shows: [If positions have >30% losses, NO stops were used - state this clearly]
+- Going forward: MUST implement -10% hard stops on every position
+- Current bleeding: Each day without stops = continued uncontrolled losses
 
-[FIX] PORTFOLIO RESTRUCTURING ROADMAP:
+Recovery Mathematics: 
+To recover {abs(total_pnl_pct):.1f}% loss requires {abs(total_pnl_pct)/(100+total_pnl_pct)*100 if total_pnl_pct < 0 else 0:.1f}% gain on remaining capital.
 
-IMMEDIATE (Next 24-48 hours):
-1. [Most urgent action - usually investigate leverage, close worst positions, or stop new trades]
-2. [Second priority - typically implement stops or hedge risks]
-3. [Third priority - usually calculate actual losses and set recovery plan]
+Example: 
+- -45% loss needs +82% gain to break even (NOT +45%)
+- At 2% monthly growth = 41 months = 3.4 years
+- At 5% monthly growth = 16 months = 1.3 years (aggressive, risky)
 
-SHORT TERM (1-4 weeks):
-1. [Position reduction/consolidation - specific numbers]
-2. [Stop loss implementation - specific % levels]
-3. [Sector rebalancing if needed]
-4. [Close beyond-recovery positions]
+Timeline Estimate: [Provide realistic recovery timeline: 6 months / 12 months / 18-24 months / 24+ months based on drawdown severity and market conditions]
 
-LONG TERM (1-6 months):
-1. [Complete portfolio restructuring strategy]
-2. [Education/skill development needs]
-3. [New risk management framework]
-4. [Psychology reset and habit building]
+Survival Probability: [If drawdown >40%, assess: Can portfolio survive another -20% market correction? If not, URGENT hedge/reduction needed]
 
-Position Sizing Rule Going Forward: Risk no more than 1-2% per position (₹{portfolio_total_invested*0.02:,.0f} max per trade)
+[FIX] PORTFOLIO RECOVERY ACTION PLAN:
 
-[STRENGTH] [Find something positive even in disaster: diversification across sectors? at least some winners? closed positions before -100%? still has capital to recover?]
+⚠️ CRITICAL: Each bullet point below MUST have a UNIQUE, SPECIFIC explanation. DO NOT repeat the same phrase in multiple bullets.
 
-[CRITICAL_ERROR] [The single biggest portfolio-level mistake: usually no stops, concentration, leverage, or holding losers. Be specific with numbers/names]
+IMMEDIATE ACTIONS (Next 24-48 Hours):
+1. [Most urgent action - Be SPECIFIC: "Close ADANIPOWER (-277%) as recovery unlikely beyond 24 months" NOT generic "close positions"]
+2. [Second priority - Be SPECIFIC: "Implement -10% trailing stop on RELIANCE and TCS" NOT "implement stops"]
+3. [Third priority - Be SPECIFIC: "Calculate margin usage: if >25%, reduce to 15% immediately" NOT "calculate losses"]
+
+Each action above needs DIFFERENT reasoning - explain WHY this action, not just WHAT action.
+
+SHORT-TERM RECOVERY (1-4 Weeks):
+1. [Position count - Be SPECIFIC: "Reduce from {portfolio_num_positions} to 8 core positions, exit low-conviction holdings" NOT "consolidate positions"]
+2. [Stop implementation - Be SPECIFIC: "Set -10% stop on IT stocks, -15% on cyclicals based on volatility" NOT "use stops"]
+3. [Sector rebalance - Be SPECIFIC: "Reduce IT from 40% to 30%, add defensive pharma 15%" NOT "rebalance sectors"]
+4. [Exit criteria - Be SPECIFIC: "Exit any position >50% underwater if no catalyst within 30 days" NOT "close losers"]
+
+Each action above needs UNIQUE justification based on portfolio specifics.
+
+LONG-TERM REHABILITATION (1-6 Months):
+1. [Restructuring - Be SPECIFIC about new allocation model based on risk tolerance]
+2. [Education - Be SPECIFIC: "Complete [specific course] on position sizing and risk management"]
+3. [Risk framework - Be SPECIFIC: "Implement rule: max 2% risk per trade, max 6% portfolio risk"]
+4. [Psychology - Be SPECIFIC: "Start trading journal, weekly review with mentor, daily meditation"]
+
+Position Sizing Rule: Risk max 1-2% per position (₹{portfolio_total_invested*0.02:,.0f} per trade). This means with ₹{portfolio_total_invested:,.0f} capital, stops should limit loss to ₹{portfolio_total_invested*0.02:,.0f} maximum per position.
+
+Recovery Timeline: To recover {abs(total_pnl_pct):.1f}% loss requires {abs(total_pnl_pct)/(100+total_pnl_pct)*100 if total_pnl_pct < 0 else 0:.1f}% gain. At 2% monthly growth = {abs(total_pnl_pct)/(100+total_pnl_pct)*100/2 if total_pnl_pct < 0 else 0:.0f} months. Be realistic about timeline.
+
+[STRENGTH] [Find at least ONE positive aspect even in disaster scenarios. Examples: "Portfolio size is small enough that this lesson won't cause financial ruin - treat this as expensive education" / "At least diversified across {portfolio_num_positions} stocks vs single-stock concentration" / "Exited positions before total (-100%) loss" / "Has {100 + total_pnl_pct:.1f}% capital remaining to rebuild with proper system" / "Seeking analysis shows willingness to learn and improve" / "Some winners exist - shows capability to identify good setups when disciplined"]
+
+[CRITICAL_ERROR] [Identify the SINGLE biggest portfolio-level mistake using actual data. Be specific with numbers/names. Examples: "No stop losses: Holding {portfolio_crisis_stocks} with >30% losses instead of cutting at -10%" / "Position sizing: {portfolio_largest_loss} loss from oversized position" / "Concentration risk: Top 3 holdings represent 60% of portfolio instead of 30% max" / "Leverage: Using {portfolio_leverage} which amplified -20% market move to -45% portfolio loss" / "{portfolio_num_positions} positions is too many to actively manage - spreading attention too thin"]
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 CRITICAL RULES:
