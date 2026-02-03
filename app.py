@@ -272,6 +272,187 @@ def generate_pdf_report(df, username):
     return pdf_filename
 
 
+def generate_single_trade_pdf(report, ticker, username):
+    """Generate a high-quality PDF for a single trade analysis"""
+    temp_pdf = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
+    pdf_filename = temp_pdf.name
+    temp_pdf.close()
+    
+    doc = SimpleDocTemplate(pdf_filename, pagesize=A4, rightMargin=0.5*inch, leftMargin=0.5*inch, topMargin=0.5*inch, bottomMargin=0.5*inch)
+    elements = []
+    styles = getSampleStyleSheet()
+    
+    # Custom styles with dark theme
+    title_style = ParagraphStyle('CustomTitle', parent=styles['Heading1'], fontSize=32, textColor=colors.HexColor('#10b981'), spaceAfter=8, alignment=TA_CENTER, fontName='Helvetica-Bold')
+    subtitle_style = ParagraphStyle('CustomSubtitle', parent=styles['Normal'], fontSize=11, textColor=colors.HexColor('#6b7280'), spaceAfter=20, alignment=TA_CENTER, fontName='Helvetica')
+    section_style = ParagraphStyle('SectionHeader', parent=styles['Heading2'], fontSize=18, textColor=colors.HexColor('#10b981'), spaceAfter=12, spaceBefore=20, fontName='Helvetica-Bold')
+    text_style = ParagraphStyle('BodyText', parent=styles['Normal'], fontSize=11, textColor=colors.HexColor('#e5e7eb'), leading=16, spaceAfter=10, fontName='Helvetica')
+    label_style = ParagraphStyle('Label', parent=styles['Normal'], fontSize=10, textColor=colors.HexColor('#f59e0b'), fontName='Helvetica-Bold', spaceAfter=4)
+    
+    # Dark background
+    def draw_dark_bg(canvas, doc):
+        canvas.saveState()
+        # Main dark background
+        canvas.setFillColor(colors.HexColor('#0a0a0f'))
+        canvas.rect(0, 0, A4[0], A4[1], fill=True, stroke=False)
+        # Top accent bar
+        canvas.setFillColor(colors.HexColor('#10b981'))
+        canvas.rect(0, A4[1] - 0.8*inch, A4[0], 0.8*inch, fill=True, stroke=False)
+        # Bottom accent
+        canvas.setFillColor(colors.HexColor('#1a1a24'))
+        canvas.rect(0, 0, A4[0], 0.5*inch, fill=True, stroke=False)
+        canvas.restoreState()
+    
+    # Header
+    elements.append(Spacer(1, 0.2*inch))
+    elements.append(Paragraph("🩸 STOCKPOSTMORTEM.AI", title_style))
+    elements.append(Paragraph("TRADE FORENSIC ANALYSIS", subtitle_style))
+    elements.append(Paragraph(f"{datetime.now().strftime('%B %d, %Y • %H:%M')}", subtitle_style))
+    elements.append(Spacer(1, 0.2*inch))
+    
+    # Divider
+    line_drawing = Drawing(500, 3)
+    line_drawing.add(Rect(0, 0, 500, 3, fillColor=colors.HexColor('#10b981'), strokeColor=None))
+    elements.append(line_drawing)
+    elements.append(Spacer(1, 0.3*inch))
+    
+    # Trade Header with Score
+    score = report.get('score', 0)
+    if score >= 80:
+        score_color = colors.HexColor('#10b981')
+        score_label = "EXCELLENT"
+    elif score >= 60:
+        score_color = colors.HexColor('#3b82f6')
+        score_label = "GOOD"
+    elif score >= 40:
+        score_color = colors.HexColor('#f59e0b')
+        score_label = "FAIR"
+    else:
+        score_color = colors.HexColor('#ef4444')
+        score_label = "POOR"
+    
+    # Score box
+    score_data = [
+        ['ASSET', 'SCORE', 'RATING', 'TRADER'],
+        [ticker, f"{score}/100", score_label, username]
+    ]
+    score_table = Table(score_data, colWidths=[1.8*inch, 1.8*inch, 1.8*inch, 1.8*inch])
+    score_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a1a24')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#10b981')),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 11),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+        ('TOPPADDING', (0, 0), (-1, 0), 10),
+        ('BACKGROUND', (0, 1), (-1, 1), colors.HexColor('#0f0f14')),
+        ('TEXTCOLOR', (0, 1), (0, 1), colors.HexColor('#e5e7eb')),
+        ('TEXTCOLOR', (1, 1), (1, 1), score_color),
+        ('TEXTCOLOR', (2, 1), (2, 1), score_color),
+        ('TEXTCOLOR', (3, 1), (3, 1), colors.HexColor('#e5e7eb')),
+        ('FONTNAME', (0, 1), (-1, 1), 'Helvetica-Bold'),
+        ('FONTSIZE', (1, 1), (1, 1), 24),
+        ('FONTSIZE', (2, 1), (2, 1), 14),
+        ('TOPPADDING', (0, 1), (-1, 1), 18),
+        ('BOTTOMPADDING', (0, 1), (-1, 1), 18),
+        ('LINEBELOW', (0, 0), (-1, 0), 2, colors.HexColor('#10b981')),
+        ('BOX', (0, 0), (-1, -1), 1.5, colors.HexColor('#1f2937')),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#374151')),
+    ]))
+    elements.append(score_table)
+    elements.append(Spacer(1, 0.35*inch))
+    
+    # Performance Breakdown
+    elements.append(Paragraph("📊 PERFORMANCE BREAKDOWN", section_style))
+    metrics_data = [
+        ['ENTRY QUALITY', 'EXIT QUALITY', 'RISK MANAGEMENT'],
+        [f"{report.get('entry_quality', 50)}/100", f"{report.get('exit_quality', 50)}/100", f"{report.get('risk_score', 50)}/100"]
+    ]
+    metrics_table = Table(metrics_data, colWidths=[2.4*inch, 2.4*inch, 2.4*inch])
+    metrics_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a1a24')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#10b981')),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 10),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('BACKGROUND', (0, 1), (-1, 1), colors.HexColor('#0f0f14')),
+        ('TEXTCOLOR', (0, 1), (-1, 1), colors.HexColor('#e5e7eb')),
+        ('FONTNAME', (0, 1), (-1, 1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 1), (-1, 1), 20),
+        ('TOPPADDING', (0, 1), (-1, 1), 15),
+        ('BOTTOMPADDING', (0, 1), (-1, 1), 15),
+        ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#1f2937')),
+    ]))
+    elements.append(metrics_table)
+    elements.append(Spacer(1, 0.3*inch))
+    
+    # Behavioral Tags
+    if report.get('tags'):
+        elements.append(Paragraph("🏷️ BEHAVIORAL PATTERNS", section_style))
+        tags_text = " • ".join(report['tags'][:6])
+        tags_para = Paragraph(tags_text, text_style)
+        elements.append(tags_para)
+        elements.append(Spacer(1, 0.25*inch))
+    
+    # Analysis Sections
+    sections = [
+        ("📈 TECHNICAL ANALYSIS", report.get('tech', 'N/A'), colors.HexColor('#3b82f6')),
+        ("⚠️ RISK ASSESSMENT", report.get('risk', 'N/A'), colors.HexColor('#f59e0b')),
+        ("🧠 PSYCHOLOGY PROFILE", report.get('psych', 'N/A'), colors.HexColor('#8b5cf6')),
+        ("🎯 ACTION PLAN", report.get('fix', 'N/A'), colors.HexColor('#10b981')),
+    ]
+    
+    for section_title, section_content, section_color in sections:
+        if section_content and section_content != 'N/A' and section_content != 'Analyzing...':
+            section_header_style = ParagraphStyle(
+                'CustomSection',
+                parent=styles['Heading2'],
+                fontSize=14,
+                textColor=section_color,
+                spaceAfter=10,
+                spaceBefore=15,
+                fontName='Helvetica-Bold'
+            )
+            elements.append(Paragraph(section_title, section_header_style))
+            
+            # Clean and format content
+            content_text = section_content.replace('\n', '<br/>')
+            content_para = Paragraph(content_text, text_style)
+            elements.append(content_para)
+            elements.append(Spacer(1, 0.2*inch))
+    
+    # Key Insights
+    if report.get('strength') and report.get('strength') != 'N/A':
+        elements.append(Spacer(1, 0.2*inch))
+        divider = Drawing(500, 2)
+        divider.add(Rect(0, 0, 500, 2, fillColor=colors.HexColor('#374151'), strokeColor=None))
+        elements.append(divider)
+        elements.append(Spacer(1, 0.2*inch))
+        
+        strength_style = ParagraphStyle('Strength', parent=styles['Heading2'], fontSize=13, textColor=colors.HexColor('#10b981'), spaceAfter=8, fontName='Helvetica-Bold')
+        elements.append(Paragraph("💪 WHAT WENT WELL", strength_style))
+        elements.append(Paragraph(report['strength'], text_style))
+        elements.append(Spacer(1, 0.15*inch))
+    
+    if report.get('critical_error') and report.get('critical_error') != 'N/A':
+        error_style = ParagraphStyle('Error', parent=styles['Heading2'], fontSize=13, textColor=colors.HexColor('#ef4444'), spaceAfter=8, fontName='Helvetica-Bold')
+        elements.append(Paragraph("⛔ CRITICAL ERROR", error_style))
+        elements.append(Paragraph(report['critical_error'], text_style))
+    
+    # Footer
+    elements.append(Spacer(1, 0.4*inch))
+    footer_line = Drawing(500, 2)
+    footer_line.add(Rect(0, 0, 500, 2, fillColor=colors.HexColor('#10b981'), strokeColor=None))
+    elements.append(footer_line)
+    elements.append(Spacer(1, 0.1*inch))
+    footer_style = ParagraphStyle('Footer', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#6b7280'), alignment=TA_CENTER)
+    elements.append(Paragraph("StockPostmortem.ai • Trade Forensics & Performance Analytics", footer_style))
+    elements.append(Paragraph(f"Report ID: {datetime.now().strftime('%Y%m%d%H%M%S')} • Confidential Trading Analysis", footer_style))
+    
+    doc.build(elements, onFirstPage=draw_dark_bg, onLaterPages=draw_dark_bg)
+    return pdf_filename
+
+
 # ==========================================
 # 2. PREMIUM DARK THEME CSS (UNCHANGED)
 # ==========================================
@@ -3449,6 +3630,42 @@ NOW PERFORM THE ANALYSIS:
                                     """, unsafe_allow_html=True)
                             
                             st.markdown('</div>', unsafe_allow_html=True)
+                    
+                        # ==========================================
+                        # INDIVIDUAL TRADE PDF DOWNLOAD BUTTON
+                        # ==========================================
+                        st.markdown('<div style="margin: 30px 0 20px 0;">', unsafe_allow_html=True)
+                        pdf_col1, pdf_col2, pdf_col3 = st.columns([1, 2, 1])
+                        with pdf_col2:
+                            if st.button("📄 Generate PDF Report for This Trade", type="primary", key=f"pdf_single_{datetime.now().timestamp()}", use_container_width=True):
+                                with st.spinner("🔨 Crafting your professional PDF report..."):
+                                    try:
+                                        # Generate PDF
+                                        pdf_file = generate_single_trade_pdf(report, ticker_val, st.session_state['user'])
+                                        with open(pdf_file, 'rb') as f:
+                                            pdf_bytes = f.read()
+                                        
+                                        # Download button
+                                        st.download_button(
+                                            label="⬇️ Download Trade Analysis PDF",
+                                            data=pdf_bytes,
+                                            file_name=f"Trade_Analysis_{ticker_val}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                                            mime="application/pdf",
+                                            type="primary",
+                                            key=f"download_single_{datetime.now().timestamp()}",
+                                            use_container_width=True
+                                        )
+                                        st.success("✅ PDF Generated Successfully!")
+                                        
+                                        # Clean up temp file
+                                        try:
+                                            os.unlink(pdf_file)
+                                        except:
+                                            pass
+                                    except Exception as e:
+                                        st.error(f"❌ PDF Generation Error: {str(e)}")
+                                        st.info("💡 Tip: Try refreshing the page or running a new analysis")
+                        st.markdown('</div>', unsafe_allow_html=True)
                     
                     except Exception as e:
                         st.error(f"⚠️ Analysis Failed: {str(e)}")
