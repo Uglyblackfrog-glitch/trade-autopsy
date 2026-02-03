@@ -3637,34 +3637,54 @@ NOW PERFORM THE ANALYSIS:
                         st.markdown('<div style="margin: 30px 0 20px 0;">', unsafe_allow_html=True)
                         pdf_col1, pdf_col2, pdf_col3 = st.columns([1, 2, 1])
                         with pdf_col2:
-                            if st.button("📄 Generate PDF Report for This Trade", type="primary", key=f"pdf_single_{datetime.now().timestamp()}", use_container_width=True):
+                            # Create stable key based on report data
+                            pdf_key = f"pdf_single_{ticker_val}_{report.get('score', 0)}"
+                            
+                            if st.button("📄 Generate PDF Report for This Trade", type="primary", key=pdf_key, use_container_width=True):
                                 with st.spinner("🔨 Crafting your professional PDF report..."):
                                     try:
-                                        # Generate PDF
-                                        pdf_file = generate_single_trade_pdf(report, ticker_val, st.session_state['user'])
-                                        with open(pdf_file, 'rb') as f:
-                                            pdf_bytes = f.read()
-                                        
-                                        # Download button
-                                        st.download_button(
-                                            label="⬇️ Download Trade Analysis PDF",
-                                            data=pdf_bytes,
-                                            file_name=f"Trade_Analysis_{ticker_val}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
-                                            mime="application/pdf",
-                                            type="primary",
-                                            key=f"download_single_{datetime.now().timestamp()}",
-                                            use_container_width=True
-                                        )
-                                        st.success("✅ PDF Generated Successfully!")
-                                        
-                                        # Clean up temp file
-                                        try:
-                                            os.unlink(pdf_file)
-                                        except:
-                                            pass
+                                        # Debug: Check if function exists
+                                        if 'generate_single_trade_pdf' not in dir():
+                                            st.error("❌ Error: PDF generation function not found. Please refresh the page.")
+                                        else:
+                                            # Generate PDF
+                                            pdf_file = generate_single_trade_pdf(report, ticker_val, st.session_state['user'])
+                                            
+                                            # Check if file was created
+                                            if not pdf_file or not os.path.exists(pdf_file):
+                                                st.error("❌ Error: PDF file was not created")
+                                            else:
+                                                with open(pdf_file, 'rb') as f:
+                                                    pdf_bytes = f.read()
+                                                
+                                                if len(pdf_bytes) == 0:
+                                                    st.error("❌ Error: PDF file is empty")
+                                                else:
+                                                    # Download button
+                                                    download_key = f"download_single_{ticker_val}_{report.get('score', 0)}"
+                                                    st.download_button(
+                                                        label="⬇️ Download Trade Analysis PDF",
+                                                        data=pdf_bytes,
+                                                        file_name=f"Trade_Analysis_{ticker_val}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                                                        mime="application/pdf",
+                                                        type="primary",
+                                                        key=download_key,
+                                                        use_container_width=True
+                                                    )
+                                                    st.success("✅ PDF Generated Successfully!")
+                                                
+                                                # Clean up temp file
+                                                try:
+                                                    os.unlink(pdf_file)
+                                                except:
+                                                    pass
+                                    except ImportError as ie:
+                                        st.error(f"❌ Missing Library: {str(ie)}")
+                                        st.info("💡 Make sure 'reportlab' is in your requirements.txt file on GitHub")
                                     except Exception as e:
                                         st.error(f"❌ PDF Generation Error: {str(e)}")
-                                        st.info("💡 Tip: Try refreshing the page or running a new analysis")
+                                        st.code(f"Error details: {type(e).__name__}: {str(e)}")
+                                        st.info("💡 Tips:\n- Make sure reportlab is installed\n- Try refreshing the page\n- Run a new analysis")
                         st.markdown('</div>', unsafe_allow_html=True)
                     
                     except Exception as e:
