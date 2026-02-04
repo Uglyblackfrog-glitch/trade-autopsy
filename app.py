@@ -1506,6 +1506,13 @@ def extract_structured_data(text):
     
     return data
 
+def parse_report(text):
+    """
+    Parse AI report text and extract structured data
+    Alias for extract_structured_data for backward compatibility
+    """
+    return extract_structured_data(text)
+
 def encode_image_to_base64(image_file):
     """Convert uploaded image to base64 string"""
     return base64.b64encode(image_file.getvalue()).decode('utf-8')
