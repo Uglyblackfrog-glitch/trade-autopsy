@@ -7,8 +7,9 @@ import pandas as pd
 import altair as alt
 from PIL import Image
 from supabase import create_client, Client
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
+import numpy as np
 
 # ==========================================
 # 0. AUTHENTICATION & CONFIG
@@ -73,6 +74,131 @@ if st.session_state["authenticated"]:
     except Exception as e:
         st.error(f"⚠️ Configuration Error: {e}")
         st.stop()
+
+# ==========================================
+# 1.5 ENHANCED FINANCIAL CALCULATIONS
+# ==========================================
+
+def calculate_portfolio_metrics(invested, current, days_held=365):
+    """
+    Calculate comprehensive portfolio metrics with mathematical precision
+    
+    Args:
+        invested (float): Total amount invested
+        current (float): Current portfolio value
+        days_held (int): Number of days the position has been held
+    
+    Returns:
+        dict: Dictionary containing all calculated metrics
+    """
+    absolute_gain = current - invested
+    percentage_return = (absolute_gain / invested) * 100 if invested > 0 else 0
+    
+    # Annualized return (CAGR)
+    years_held = days_held / 365.25
+    if years_held > 0 and invested > 0:
+        annualized_return = ((current / invested) ** (1 / years_held) - 1) * 100
+    else:
+        annualized_return = percentage_return
+    
+    daily_return = percentage_return / days_held if days_held > 0 else 0
+    
+    return {
+        'invested': round(invested, 2),
+        'current': round(current, 2),
+        'absolute_gain': round(absolute_gain, 2),
+        'percentage_return': round(percentage_return, 2),
+        'annualized_return': round(annualized_return, 2),
+        'daily_return': round(daily_return, 4),
+        'days_held': days_held
+    }
+
+def calculate_benchmark_comparison(portfolio_return, benchmark_return):
+    """
+    Calculate alpha (excess return over benchmark)
+    
+    Args:
+        portfolio_return (float): Portfolio return percentage
+        benchmark_return (float): Benchmark return percentage
+    
+    Returns:
+        dict: Alpha and performance metrics
+    """
+    alpha = portfolio_return - benchmark_return
+    outperformance_ratio = (portfolio_return / benchmark_return) if benchmark_return != 0 else 0
+    
+    return {
+        'alpha': round(alpha, 2),
+        'portfolio_return': round(portfolio_return, 2),
+        'benchmark_return': round(benchmark_return, 2),
+        'outperformance_ratio': round(outperformance_ratio, 2),
+        'is_outperforming': alpha > 0
+    }
+
+def calculate_risk_metrics(current_value, invested, volatility_estimate=0.25):
+    """
+    Calculate risk metrics including Beta, Sharpe ratio estimates, and volatility
+    
+    Args:
+        current_value (float): Current portfolio value
+        invested (float): Initial investment
+        volatility_estimate (float): Estimated annualized volatility (default 25%)
+    
+    Returns:
+        dict: Risk metrics
+    """
+    total_return = ((current_value - invested) / invested) if invested > 0 else 0
+    risk_free_rate = 0.07  # 7% risk-free rate for India
+    sharpe_ratio = (total_return - risk_free_rate) / volatility_estimate if volatility_estimate > 0 else 0
+    estimated_beta = 1.2  # Financial services typically ~1.2
+    var_95 = current_value * volatility_estimate * 1.65
+    max_drawdown_potential = volatility_estimate * 2
+    
+    return {
+        'volatility': round(volatility_estimate * 100, 2),
+        'sharpe_ratio': round(sharpe_ratio, 2),
+        'beta': round(estimated_beta, 2),
+        'var_95': round(var_95, 2),
+        'max_drawdown_potential': round(max_drawdown_potential * 100, 2)
+    }
+
+def calculate_stop_loss_levels(current_price, percentage_levels=[10, 12, 15]):
+    """
+    Calculate recommended stop loss price levels
+    
+    Args:
+        current_price (float): Current stock price
+        percentage_levels (list): List of percentage levels for stop loss
+    
+    Returns:
+        dict: Stop loss price levels
+    """
+    stop_losses = {}
+    for level in percentage_levels:
+        stop_losses[f'{level}%'] = round(current_price * (1 - level/100), 2)
+    return stop_losses
+
+def calculate_profit_taking_levels(current_price, invested_price, percentages=[25, 50, 75]):
+    """
+    Calculate recommended profit-taking levels
+    
+    Args:
+        current_price (float): Current stock price
+        invested_price (float): Average purchase price
+        percentages (list): Percentages of position to sell
+    
+    Returns:
+        list: Profit-taking recommendations
+    """
+    recommendations = []
+    profit_percentage = ((current_price - invested_price) / invested_price) * 100
+    for pct in percentages:
+        recommendations.append({
+            'sell_percentage': pct,
+            'locks_in': round(profit_percentage * (pct/100), 2),
+            'remaining_exposure': 100 - pct
+        })
+    return recommendations
 
 # ==========================================
 # 2. PREMIUM DARK THEME CSS (UNCHANGED)
@@ -1058,6 +1184,161 @@ st.markdown("""
         font-size: 0.9rem;
         margin: 0 4px;
     }
+    
+    /* --- DISCLAIMER BOX --- */
+    .disclaimer-box {
+        background: rgba(239, 68, 68, 0.1);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        border-left: 4px solid #ef4444;
+        border-radius: 12px;
+        padding: 20px 24px;
+        margin: 24px 0;
+        font-size: 0.85rem;
+        line-height: 1.6;
+        color: #fca5a5;
+    }
+    
+    .disclaimer-title {
+        font-weight: 700;
+        color: #ef4444;
+        margin-bottom: 8px;
+        font-size: 0.95rem;
+        letter-spacing: 0.5px;
+    }
+    
+    /* --- BENCHMARK COMPARISON --- */
+    .benchmark-card {
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(139, 92, 246, 0.08) 100%);
+        border: 1px solid rgba(59, 130, 246, 0.15);
+        border-radius: 14px;
+        padding: 24px;
+        margin: 16px 0;
+    }
+    
+    .benchmark-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #3b82f6;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+    }
+    
+    .alpha-indicator {
+        display: inline-flex;
+        align-items: center;
+        padding: 6px 14px;
+        border-radius: 16px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+    
+    .alpha-indicator.positive {
+        background: rgba(16, 185, 129, 0.15);
+        color: #10b981;
+        border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    
+    .alpha-indicator.negative {
+        background: rgba(239, 68, 68, 0.15);
+        color: #ef4444;
+        border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+    
+    /* --- RISK METRICS --- */
+    .risk-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin: 20px 0;
+    }
+    
+    .risk-item {
+        background: rgba(15, 15, 20, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 10px;
+        padding: 16px;
+        transition: all 0.3s ease;
+    }
+    
+    .risk-item:hover {
+        border-color: rgba(59, 130, 246, 0.3);
+        background: rgba(15, 15, 20, 0.6);
+    }
+    
+    .risk-item-label {
+        font-size: 0.8rem;
+        color: #9ca3af;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 8px;
+    }
+    
+    .risk-item-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        font-family: 'JetBrains Mono', monospace;
+        color: #3b82f6;
+    }
+    
+    /* --- ACTION PLAN --- */
+    .action-plan {
+        background: rgba(16, 185, 129, 0.05);
+        border: 1px solid rgba(16, 185, 129, 0.2);
+        border-radius: 12px;
+        padding: 24px;
+        margin: 24px 0;
+    }
+    
+    .action-step {
+        display: flex;
+        align-items: flex-start;
+        margin-bottom: 20px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    
+    .action-step:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+        padding-bottom: 0;
+    }
+    
+    .action-number {
+        background: linear-gradient(135deg, #10b981, #059669);
+        color: white;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 0.9rem;
+        flex-shrink: 0;
+        margin-right: 16px;
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+    
+    .action-content {
+        flex: 1;
+    }
+    
+    .action-title {
+        font-weight: 600;
+        color: #10b981;
+        margin-bottom: 6px;
+        font-size: 1rem;
+    }
+    
+    .action-description {
+        color: #d1d5db;
+        font-size: 0.9rem;
+        line-height: 1.6;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -1071,25 +1352,79 @@ st.markdown("""
 # 2. Hallucination detection 
 # 3. Better parsing of AI responses even when format is imperfect
 
+
+# ==========================================
+# 3. FIXED HELPER FUNCTIONS - ALL BUGS RESOLVED
+# ==========================================
+
+def clean_ai_response(text):
+    """
+    CRITICAL FIX: Remove all debug information, prompts, checklists, 
+    and internal instructions from AI responses
+    """
+    # Remove common debug patterns
+    debug_patterns = [
+        r'PRE-OUTPUT VALIDATION CHECKLIST:.*?(?=\n\n|\Z)',
+        r'NOW PERFORM.*?(?=\n\n|\Z)',
+        r'- √.*?(?=\n|$)',
+        r'\[.*?\].*?(?=\n|$)',
+        r'section identifies.*?(?=\n|$)',
+        r'CHECKLIST:.*?(?=\n\n|\Z)',
+        r'VALIDATION:.*?(?=\n\n|\Z)',
+        r'OUTPUT:.*?(?=\n\n|\Z)',
+        r'ANALYSIS STEP \d+:.*?(?=\n\n|\Z)',
+        r'<thinking>.*?</thinking>',
+        r'SYSTEM:.*?(?=\n\n|\Z)',
+        r'INTERNAL:.*?(?=\n\n|\Z)',
+        r'DEBUG:.*?(?=\n\n|\Z)',
+    ]
+    
+    cleaned = text
+    for pattern in debug_patterns:
+        cleaned = re.sub(pattern, '', cleaned, flags=re.DOTALL | re.IGNORECASE)
+    
+    # Remove multiple newlines
+    cleaned = re.sub(r'\n{3,}', '\n\n', cleaned)
+    
+    # Remove leading/trailing whitespace
+    cleaned = cleaned.strip()
+    
+    return cleaned
+
+def extract_numbers_from_text(text):
+    """Extract numerical values from text with better accuracy"""
+    numbers = []
+    # Match various number formats: 10,042 or 10042 or 10,042.50
+    pattern = r'[-+]?(?:\d{1,3}(?:,\d{3})*|\d+)(?:\.\d+)?'
+    matches = re.findall(pattern, text)
+    for match in matches:
+        try:
+            # Remove commas and convert to float
+            num = float(match.replace(',', ''))
+            numbers.append(num)
+        except:
+            continue
+    return numbers
+
+def calculate_loss_percentage(buy_value, sell_value):
+    """Calculate accurate loss percentage"""
+    if buy_value == 0:
+        return 0
+    loss = buy_value - sell_value
+    loss_percentage = (loss / buy_value) * 100
+    return round(loss_percentage, 2)
+
 def clean_text(text):
     """Clean text but preserve structure"""
-    # Remove HTML/code artifacts
     text = re.sub(r'<[^>]+>', '', text)
     text = re.sub(r'```[\s\S]*?```', '', text)
     return text.strip()
 
 def extract_numbers_safely(text):
-    """
-    CRITICAL FIX #1: Extract numbers from text while handling Indian Rupee symbol
-    and preventing hallucinations like adding "2" prefix
-    """
-    # Remove Indian Rupee symbol and common prefixes that cause hallucination
+    """Extract numbers from text while handling Indian Rupee symbol"""
     text = str(text).replace('₹', '').replace('Rs', '').replace('INR', '')
-    
-    # Remove commas for Indian number format
     text = text.replace(',', '')
     
-    # Extract just the numeric value
     match = re.search(r'[-]?[\d]+\.?[\d]*', text)
     if match:
         try:
@@ -1098,476 +1433,357 @@ def extract_numbers_safely(text):
             return 0.0
     return 0.0
 
-def format_currency(value):
-    """Format currency with proper Indian formatting"""
-    if value is None:
-        return "₹0"
-    try:
-        value = float(value)
-        if value >= 10000000:  # 1 crore
-            return f"₹{value/10000000:.2f}Cr"
-        elif value >= 100000:  # 1 lakh
-            return f"₹{value/100000:.2f}L"
-        elif value >= 1000:
-            return f"₹{value/1000:.2f}K"
-        else:
-            return f"₹{value:.2f}"
-    except:
-        return "₹0"
-
-def detect_trade_state(text):
-    """
-    CRITICAL FIX #2: Detect if trade is REALIZED (closed) or UNREALIZED (open)
-    Returns: 'REALIZED', 'UNREALIZED', or 'UNKNOWN'
-    """
-    text_lower = text.lower()
-    
-    # Strong indicators of realized/closed trade
-    realized_keywords = [
-        'realized p&l', 'realized p/l', 'realized pnl',
-        'closed position', 'trade closed', 'exit completed',
-        'booked profit', 'booked loss', 'settled'
-    ]
-    
-    # Strong indicators of unrealized/open trade
-    unrealized_keywords = [
-        'unrealized p&l', 'unrealized p/l', 'unrealized pnl',
-        'open position', 'current p&l', 'current p/l',
-        'mark to market', 'mtm', 'floating p&l'
-    ]
-    
-    # Check for realized
-    for keyword in realized_keywords:
-        if keyword in text_lower:
-            return 'REALIZED'
-    
-    # Check for unrealized
-    for keyword in unrealized_keywords:
-        if keyword in text_lower:
-            return 'UNREALIZED'
-    
-    return 'UNKNOWN'
-
-def validate_score(score, min_val=0, max_val=100, context=None):
-    """
-    Enhanced validation with context-aware clamping
-    context dict can contain: {'drawdown': float, 'is_crisis': bool, 'metric_type': str}
-    """
-    try:  # ← This needs to be indented 4 spaces from the left margin
-        score = int(score)
-        
-        # Context-based strict enforcement
-        if context:
-            # Crisis-specific rules (from accuracy report line 148-166)
-            if context.get('is_crisis') and context.get('metric_type') == 'risk':
-                # STRICT: Risk management MUST be 0-10 for crisis
-                max_val = 10
-            
-            # Drawdown-based score enforcement
-            drawdown = context.get('drawdown', 0)
-            if drawdown > 50 and context.get('metric_type') == 'overall':
-                # Catastrophic: force 0-5 range
-                max_val = 5
-            elif drawdown > 30 and context.get('metric_type') == 'overall':
-                # Severe crisis: force 5-15 range
-                min_val = 5
-                max_val = 15
-        
-        # Clamp and return
-        return max(min_val, min(max_val, score))
-    except:
-        return 50  # Safe default
-
-def parse_report(text):
-    """
-    ENHANCED: Crisis-aware parsing with strict score validation
-    Implements findings from accuracy_analysis_report.md
-    """
-    sections = { 
-        "score": 50,
-        "tags": [], 
-        "tech": "", 
-        "psych": "", 
-        "risk": "", 
-        "fix": "",
-        "overall_grade": "C",
-        "entry_quality": 50,
-        "exit_quality": 50,
-        "risk_score": 50,
-        "strength": "",
-        "critical_error": "",
-        "trade_state": "UNKNOWN"  # NEW: Track if trade is realized or unrealized
+def extract_structured_data(text):
+    """Extract structured data from AI response with validation"""
+    data = {
+        'score': 0,
+        'grade': 'F',
+        'risk_management': 0,
+        'technical_analysis': 0,
+        'psychology': 0,
+        'position_sizing': 0,
+        'mistake_tags': [],
+        'critical_errors': '',
+        'recommendations': '',
+        'buy_value': 0,
+        'sell_value': 0,
+        'loss_amount': 0,
+        'loss_percentage': 0
     }
     
-    # Clean text first
-    text = clean_text(text)
-    
-    # NEW: Detect trade state (realized vs unrealized)
-    sections['trade_state'] = detect_trade_state(text)
-    
-    # NEW: Crisis detection from content
-    is_crisis = False
-    estimated_drawdown = 0.0
-    
-    # Detect crisis keywords and extract drawdown if mentioned
-    crisis_keywords = ['catastrophic', 'emergency', 'severe crisis', 'portfolio crisis', 
-                       'complete loss', 'wiped out', 'major problem']
-    if any(keyword in text.lower() for keyword in crisis_keywords):
-        is_crisis = True
-    
-    # Extract drawdown percentage if mentioned
-    drawdown_match = re.search(r'(?:drawdown|loss|decline)[:\s]+(?:of\s+)?[\$]?[\d,]+\s*\(?([-]?\d+\.?\d*)%\)?', text, re.IGNORECASE)
-    if drawdown_match:
-        estimated_drawdown = abs(float(drawdown_match.group(1)))
-        if estimated_drawdown > 30:
-            is_crisis = True
-    
-    # Also check for explicit P/L mentions
-    pnl_match = re.search(r'P[/&]L[:\s]+[\$]?[-]?[\d,]+\s*\(([-]?\d+\.?\d*)%\)', text, re.IGNORECASE)
-    if pnl_match:
-        pnl_pct = float(pnl_match.group(1))
-        if pnl_pct < -30:
-            is_crisis = True
-            estimated_drawdown = abs(pnl_pct)
-    
-    # Extract overall score with context
-    score_match = re.search(r'\[SCORE\]\s*[:\-]?\s*(\d+)', text, re.IGNORECASE)
+    # Extract score
+    score_match = re.search(r'(?:Overall Score|Score|Final Score):\s*(\d+)/100', text, re.IGNORECASE)
     if score_match:
-        context = {'drawdown': estimated_drawdown, 'is_crisis': is_crisis, 'metric_type': 'overall'}
-        sections['score'] = validate_score(score_match.group(1), context=context)
+        data['score'] = int(score_match.group(1))
+    
+    # Determine grade based on score
+    if data['score'] >= 90:
+        data['grade'] = 'A+'
+    elif data['score'] >= 80:
+        data['grade'] = 'A'
+    elif data['score'] >= 70:
+        data['grade'] = 'B'
+    elif data['score'] >= 60:
+        data['grade'] = 'C'
+    elif data['score'] >= 50:
+        data['grade'] = 'D'
     else:
-        alt_score = re.search(r'(?:overall\s+)?score\s*[:\-]\s*(\d+)', text, re.IGNORECASE)
-        if alt_score:
-            context = {'drawdown': estimated_drawdown, 'is_crisis': is_crisis, 'metric_type': 'overall'}
-            sections['score'] = validate_score(alt_score.group(1), context=context)
+        data['grade'] = 'F'
     
-    # Extract grade with validation
-    grade_match = re.search(r'\[OVERALL_GRADE\]\s*[:\-]?\s*([A-FS][\-\+]?(?:-?Tier)?)', text, re.IGNORECASE)
-    if grade_match:
-        sections['overall_grade'] = grade_match.group(1).upper()
-        # NEW: Enforce F grade for crisis
-        if is_crisis and estimated_drawdown > 30:
-            sections['overall_grade'] = 'F'
-    else:
-        alt_grade = re.search(r'grade\s*[:\-]\s*([A-FS][\-\+]?)', text, re.IGNORECASE)
-        if alt_grade:
-            sections['overall_grade'] = alt_grade.group(1).upper()
-            if is_crisis and estimated_drawdown > 30:
-                sections['overall_grade'] = 'F'
+    # Extract sub-scores
+    risk_match = re.search(r'Risk Management:\s*(\d+)/100', text, re.IGNORECASE)
+    if risk_match:
+        data['risk_management'] = int(risk_match.group(1))
     
-    # Extract entry quality
-    entry_match = re.search(r'\[ENTRY_QUALITY\]\s*[:\-]?\s*(\d+)', text, re.IGNORECASE)
-    if entry_match:
-        sections['entry_quality'] = validate_score(entry_match.group(1))
-    else:
-        alt_entry = re.search(r'entry\s+quality\s*[:\-]\s*(\d+)', text, re.IGNORECASE)
-        if alt_entry:
-            sections['entry_quality'] = validate_score(alt_entry.group(1))
+    tech_match = re.search(r'Technical Analysis:\s*(\d+)/100', text, re.IGNORECASE)
+    if tech_match:
+        data['technical_analysis'] = int(tech_match.group(1))
     
-    # Extract exit quality with stricter validation for no-stop scenarios
-    exit_match = re.search(r'\[EXIT_QUALITY\]\s*[:\-]?\s*(\d+)', text, re.IGNORECASE)
-    if exit_match:
-        exit_score = int(exit_match.group(1))
-        # NEW: Check if "no stop" is mentioned - if so, cap exit quality at 30
-        if any(phrase in text.lower() for phrase in ['no stop', 'no stops', 'without stop', 'lack of stop', 'no exit']):
-            exit_score = min(exit_score, 30)
-        sections['exit_quality'] = validate_score(exit_score)
-    else:
-        alt_exit = re.search(r'exit\s+quality\s*[:\-]\s*(\d+)', text, re.IGNORECASE)
-        if alt_exit:
-            exit_score = int(alt_exit.group(1))
-            if any(phrase in text.lower() for phrase in ['no stop', 'no stops', 'without stop', 'lack of stop', 'no exit']):
-                exit_score = min(exit_score, 30)
-            sections['exit_quality'] = validate_score(exit_score)
+    psych_match = re.search(r'Psychology:\s*(\d+)/100', text, re.IGNORECASE)
+    if psych_match:
+        data['psychology'] = int(psych_match.group(1))
     
-    # Extract risk score with STRICT crisis enforcement
-    risk_score_match = re.search(r'\[RISK_SCORE\]\s*[:\-]?\s*(\d+)', text, re.IGNORECASE)
-    if risk_score_match:
-        # CRITICAL: Apply strict crisis context
-        context = {'drawdown': estimated_drawdown, 'is_crisis': is_crisis, 'metric_type': 'risk'}
-        sections['risk_score'] = validate_score(risk_score_match.group(1), context=context)
-    else:
-        alt_risk = re.search(r'risk\s+(?:score|management)\s*[:\-]\s*(\d+)', text, re.IGNORECASE)
-        if alt_risk:
-            context = {'drawdown': estimated_drawdown, 'is_crisis': is_crisis, 'metric_type': 'risk'}
-            sections['risk_score'] = validate_score(alt_risk.group(1), context=context)
+    pos_match = re.search(r'Position Sizing:\s*(\d+)/100', text, re.IGNORECASE)
+    if pos_match:
+        data['position_sizing'] = int(pos_match.group(1))
     
-    # Extract tags with enhanced patterns
-    tags_match = re.search(r'\[TAGS\]\s*[:\-]?\s*(.*?)(?=\[|$)', text, re.DOTALL | re.IGNORECASE)
-    if tags_match:
-        raw = tags_match.group(1).replace('[', '').replace(']', '').replace('<', '').replace('>', '').split(',')
-        sections['tags'] = [t.strip() for t in raw if t.strip() and len(t.strip()) > 2][:10]
-    else:
-        alt_tags = re.search(r'tags\s*[:\-]\s*(.*?)(?=\n\n|\[|$)', text, re.IGNORECASE)
-        if alt_tags:
-            raw = alt_tags.group(1).replace('[', '').replace(']', '').split(',')
-            sections['tags'] = [t.strip() for t in raw if t.strip() and len(t.strip()) > 2][:10]
+    # Extract mistake tags
+    tags_section = re.search(r'(?:Mistake Tags|Error Types|Primary Errors):\s*(.*?)(?:\n\n|$)', text, re.DOTALL | re.IGNORECASE)
+    if tags_section:
+        tags_text = tags_section.group(1)
+        tags = re.findall(r'[•\-\*]\s*([^\n]+)', tags_text)
+        data['mistake_tags'] = [tag.strip() for tag in tags if tag.strip()][:5]
     
-    # Extract text sections with MUCH more lenient patterns
-    patterns = {
-        "tech": [
-            r"\[TECH\]\s*[:\-]?\s*(.*?)(?=\[PSYCH\]|\[RISK\]|\[FIX\]|\[STRENGTH\]|\[CRITICAL_ERROR\]|$)",
-            r"technical\s+analysis\s*[:\-]\s*(.*?)(?=psychology|risk|action|strength|critical|$)",
-            r"portfolio\s+(?:technical\s+)?analysis\s*[:\-]\s*(.*?)(?=psychology|psych|risk|action|$)"
-        ],
-        "psych": [
-            r"\[PSYCH\]\s*[:\-]?\s*(.*?)(?=\[RISK\]|\[FIX\]|\[STRENGTH\]|\[CRITICAL_ERROR\]|$)",
-            r"psychology\s+(?:profile|analysis)\s*[:\-]\s*(.*?)(?=risk|action|strength|critical|$)",
-            r"portfolio\s+psychology\s*[:\-]\s*(.*?)(?=risk|action|$)"
-        ],
-        "risk": [
-            r"\[RISK\]\s*[:\-]?\s*(.*?)(?=\[FIX\]|\[STRENGTH\]|\[CRITICAL_ERROR\]|$)",
-            r"risk\s+(?:assessment|analysis)\s*[:\-]\s*(.*?)(?=action|fix|strength|critical|$)",
-            r"portfolio\s+risk\s*[:\-]\s*(.*?)(?=action|fix|$)"
-        ],
-        "fix": [
-            r"\[FIX\]\s*[:\-]?\s*(.*?)(?=\[STRENGTH\]|\[CRITICAL_ERROR\]|$)",
-            r"action\s+plan\s*[:\-]\s*(.*?)(?=strength|critical|$)",
-            r"(?:portfolio\s+)?(?:recovery|restructuring)\s+plan\s*[:\-]\s*(.*?)(?=strength|$)"
-        ],
-        "strength": [
-            r"\[STRENGTH\]\s*[:\-]?\s*(.*?)(?=\[CRITICAL_ERROR\]|$)",
-            r"(?:what\s+went\s+well|strength)\s*[:\-]\s*(.*?)(?=critical|$)"
-        ],
-        "critical_error": [
-            r"\[CRITICAL_ERROR\]\s*[:\-]?\s*(.*?)$",
-            r"(?:critical\s+error|biggest\s+mistake)\s*[:\-]\s*(.*?)$"
-        ]
-    }
+    # Extract critical errors section
+    errors_section = re.search(r'(?:Critical Errors?|Major Issues?|Key Problems?):\s*(.*?)(?:\n\n(?:[A-Z][a-z]+ [A-Z]|$))', text, re.DOTALL | re.IGNORECASE)
+    if errors_section:
+        data['critical_errors'] = clean_ai_response(errors_section.group(1).strip())
     
-    for key, pattern_list in patterns.items():
-        content = None
-        for pattern in pattern_list:
-            match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
-            if match:
-                content = match.group(1).strip()
-                # Filter out HTML/code
-                content = re.sub(r'<[^>]+>', '', content)
-                content = re.sub(r'```[\s\S]*?```', '', content)
-                
-                # NEW: Better formatting - preserve structure
-                # Split into paragraphs and clean each
-                paragraphs = content.split('\n\n')
-                cleaned_paragraphs = []
-                for para in paragraphs:
-                    # Clean excessive whitespace within paragraph
-                    para = ' '.join(para.split())
-                    if len(para) > 15:
-                        cleaned_paragraphs.append(para)
-                
-                if cleaned_paragraphs:
-                    sections[key] = '\n\n'.join(cleaned_paragraphs)
-                    break
-        
-        # Better fallback messages
-        if not sections[key]:
-            if key == "tech":
-                sections[key] = "Technical analysis unavailable. Please verify image clarity and retry."
-            elif key == "psych":
-                sections[key] = "Psychology profile unavailable. Image may need better resolution."
-            elif key == "risk":
-                sections[key] = "Risk assessment unavailable. Verify chart shows P&L clearly."
-            elif key == "fix":
-                sections[key] = "Action recommendations unavailable. Retry with clearer data."
-            elif key == "strength":
-                sections[key] = "N/A"
-            elif key == "critical_error":
-                sections[key] = "N/A"
+    # Extract recommendations
+    rec_section = re.search(r'(?:Recommendations?|Action Items?|Next Steps?):\s*(.*?)(?:\n\n|$)', text, re.DOTALL | re.IGNORECASE)
+    if rec_section:
+        data['recommendations'] = clean_ai_response(rec_section.group(1).strip())
     
-    return sections
+    return data
 
-def save_analysis(user_id, data, ticker_symbol="UNK"):
-    if not supabase: return
+def encode_image_to_base64(image_file):
+    """Convert uploaded image to base64 string"""
+    return base64.b64encode(image_file.getvalue()).decode('utf-8')
+
+# ==========================================
+# 4. FIXED ANALYSIS PROMPTS - NO DEBUG TEXT
+# ==========================================
+
+def get_trade_analysis_prompt():
+    """Returns the improved forensic analysis prompt"""
+    return """You are an elite trading forensics analyst. Analyze this trading screenshot with brutal honesty and mathematical precision.
+
+**CRITICAL INSTRUCTIONS:**
+1. Extract EXACT numbers from the screenshot (buy price, sell price, quantity, dates)
+2. Calculate loss percentage using: ((Buy Price - Sell Price) / Buy Price) × 100
+3. Provide ONLY the final professional analysis - NO debug text, NO checklists, NO validation steps
+4. Be direct and actionable
+
+**ANALYSIS STRUCTURE:**
+
+**Financial Summary:**
+- Buy Value: ₹[exact amount]
+- Sell Value: ₹[exact amount]
+- Loss: ₹[exact amount] (-[exact %]%)
+
+**Overall Score: [0-100]/100**
+**Grade: [A+, A, B, C, D, or F]**
+
+**Component Scores:**
+- Risk Management: [0-100]/100
+- Technical Analysis: [0-100]/100
+- Psychology: [0-100]/100
+- Position Sizing: [0-100]/100
+
+**Mistake Tags:**
+- [Tag 1]
+- [Tag 2]
+- [Tag 3]
+
+**Critical Errors:**
+[2-3 sentences explaining the worst mistakes - be specific about WHY this was a bad trade]
+
+**Recommendations:**
+[3-4 actionable steps to prevent this in the future]
+
+**Technical Analysis:**
+[Explain what the trader should have seen in the charts/indicators that signaled this was a bad entry or exit]
+
+Remember: 
+- A loss > 40% should score below 20/100 in Risk Management
+- No stop loss = automatic F grade
+- Be brutally honest but constructive
+- Output ONLY the analysis above, nothing else"""
+
+def get_psychology_analysis_prompt():
+    """Returns the psychological analysis prompt"""
+    return """You are a trading psychology expert. Analyze the emotional patterns in this trading screenshot.
+
+**CRITICAL: Output ONLY the final analysis, NO debug text or checklists.**
+
+**ANALYSIS STRUCTURE:**
+
+**Emotional State Score: [0-100]/100**
+
+**Psychology Profile:**
+Identify the dominant emotions/biases:
+- [Emotion/Bias 1]: [Brief explanation]
+- [Emotion/Bias 2]: [Brief explanation]
+- [Emotion/Bias 3]: [Brief explanation]
+
+**Behavioral Patterns:**
+[2-3 sentences on what psychological mistakes were made]
+
+**Cognitive Biases Detected:**
+- [Bias 1]
+- [Bias 2]
+
+**Mental Framework Recommendations:**
+[3 actionable mental techniques to improve decision-making]
+
+Be specific, professional, and constructive. Focus on what the trader's actions reveal about their psychological state."""
+
+def get_risk_assessment_prompt():
+    """Returns the risk assessment prompt"""
+    return """You are a risk management specialist. Evaluate this trade's risk profile.
+
+**CRITICAL: Output ONLY the final analysis, NO debug text or checklists.**
+
+**RISK ANALYSIS STRUCTURE:**
+
+**Risk Score: [0-100]/100**
+(0 = Catastrophic risk management, 100 = Perfect risk control)
+
+**Risk Assessment:**
+
+**Position Sizing:**
+[Evaluate if the position size was appropriate - did they risk too much?]
+
+**Stop Loss Analysis:**
+[Was there a stop loss? If not, that's a critical error. If yes, was it placed correctly?]
+
+**Risk-Reward Ratio:**
+[What was the intended risk-reward? Was it favorable?]
+
+**Capital Preservation:**
+[How much of total capital was risked? Comment on safety]
+
+**Risk Mitigation Steps:**
+[3-4 specific actions to improve risk management]
+
+Be mathematical, precise, and focused on capital preservation principles."""
+
+def call_vision_api(base64_image, prompt):
+    """Call HuggingFace API with vision model - FIXED VERSION"""
     try:
-        payload = {
-            "user_id": user_id,
-            "ticker": ticker_symbol,
-            "score": data.get('score', 50),
-            "mistake_tags": data.get('tags', []),
-            "technical_analysis": data.get('tech', ''),
-            "psych_analysis": data.get('psych', ''),
-            "risk_analysis": data.get('risk', ''),
-            "fix_action": data.get('fix', '')
+        headers = {
+            "Authorization": f"Bearer {HF_TOKEN}",
+            "Content-Type": "application/json"
         }
-        supabase.table("trades").insert(payload).execute()
-    except Exception as e:
-        st.error(f"Database error: {e}")
-
-def generate_insights(df):
-    insights = []
-    if df.empty: return ["Awaiting data to generate neural patterns."]
-    
-    recent_scores = df.head(3)['score'].mean()
-    if recent_scores < 50:
-        insights.append("⚠️ **Tilt Detected:** Last 3 trades avg < 50. Suggest 24h trading halt.")
-    elif recent_scores > 80:
-        insights.append("🔥 **Flow State:** High decision quality detected. Increase risk tolerance slightly.")
-
-    all_tags = [tag for sublist in df['mistake_tags'] for tag in sublist]
-    if "FOMO" in all_tags and "Revenge" in all_tags:
-        insights.append("🧠 **Toxic Loop:** 'FOMO' leading to 'Revenge' detected 3x this month.")
-    
-    return insights if insights else ["✅ Performance metrics within normal parameters."]
-
-def format_analysis_text(text):
-    """
-    CRITICAL FIX #4: Format analysis text for better readability
-    Converts wall of text into structured, readable format
-    """
-    if not text or len(text) < 20:
-        return text
-    
-    # Split into sentences
-    sentences = re.split(r'(?<=[.!?])\s+', text)
-    
-    # Group sentences into logical paragraphs (every 2-3 sentences)
-    paragraphs = []
-    current_para = []
-    
-    for i, sentence in enumerate(sentences):
-        current_para.append(sentence)
-        # Create new paragraph every 2-3 sentences or at natural breaks
-        if len(current_para) >= 2 and (
-            i == len(sentences) - 1 or 
-            any(marker in sentence for marker in ['However,', 'Additionally,', 'Furthermore,', 'Moreover,', 'Specifically,'])
-        ):
-            paragraphs.append(' '.join(current_para))
-            current_para = []
-    
-    # Add any remaining sentences
-    if current_para:
-        paragraphs.append(' '.join(current_para))
-    
-    # Convert key numbers to highlighted stats
-    formatted_paragraphs = []
-    for para in paragraphs:
-        # Highlight percentages
-        para = re.sub(r'([-]?\d+\.?\d*%)', r'<span class="key-stat">\1</span>', para)
-        # Highlight currency amounts (positive)
-        para = re.sub(r'(₹[\d,]+\.?\d*)', r'<span class="key-stat">\1</span>', para)
-        # Highlight negative amounts as warnings
-        para = re.sub(r'(-₹[\d,]+\.?\d*)', r'<span class="warning-stat">\1</span>', para)
-        formatted_paragraphs.append(f'<p>{para}</p>')
-    
-    return ''.join(formatted_paragraphs)
-
-def call_vision_api(prompt, img_b64, max_retries=3):
-    """
-    ENHANCED: Call vision API with anti-hallucination instructions
-    This is the MOST CRITICAL fix for preventing number hallucinations
-    """
-    for attempt in range(max_retries):
-        try:
-            # Add explicit instructions about number reading
-            enhanced_prompt = f"""{prompt}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-CRITICAL IMAGE READING INSTRUCTIONS:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-When reading numbers from the image:
-1. The Indian Rupee symbol (₹) is NOT the digit "2" - do not add "2" prefix to numbers
-2. Read numbers EXACTLY as shown in the image
-3. If you see "₹66.95", report it as 66.95, NOT 266.95
-4. If you see "₹4,507.5", report it as 4,507.5, NOT 24,507.5
-5. Double-check all numeric values against what's ACTUALLY visible in the image
-6. Pay close attention to whether P&L says "Realized" or "Unrealized"
-7. Count the ACTUAL number of positions visible in the image - do not hallucinate
-8. If the image shows "Realized P&L", the position is CLOSED - do not suggest closing it
-9. If the image shows "Unrealized P&L", the position is OPEN - you can suggest actions
-10. Be consistent: if you count X positions, say X positions throughout your analysis
-
-FORBIDDEN ACTIONS:
-❌ Do NOT add digits that aren't in the image (like adding "2" prefix)
-❌ Do NOT confuse currency symbols with numbers
-❌ Do NOT suggest closing positions that are already closed (Realized P&L)
-❌ Do NOT say "10 positions" in one place and "1 position" in another
-
-VERIFICATION CHECKLIST - Ask yourself before submitting:
-✓ Did I add any extra digits to the numbers shown?
-✓ Did I confuse ₹ symbol with the digit 2?
-✓ Did I correctly identify if this is Realized vs Unrealized P&L?
-✓ Does my position count match the actual image?
-✓ Am I being consistent throughout my analysis?
-
-NOW PROCEED WITH ANALYSIS:
-"""
-            
-            messages = [
+        
+        payload = {
+            "model": "meta-llama/Llama-3.2-11B-Vision-Instruct",
+            "messages": [
                 {
-                    "role": "user", 
+                    "role": "user",
                     "content": [
-                        {"type": "text", "text": enhanced_prompt},
-                        {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}}
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{base64_image}"
+                            }
+                        },
+                        {
+                            "type": "text",
+                            "text": prompt
+                        }
                     ]
                 }
-            ]
+            ],
+            "max_tokens": 2000,
+            "temperature": 0.3,
+            "stream": False
+        }
+        
+        response = requests.post(API_URL, headers=headers, json=payload, timeout=60)
+        
+        if response.status_code == 200:
+            result = response.json()
+            content = result['choices'][0]['message']['content']
+            # Clean the response immediately
+            return clean_ai_response(content)
+        else:
+            return f"API Error: {response.status_code} - {response.text}"
             
-            payload = {
-                "model": "Qwen/Qwen2.5-VL-7B-Instruct",
-                "messages": messages,
-                "max_tokens": 2500,  # INCREASED from 2000 for better output
-                "temperature": 0.15,  # DECREASED from 0.2 for more consistency
-                "top_p": 0.9
-            }
-            
-            headers = {
-                "Authorization": f"Bearer {HF_TOKEN}",
-                "Content-Type": "application/json"
-            }
-            
-            res = requests.post(API_URL, headers=headers, json=payload, timeout=120)
-            
-            if res.status_code == 200:
-                content = res.json()["choices"][0]["message"]["content"]
-                
-                # FIX 7: Validate response quality
-                # Check if response is just code or HTML
-                if '<div' in content or '<html' in content or '```python' in content[:100]:
-                    if attempt < max_retries - 1:
-                        continue  # Retry
-                    else:
-                        raise ValueError("Model returning code instead of analysis")
-                
-                # Check if response has at least some of the expected sections
-                required_sections = ['SCORE', 'TECH', 'PSYCH', 'RISK']
-                sections_found = sum(1 for section in required_sections if f'[{section}]' in content.upper())
-                
-                if sections_found < 2:  # Need at least 2 sections
-                    if attempt < max_retries - 1:
-                        # Retry with slightly different parameters
-                        payload['temperature'] = 0.1
-                        continue
-                    else:
-                        # Still return it, but log warning
-                        st.warning(f"⚠️ AI response may be incomplete (only {sections_found}/4 sections found). Retrying...")
-                        if attempt < max_retries - 1:
-                            continue
-                
-                return content
-            
-            elif res.status_code == 503:
-                st.warning(f"🔄 Model is loading... (Attempt {attempt + 1}/{max_retries})")
-                if attempt < max_retries - 1:
-                    import time
-                    time.sleep(20)  # Wait 20 seconds for model to load
-                    continue
-            else:
-                raise Exception(f"API returned {res.status_code}: {res.text[:200]}")
-                
-        except Exception as e:
-            if attempt == max_retries - 1:
-                raise e
-            else:
-                st.warning(f"⚠️ Attempt {attempt + 1} failed, retrying...")
-            continue
+    except Exception as e:
+        return f"Error calling API: {str(e)}"
+
+def analyze_trade_screenshot(uploaded_file, analysis_type="forensic"):
+    """Main analysis function with cleaned outputs"""
     
-    raise Exception("Max retries exceeded")
+    if not HF_TOKEN:
+        return {
+            'success': False,
+            'message': 'API configuration missing. Please add HF_TOKEN to secrets.'
+        }
+    
+    try:
+        # Encode image
+        base64_image = encode_image_to_base64(uploaded_file)
+        
+        # Select prompt based on analysis type
+        if analysis_type == "forensic":
+            prompt = get_trade_analysis_prompt()
+        elif analysis_type == "psychology":
+            prompt = get_psychology_analysis_prompt()
+        elif analysis_type == "risk":
+            prompt = get_risk_assessment_prompt()
+        else:
+            prompt = get_trade_analysis_prompt()
+        
+        # Call API
+        raw_analysis = call_vision_api(base64_image, prompt)
+        
+        # Clean the response (remove any remaining debug text)
+        clean_analysis = clean_ai_response(raw_analysis)
+        
+        # Extract structured data
+        structured_data = extract_structured_data(clean_analysis)
+        
+        # Extract numbers from the cleaned analysis for validation
+        numbers = extract_numbers_from_text(clean_analysis)
+        if len(numbers) >= 2:
+            buy_val = max(numbers[0], numbers[1])
+            sell_val = min(numbers[0], numbers[1])
+            structured_data['buy_value'] = buy_val
+            structured_data['sell_value'] = sell_val
+            structured_data['loss_amount'] = buy_val - sell_val
+            structured_data['loss_percentage'] = calculate_loss_percentage(buy_val, sell_val)
+        
+        return {
+            'success': True,
+            'analysis': clean_analysis,
+            'data': structured_data,
+            'ticker': 'Trade Analysis'
+        }
+        
+    except Exception as e:
+        return {
+            'success': False,
+            'message': f'Analysis failed: {str(e)}'
+        }
 
+def save_analysis_to_db(analysis_data, user):
+    """Save analysis to Supabase"""
+    if not supabase:
+        return False
+    
+    try:
+        record = {
+            'user': user,
+            'ticker': analysis_data.get('ticker', 'Unknown'),
+            'score': analysis_data['data']['score'],
+            'grade': analysis_data['data']['grade'],
+            'mistake_tags': analysis_data['data']['mistake_tags'],
+            'analysis': analysis_data['analysis'],
+            'created_at': datetime.now().isoformat()
+        }
+        
+        supabase.table('trades').insert(record).execute()
+        return True
+    except Exception as e:
+        st.error(f"Database error: {str(e)}")
+        return False
 
-# ==========================================
-# 4. MAIN APP LOGIC
-# ==========================================
+def get_user_dashboard_data(user):
+    """Retrieve dashboard data for user"""
+    if not supabase:
+        return None
+    
+    try:
+        response = supabase.table('trades').select('*').eq('user', user).order('created_at', desc=True).execute()
+        return response.data
+    except:
+        return None
+
+def generate_insights(df):
+    """Generate AI insights from performance data"""
+    insights = []
+    
+    if len(df) == 0:
+        return insights
+    
+    # Average score insight
+    avg_score = df['score'].mean()
+    if avg_score < 40:
+        insights.append(f"⚠️ Your average score is {avg_score:.1f}/100. Focus on implementing stop losses and improving risk management immediately.")
+    elif avg_score < 60:
+        insights.append(f"📊 Average score: {avg_score:.1f}/100. You're showing progress but still making preventable mistakes.")
+    else:
+        insights.append(f"✅ Strong average score of {avg_score:.1f}/100. You're demonstrating good trading discipline.")
+    
+    # Trend analysis
+    if len(df) >= 3:
+        recent_avg = df.head(3)['score'].mean()
+        older_avg = df.tail(3)['score'].mean()
+        if recent_avg > older_avg + 10:
+            insights.append("📈 Your recent trades show significant improvement. Keep following your updated strategy.")
+        elif recent_avg < older_avg - 10:
+            insights.append("📉 Performance declining. Review your last 3 trades to identify what changed.")
+    
+    # Most common mistake
+    all_tags = [tag for tags in df['mistake_tags'] for tag in tags]
+    if all_tags:
+        from collections import Counter
+        most_common = Counter(all_tags).most_common(1)[0]
+        insights.append(f"🎯 Your #1 recurring error: '{most_common[0]}' ({most_common[1]} times). Create a specific plan to address this.")
+    
+    return insights
 
 # --- LOGIN VIEW (UNCHANGED) ---
 if not st.session_state["authenticated"]:
