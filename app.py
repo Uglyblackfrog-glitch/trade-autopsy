@@ -1732,7 +1732,7 @@ def save_analysis_to_db(analysis_data, user):
     
     try:
         record = {
-            'user': user,
+            'user_id': user,
             'ticker': analysis_data.get('ticker', 'Unknown'),
             'score': analysis_data['data']['score'],
             'grade': analysis_data['data']['grade'],
@@ -1753,7 +1753,7 @@ def get_user_dashboard_data(user):
         return None
     
     try:
-        response = supabase.table('trades').select('*').eq('user', user).order('created_at', desc=True).execute()
+        response = supabase.table('trades').select('*').eq('user_id', user).order('created_at', desc=True).execute()
         return response.data
     except:
         return None
@@ -2401,7 +2401,12 @@ CRITICAL RULES:
                                     st.warning("⚠️ **Note:** This analysis includes OPEN/UNREALIZED positions. Consider the action plan carefully before making changes.")
                                 
                                 # Save to database
-                                save_analysis(current_user, report, "PORTFOLIO")
+                                analysis_data = {
+                                    'ticker': 'PORTFOLIO',
+                                    'data': report,
+                                    'analysis': raw_response
+                                }
+                                save_analysis_to_db(analysis_data, current_user)
                                 
                                 # Display results with same beautiful UI as trade analysis
                                 # [All the visualization code from trade analysis - reuse the same display logic]
@@ -3455,7 +3460,7 @@ NOW PERFORM THE ANALYSIS:
                     try:
                         if img_b64:
                             # Use improved API call function
-                            raw_response = call_vision_api(prompt, img_b64)
+                            raw_response = call_vision_api(img_b64, prompt)
                         else:
                             # Text analysis
                             messages = [{"role": "user", "content": [{"type": "text", "text": prompt}]}]
@@ -3516,7 +3521,13 @@ NOW PERFORM THE ANALYSIS:
                             for msg in warning_messages:
                                 st.warning(msg)
                         
-                        save_analysis(current_user, report, ticker_val)
+                        # Save to database
+                        analysis_data = {
+                            'ticker': ticker_val,
+                            'data': report,
+                            'analysis': raw_response
+                        }
+                        save_analysis_to_db(analysis_data, current_user)
                         
                         # REST OF THE DISPLAY CODE REMAINS EXACTLY THE SAME...
                         # (All the visualization code from line 2000+ stays unchanged)
